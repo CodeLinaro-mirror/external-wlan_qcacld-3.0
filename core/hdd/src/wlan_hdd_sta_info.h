@@ -128,6 +128,8 @@ enum dhcp_nego_status {
  * @assoc_req_ies: Assoc request IEs of the peer station
  * @ref_cnt: Reference count to synchronize sta_info access
  * @pending_eap_frm_type: EAP frame type in tx queue without tx completion
+ * @is_attached: Flag to check if the stainfo is attached/detached
+ * @peer_rssi_per_chain: Average value of RSSI (dbm) per chain
  */
 struct hdd_station_info {
 	bool in_use;
@@ -179,6 +181,8 @@ struct hdd_station_info {
 	struct wlan_ies assoc_req_ies;
 	qdf_atomic_t ref_cnt;
 	unsigned long pending_eap_frm_type;
+	bool is_attached;
+	int32_t peer_rssi_per_chain[WMI_MAX_CHAINS];
 };
 
 /**
