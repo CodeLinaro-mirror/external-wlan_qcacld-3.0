@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -59,13 +59,9 @@ struct hdd_ext_scan_context {
 };
 static struct hdd_ext_scan_context ext_scan_context;
 
-static const
-struct nla_policy wlan_hdd_extscan_config_policy[EXTSCAN_PARAM_MAX + 1] = {
+const struct nla_policy
+wlan_hdd_extscan_config_policy[EXTSCAN_PARAM_MAX + 1] = {
 	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_SUBCMD_CONFIG_PARAM_REQUEST_ID] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_GET_VALID_CHANNELS_CONFIG_PARAM_WIFI_BAND] = {
-				.type = NLA_U32},
-	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_GET_VALID_CHANNELS_CONFIG_PARAM_MAX_CHANNELS] = {
 				.type = NLA_U32},
 	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_CHANNEL_SPEC_CHANNEL] = {.type = NLA_U32},
 	[QCA_WLAN_VENDOR_ATTR_EXTSCAN_CHANNEL_SPEC_DWELL_TIME] = {
@@ -139,7 +135,7 @@ struct nla_policy wlan_hdd_extscan_config_policy[EXTSCAN_PARAM_MAX + 1] = {
 				.type = NLA_U32},
 };
 
-static const struct nla_policy
+const struct nla_policy
 wlan_hdd_pno_config_policy[QCA_WLAN_VENDOR_ATTR_PNO_MAX + 1] = {
 	[QCA_WLAN_VENDOR_ATTR_PNO_PASSPOINT_LIST_PARAM_NUM] = {
 		.type = NLA_U32
@@ -3358,7 +3354,6 @@ int wlan_hdd_cfg80211_extscan_stop(struct wiphy *wiphy,
 
 	return errno;
 }
-
 
 /**
  * __wlan_hdd_cfg80211_extscan_reset_bssid_hotlist() - reset bssid hotlist
