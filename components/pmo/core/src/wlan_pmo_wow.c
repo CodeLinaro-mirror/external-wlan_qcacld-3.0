@@ -365,6 +365,17 @@ bool pmo_core_is_wow_applicable(struct wlan_objmgr_psoc *psoc)
 	return false;
 }
 
+#ifdef CUSTOMIZED_WOW
+void pmo_set_sta_wow_bitmask(uint32_t *bitmask, uint32_t wow_bitmap_size)
+{
+	pmo_set_wow_event_bitmap(WOW_PATTERN_MATCH_EVENT,
+				 wow_bitmap_size,
+				 bitmask);
+	pmo_set_wow_event_bitmap(WOW_MAGIC_PKT_RECVD_EVENT,
+				 wow_bitmap_size,
+				 bitmask);
+}
+#else
 void pmo_set_sta_wow_bitmask(uint32_t *bitmask, uint32_t wow_bitmap_size)
 {
 
@@ -430,6 +441,7 @@ void pmo_set_sta_wow_bitmask(uint32_t *bitmask, uint32_t wow_bitmap_size)
 				 wow_bitmap_size,
 				 bitmask);
 }
+#endif
 
 void pmo_set_sap_wow_bitmask(uint32_t *bitmask, uint32_t wow_bitmap_size)
 {

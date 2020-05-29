@@ -327,6 +327,8 @@ int wlan_hdd_set_btcoex_mode(struct hdd_adapter *adapter, int value);
  */
 int wlan_hdd_set_btcoex_rssi_threshold(struct hdd_adapter *adapter, int value);
 
+int wlan_hdd_wow_start(struct hdd_adapter *adapter, int value);
+
 struct iw_request_info;
 
 /**

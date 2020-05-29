@@ -1150,6 +1150,9 @@
  */
 #define WE_SET_BTCOEX_RSSI_THRESHOLD	100
 
+#ifdef CUSTOMIZED_WOW
+#define WE_WOW_START 101
+#endif
 /* Private ioctls and their sub-ioctls */
 #define WLAN_PRIV_SET_NONE_GET_INT    (SIOCIWFIRSTPRIV + 1)
 #define WE_GET_11D_STATE     1
@@ -1807,6 +1810,10 @@
  */
 #define WE_GET_RANGE_EXT                61
 
+#ifdef CUSTOMIZED_WOW
+#define WE_GET_WOW_REASON 62
+#endif
+
 /* Private ioctls and their sub-ioctls */
 #define WLAN_PRIV_SET_INT_GET_INT     (SIOCIWFIRSTPRIV + 2)
 
@@ -1873,6 +1880,10 @@
 #define WE_SET_WLAN_DBG      1
 #define WE_SET_DP_TRACE      2
 #define WE_SET_FW_TEST       4
+#ifdef CUSTOMIZED_WOW
+#define WE_ADD_WOW_PORT      5
+#define WE_DEL_WOW_PORT      6
+#endif
 
 /* Private ioctls and their sub-ioctls */
 #define WLAN_PRIV_GET_CHAR_SET_NONE   (SIOCIWFIRSTPRIV + 5)
@@ -2133,6 +2144,10 @@
  * </ioctl>
  */
 #define WE_GET_STA_CXN_INFO 17
+
+#ifdef CUSTOMIZED_WOW
+#define WE_GET_WOW_PORT 18
+#endif
 
 /* Private ioctls and their sub-ioctls */
 #define WLAN_PRIV_SET_NONE_GET_NONE   (SIOCIWFIRSTPRIV + 6)
@@ -5573,6 +5588,25 @@ int wlan_hdd_set_btcoex_rssi_threshold(struct hdd_adapter *adapter, int value)
 	}
 	return 0;
 }
+
+#ifdef CUSTOMIZED_WOW
+int wlan_hdd_wow_start(struct hdd_adapter *adapter, int value)
+{
+	if (1 == value) {
+		hdd_wlan_fake_apps_suspend(adapter->hdd_ctx->wiphy,
+					   adapter->dev, 0, 0);
+	} else if (0 == value) {
+		hdd_wlan_fake_apps_resume(adapter->hdd_ctx->wiphy,
+					  adapter->dev);
+	} else {
+		hdd_err("invalid value %d", value);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+#endif
+
 typedef int (*setint_getnone_fn)(struct hdd_adapter *adapter, int value);
 static const setint_getnone_fn setint_getnone_cb[] = {
 	[WE_SET_11D_STATE] = hdd_we_set_11d_state,
@@ -5678,6 +5712,9 @@ static const setint_getnone_fn setint_getnone_cb[] = {
 #endif /* WLAN_FEATURE_MOTION_DETECTION */
 	[WE_SET_BTCOEX_MODE] = wlan_hdd_set_btcoex_mode,
 	[WE_SET_BTCOEX_RSSI_THRESHOLD] = wlan_hdd_set_btcoex_rssi_threshold,
+#ifdef CUSTOMIZED_WOW
+	[WE_WOW_START] = wlan_hdd_wow_start,
+#endif
 };
 
 static setint_getnone_fn hdd_get_setint_getnone_cb(int param)
@@ -6462,6 +6499,11 @@ static int __iw_setnone_getint(struct net_device *dev,
 					     WMI_VDEV_PARAM_HE_RANGE_EXT,
 					     VDEV_CMD);
 		break;
+#ifdef CUSTOMIZED_WOW
+	case WE_GET_WOW_REASON:
+		wma_get_wow_reason(value);
+		break;
+#endif
 	default:
 	{
 		hdd_err("Invalid IOCTL get_value command %d",
@@ -6603,6 +6645,18 @@ static int __iw_set_three_ints_getnone(struct net_device *dev,
 		}
 	}
 	break;
+#ifdef CUSTOMIZED_WOW
+	case WE_ADD_WOW_PORT:
+	{
+		hdd_add_wow_port(adapter, value[1], value[2], value[3]);
+		break;
+	}
+	case WE_DEL_WOW_PORT:
+	{
+		hdd_del_wow_port(adapter, value[1], value[2], value[3]);
+		break;
+	}
+#endif
 	default:
 		hdd_err("Invalid IOCTL command %d", sub_cmd);
 		break;
@@ -7251,6 +7305,14 @@ static int __iw_get_char_setnone(struct net_device *dev,
 		ret = hdd_get_sta_cxn_info(hdd_ctx, adapter, extra);
 		wrqu->data.length = strlen(extra) + 1;
 		break;
+
+#ifdef CUSTOMIZED_WOW
+	case WE_GET_WOW_PORT:
+	{
+		hdd_get_wow_port(adapter, extra, &wrqu->data.length);
+		break;
+	}
+#endif
 
 	default:
 		hdd_err("Invalid IOCTL command %d", sub_cmd);
@@ -10178,6 +10240,12 @@ static const struct iw_priv_args we_private_args[] = {
 	IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
 	0, "setModDTIM" },
 
+#ifdef CUSTOMIZED_WOW
+	{WE_WOW_START,
+	 IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+	 0, "wow_start"},
+#endif
+
 	{WLAN_PRIV_SET_NONE_GET_INT,
 	 0,
 	 IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
@@ -10433,6 +10501,13 @@ static const struct iw_priv_args we_private_args[] = {
 	 IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
 	 "get_range_ext"},
 
+#ifdef CUSTOMIZED_WOW
+	{WE_GET_WOW_REASON,
+	 0,
+	 IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+	 "get_wow_reason"},
+#endif
+
 	/* handlers for main ioctl */
 	{WLAN_PRIV_SET_CHAR_GET_NONE,
 	 IW_PRIV_TYPE_CHAR | 512,
@@ -10507,6 +10582,18 @@ static const struct iw_priv_args we_private_args[] = {
 	 IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 3,
 	 0,
 	 "set_scan_cfg"},
+
+#ifdef CUSTOMIZED_WOW
+	{WE_ADD_WOW_PORT,
+	 IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 3,
+	 0,
+	 "add_wow_port"},
+
+	{WE_DEL_WOW_PORT,
+	 IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 3,
+	 0,
+	 "rm_wow_port"},
+#endif
 
 	/* handlers for main ioctl */
 	{WLAN_PRIV_GET_CHAR_SET_NONE,
@@ -10600,6 +10687,13 @@ static const struct iw_priv_args we_private_args[] = {
 	 0,
 	 IW_PRIV_TYPE_CHAR | WE_MAX_STR_LEN,
 	 "get_ba_timeout"},
+
+#ifdef CUSTOMIZED_WOW
+	{WE_GET_WOW_PORT,
+	 0,
+	 IW_PRIV_TYPE_CHAR | WE_MAX_STR_LEN,
+	 "get_wow_port"},
+#endif
 
 	/* handlers for main ioctl */
 	{WLAN_PRIV_SET_NONE_GET_NONE,

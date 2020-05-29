@@ -9596,3 +9596,63 @@ QDF_STATUS wma_send_ani_level_request(tp_wma_handle wma_handle,
 					      num_freqs);
 }
 #endif
+
+#ifdef CUSTOMIZED_WOW
+enum wow_reason {
+	WOW_REASON_MAGIC = 0,
+	WOW_REASON_IPV4_UDP = 9,
+	WOW_REASON_IPV4_TCP = 10,
+	WOW_REASON_IPV6_UDP = 11,
+	WOW_REASON_IPV6_TCP = 12,
+	WOW_REASON_UNKNOWN = 255,
+};
+
+int wma_get_wow_reason(uint32_t *reason)
+{
+	tp_wma_handle wma;
+	int ret = 0;
+	uint32_t wake_reason, proto_subtype;
+	uint32_t wow_reason = WOW_REASON_UNKNOWN;
+
+	wma = cds_get_context(QDF_MODULE_ID_WMA);
+
+	if (!wma) {
+		wma_err("Invalid wma handle");
+		*reason = wow_reason;
+		return -EINVAL;
+	}
+
+	wake_reason = wma->wake_reason;
+	proto_subtype = wma->proto_subtype;
+
+	switch (wake_reason) {
+	case WOW_REASON_RECV_MAGIC_PATTERN:
+		wow_reason = WOW_REASON_MAGIC;
+		break;
+	case WOW_REASON_PATTERN_MATCH_FOUND:
+		switch (proto_subtype) {
+		case QDF_PROTO_IPV4_UDP:
+			wow_reason = WOW_REASON_IPV4_UDP;
+			break;
+		case QDF_PROTO_IPV4_TCP:
+			wow_reason = WOW_REASON_IPV4_TCP;
+			break;
+		case QDF_PROTO_IPV6_UDP:
+			wow_reason = WOW_REASON_IPV6_UDP;
+			break;
+		case QDF_PROTO_IPV6_TCP:
+			wow_reason = WOW_REASON_IPV6_TCP;
+			break;
+		default:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+
+	*reason = wow_reason;
+
+	return ret;
+}
+#endif

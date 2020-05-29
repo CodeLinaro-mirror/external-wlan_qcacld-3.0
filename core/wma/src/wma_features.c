@@ -1912,6 +1912,10 @@ wma_wow_get_pkt_proto_subtype(uint8_t *data, uint32_t len)
 			WMA_LOGD("ICMP Packet");
 			return qdf_nbuf_data_get_icmp_subtype(data);
 
+#ifdef CUSTOMIZED_WOW
+		case QDF_NBUF_TRAC_UDP_TYPE:
+			return QDF_PROTO_IPV4_UDP;
+#else
 		case QDF_NBUF_TRAC_UDP_TYPE:
 			if (len < WMA_IS_DHCP_GET_MIN_LEN)
 				return QDF_PROTO_IPV4_UDP;
@@ -1924,6 +1928,7 @@ wma_wow_get_pkt_proto_subtype(uint8_t *data, uint32_t len)
 
 			WMA_LOGD("DHCP Packet");
 			return qdf_nbuf_data_get_dhcp_subtype(data);
+#endif
 
 		case QDF_NBUF_TRAC_TCP_TYPE:
 			return QDF_PROTO_IPV4_TCP;
@@ -2144,6 +2149,9 @@ static void wma_wow_parse_data_pkt(t_wma_handle *wma,
 	wma_wow_inc_wake_lock_stats_by_dst_addr(wma, vdev_id, dest_mac);
 
 	proto_subtype = wma_wow_get_pkt_proto_subtype(data, length);
+#ifdef CUSTOMIZED_WOW
+	wma->proto_subtype = proto_subtype;
+#endif
 	proto_subtype_name = wma_pkt_proto_subtype_to_string(proto_subtype);
 	if (proto_subtype_name)
 		WMA_LOGI("WOW Wakeup: %s rcvd", proto_subtype_name);
@@ -2432,6 +2440,9 @@ static int wma_wake_event_packet(
 	case WOW_REASON_RA_MATCH:
 	case WOW_REASON_RECV_MAGIC_PATTERN:
 	case WOW_REASON_PACKET_FILTER_MATCH:
+#ifdef CUSTOMIZED_WOW
+		wma->wake_reason = wake_info->wake_reason;
+#endif
 		WMA_LOGD("Wake event packet:");
 		qdf_trace_hex_dump(QDF_MODULE_ID_WMA, QDF_TRACE_LEVEL_DEBUG,
 				   packet, packet_len);

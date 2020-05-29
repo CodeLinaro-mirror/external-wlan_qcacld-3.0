@@ -836,4 +836,7 @@ QDF_STATUS wma_vdev_self_peer_create(struct vdev_mlme_obj *vdev_mlme);
  */
 void wma_cleanup_vdev(struct wlan_objmgr_vdev *vdev);
 
+#ifdef CUSTOMIZED_WOW
+int wma_get_wow_reason(uint32_t *reason);
+#endif
 #endif /* WMA_API_H */

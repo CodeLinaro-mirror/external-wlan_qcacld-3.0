@@ -467,3 +467,277 @@ void hdd_free_user_wowl_ptrns(void)
 		}
 	}
 }
+
+#ifdef CUSTOMIZED_WOW
+struct wow_port *wow_port_cache[CUSTOMIZED_WOW_NUM] = {NULL};
+
+static bool hdd_fill_wow_ptrn(struct pmo_wow_add_pattern *wow_pattern,
+			      uint32_t byte_offset,
+			      uint8_t *data,
+			      uint32_t data_len)
+{
+	uint32_t i, byte_order, bit_order;
+
+	if (byte_offset + data_len > PMO_WOWL_BCAST_PATTERN_MAX_SIZE) {
+		hdd_err("byte offset %d data len %d check fail",
+			byte_offset, data_len);
+		return false;
+	}
+
+	for (i = 0; i < data_len; i++) {
+		wow_pattern->pattern[byte_offset + i] = data[i];
+		byte_order = (byte_offset + i) >> 3;
+		bit_order = (byte_offset + i) & 7;
+		wow_pattern->pattern_mask[byte_order] |= (1 << (7 - bit_order));
+	}
+
+	wow_pattern->pattern_size = (byte_offset + data_len);
+	wow_pattern->pattern_mask_size = ((byte_offset + data_len) >> 3) + 1;
+
+	return true;
+}
+
+static bool hdd_convert_wow_ptrn(struct pmo_wow_add_pattern *wow_ptrn,
+				 uint32_t ip_ver,
+				 uint32_t ip_proto,
+				 uint32_t port_src,
+				 uint32_t port_dst)
+{
+	uint16_t eth_type;
+	uint8_t proto_type;
+	uint16_t port;
+
+	if (IP_V4 == ip_ver) {
+		eth_type = qdf_cpu_to_be16(QDF_NBUF_TRAC_IPV4_ETH_TYPE);
+		hdd_fill_wow_ptrn(wow_ptrn, QDF_NBUF_TRAC_ETH_TYPE_OFFSET,
+				  (uint8_t *)&eth_type, sizeof(eth_type));
+
+		if (IP_TCP == ip_proto) {
+			proto_type = QDF_NBUF_TRAC_TCP_TYPE;
+			hdd_fill_wow_ptrn(wow_ptrn,
+					  QDF_NBUF_TRAC_IPV4_PROTO_TYPE_OFFSET,
+					  &proto_type, sizeof(proto_type));
+		} else if (IP_UDP == ip_proto) {
+			proto_type = QDF_NBUF_TRAC_UDP_TYPE;
+			hdd_fill_wow_ptrn(wow_ptrn,
+					  QDF_NBUF_TRAC_IPV4_PROTO_TYPE_OFFSET,
+					  &proto_type, sizeof(proto_type));
+		}
+
+		if (port_src) {
+			port = qdf_cpu_to_be16(port_src);
+			hdd_fill_wow_ptrn(wow_ptrn,
+					  QDF_NBUF_PKT_TCP_SRC_PORT_OFFSET,
+					  (uint8_t *)&port, sizeof(port));
+		}
+
+		if (port_dst) {
+			port = qdf_cpu_to_be16(port_dst);
+			hdd_fill_wow_ptrn(wow_ptrn,
+					  QDF_NBUF_PKT_TCP_DST_PORT_OFFSET,
+					  (uint8_t *)&port, sizeof(port));
+		}
+	} else if (IP_V6 == ip_ver) {
+		eth_type = QDF_NBUF_TRAC_IPV6_ETH_TYPE;
+		hdd_fill_wow_ptrn(wow_ptrn, QDF_NBUF_TRAC_ETH_TYPE_OFFSET,
+				  (uint8_t *)&eth_type, sizeof(eth_type));
+
+		if (IP_TCP == ip_proto) {
+			proto_type = QDF_NBUF_TRAC_TCP_TYPE;
+			hdd_fill_wow_ptrn(wow_ptrn,
+					  QDF_NBUF_TRAC_IPV6_PROTO_TYPE_OFFSET,
+					  &proto_type, sizeof(proto_type));
+		} else if (IP_UDP == ip_proto) {
+			proto_type = QDF_NBUF_TRAC_UDP_TYPE;
+			hdd_fill_wow_ptrn(wow_ptrn,
+					  QDF_NBUF_TRAC_IPV6_PROTO_TYPE_OFFSET,
+					  &proto_type, sizeof(proto_type));
+		}
+
+		if (port_src) {
+			port = qdf_cpu_to_be16(port_src);
+			hdd_fill_wow_ptrn(wow_ptrn,
+					  QDF_NBUF_TRAC_IPV6_OFFSET +
+					  QDF_NBUF_TRAC_IPV6_HEADER_SIZE,
+					  (uint8_t *)&port, sizeof(port));
+		}
+
+		if (port_dst) {
+			port = qdf_cpu_to_be16(port_dst);
+			hdd_fill_wow_ptrn(wow_ptrn,
+					  QDF_NBUF_TRAC_IPV6_OFFSET +
+					  QDF_NBUF_TRAC_IPV6_HEADER_SIZE +
+					  sizeof(port),
+					  (uint8_t *)&port, sizeof(port));
+		}
+	}
+
+	return true;
+}
+
+static bool hdd_add_wow_ptrn_port(struct hdd_adapter *adapter,
+				  uint32_t ip_ver,
+				  uint32_t ip_proto,
+				  uint32_t port_src,
+				  uint32_t port_dst)
+{
+	int32_t i, empty_slot = -1;
+	struct wow_port wow_port;
+	struct pmo_wow_add_pattern wow_pattern;
+	QDF_STATUS status;
+
+	if ((ip_ver != IP_V4) && (ip_ver != IP_V6)) {
+		hdd_err("invalid ip ver");
+		return false;
+	}
+
+	if ((ip_proto != IP_TCP) && (ip_proto != IP_UDP)) {
+		hdd_err("invalid ip proto");
+		return false;
+	}
+
+	if ((port_src > PORT_NUM_MAX) ||
+	    (port_dst > PORT_NUM_MAX) ||
+	    ((PORT_NUM_MIN == port_src) && (PORT_NUM_MIN == port_dst))) {
+		hdd_err("invalid port");
+		return false;
+	}
+
+	wow_port.ip_ver = ip_ver;
+	wow_port.ip_proto = ip_proto;
+	wow_port.port_src = port_src;
+	wow_port.port_dst = port_dst;
+
+	for (i = CUSTOMIZED_WOW_NUM - 1; i >= 0; i--) {
+		if (!wow_port_cache[i]) {
+			empty_slot = i;
+			continue;
+		}
+
+		if (!memcmp(wow_port_cache[i], &wow_port, sizeof(wow_port))) {
+			hdd_err("already configured");
+			return false;
+		}
+	}
+
+	if (-1 == empty_slot) {
+		hdd_err("max wow patterns reached");
+		return false;
+	}
+
+	wow_port_cache[empty_slot] = qdf_mem_malloc(sizeof(wow_port));
+	if (!wow_port_cache[empty_slot]) {
+		hdd_err("memory allocation failure");
+		return false;
+	}
+	memcpy(wow_port_cache[empty_slot], &wow_port, sizeof(wow_port));
+
+	qdf_mem_zero(&wow_pattern, sizeof(wow_pattern));
+	hdd_convert_wow_ptrn(&wow_pattern,
+			     ip_ver, ip_proto, port_src, port_dst);
+	wow_pattern.pattern_id = empty_slot + CUSTOMIZED_WOW_ID_BASE;
+	wow_pattern.pattern_byte_offset = 0;
+
+	dump_hdd_wowl_ptrn(&wow_pattern);
+
+	status = ucfg_pmo_add_wow_user_pattern(adapter->vdev, &wow_pattern);
+	if (QDF_IS_STATUS_ERROR(status)) {
+		hdd_err("add wow user pattern failure");
+		qdf_mem_free(wow_port_cache[empty_slot]);
+		wow_port_cache[empty_slot] = NULL;
+		return false;
+	}
+
+	hdd_info("added pattern with id %d", empty_slot + CUSTOMIZED_WOW_ID_BASE);
+
+	return true;
+}
+
+static bool hdd_del_wow_ptrn_port(struct hdd_adapter *adapter,
+				  uint32_t ip_ver,
+				  uint32_t ip_proto,
+				  uint32_t port_src,
+				  uint32_t port_dst)
+{
+	uint32_t i;
+	struct wow_port wow_port;
+	bool found = false;
+	QDF_STATUS status;
+
+	wow_port.ip_ver = ip_ver;
+	wow_port.ip_proto = ip_proto;
+	wow_port.port_src = port_src;
+	wow_port.port_dst = port_dst;
+
+	for (i = 0; i < CUSTOMIZED_WOW_NUM; i++) {
+		if (!wow_port_cache[i])
+			continue;
+
+		if (!memcmp(wow_port_cache[i], &wow_port, sizeof(wow_port))) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		hdd_err("not found");
+		return false;
+	}
+
+	status = ucfg_pmo_del_wow_user_pattern(adapter->vdev,
+					       i + CUSTOMIZED_WOW_ID_BASE);
+	if (QDF_IS_STATUS_ERROR(status))
+		return false;
+
+	hdd_err("Deleted pattern with id %d", i + CUSTOMIZED_WOW_ID_BASE);
+
+	qdf_mem_free(wow_port_cache[i]);
+	wow_port_cache[i] = NULL;
+
+	return true;
+}
+
+bool hdd_add_wow_port(struct hdd_adapter *adapter,
+		      uint32_t ip_ver,
+		      uint32_t ip_proto,
+		      uint32_t port_dst)
+{
+	return hdd_add_wow_ptrn_port(adapter, ip_ver, ip_proto, 0, port_dst);
+}
+
+bool hdd_del_wow_port(struct hdd_adapter *adapter,
+		      uint32_t ip_ver,
+		      uint32_t ip_proto,
+		      uint32_t port_dst)
+{
+	return hdd_del_wow_ptrn_port(adapter, ip_ver, ip_proto, 0, port_dst);
+}
+
+bool hdd_get_wow_port(struct hdd_adapter *adapter,
+		      char *buf,
+		      uint16_t *buf_len)
+{
+	uint32_t i, len = 0;
+
+	if (!buf || !buf_len)
+		return false;
+
+	len += snprintf(buf + len, WE_MAX_STR_LEN - len, "\n");
+	for (i = 0; i < CUSTOMIZED_WOW_NUM; i++) {
+		if (!wow_port_cache[i])
+			continue;
+
+		len += snprintf(buf + len, WE_MAX_STR_LEN - len,
+				"%d\t", wow_port_cache[i]->ip_ver);
+		len += snprintf(buf + len, WE_MAX_STR_LEN - len,
+				"%d\t", wow_port_cache[i]->ip_proto);
+		len += snprintf(buf + len, WE_MAX_STR_LEN - len,
+				"%d\t", wow_port_cache[i]->port_dst);
+		len += snprintf(buf + len, WE_MAX_STR_LEN - len, "\n");
+	}
+
+	*buf_len = len;
+
+	return true;
+}
+#endif

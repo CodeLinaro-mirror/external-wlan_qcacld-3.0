@@ -1093,6 +1093,10 @@ typedef struct {
 	qdf_mc_timer_t wma_fw_time_sync_timer;
 	bool fw_therm_throt_support;
 	bool enable_tx_compl_tsf64;
+#ifdef CUSTOMIZED_WOW
+	uint32_t wake_reason;
+	uint32_t proto_subtype;
+#endif
 } t_wma_handle, *tp_wma_handle;
 
 /**
