@@ -98,7 +98,15 @@
 
 #define WOWL_PTRN_MAX_SIZE	146
 #define WOWL_PTRN_MASK_MAX_SIZE	19
-#define WOWL_MAX_PTRNS_ALLOWED	PMO_WOW_FILTERS_MAX
+
+#ifdef CUSTOMIZED_WOW
+#define CUSTOMIZED_WOW_NUM 11
+#define CUSTOMIZED_WOW_ID_BASE 11
+#else
+#define CUSTOMIZED_WOW_NUM 0
+#endif
+
+#define WOWL_MAX_PTRNS_ALLOWED	(PMO_WOW_FILTERS_MAX - CUSTOMIZED_WOW_NUM)
 
 /**
  * hdd_add_wowl_ptrn() - Function which will add the WoWL pattern to be
@@ -152,4 +160,40 @@ bool hdd_del_wowl_ptrn_debugfs(struct hdd_adapter *adapter,
  */
 void hdd_free_user_wowl_ptrns(void);
 
+#ifdef CUSTOMIZED_WOW
+
+enum {
+	IP_V4 = 4,
+	IP_V6 = 6,
+};
+
+enum {
+	IP_TCP = 6,
+	IP_UDP = 17,
+};
+
+enum {
+	PORT_NUM_MIN = 0,
+	PORT_NUM_MAX = 65535,
+};
+
+struct wow_port {
+	uint32_t ip_ver;
+	uint32_t ip_proto;
+	uint32_t port_src;
+	uint32_t port_dst;
+};
+
+bool hdd_add_wow_port(struct hdd_adapter *adapter,
+		      uint32_t ip_ver,
+		      uint32_t ip_proto,
+		      uint32_t port_dst);
+bool hdd_del_wow_port(struct hdd_adapter *adapter,
+		      uint32_t ip_ver,
+		      uint32_t ip_proto,
+		      uint32_t port_dst);
+bool hdd_get_wow_port(struct hdd_adapter *adapter,
+		      char *buf,
+		      uint16_t *buf_len);
+#endif
 #endif /* #ifndef _WLAN_HDD_WOWL_H */

@@ -1895,6 +1895,10 @@ wma_wow_get_pkt_proto_subtype(uint8_t *data, uint32_t len)
 			wma_debug("ICMP Packet");
 			return qdf_nbuf_data_get_icmp_subtype(data);
 
+#ifdef CUSTOMIZED_WOW
+		case QDF_NBUF_TRAC_UDP_TYPE:
+			return QDF_PROTO_IPV4_UDP;
+#else
 		case QDF_NBUF_TRAC_UDP_TYPE:
 			if (len < WMA_IS_DHCP_GET_MIN_LEN)
 				return QDF_PROTO_IPV4_UDP;
@@ -1907,6 +1911,7 @@ wma_wow_get_pkt_proto_subtype(uint8_t *data, uint32_t len)
 
 			wma_debug("DHCP Packet");
 			return qdf_nbuf_data_get_dhcp_subtype(data);
+#endif
 
 		case QDF_NBUF_TRAC_TCP_TYPE:
 			return QDF_PROTO_IPV4_TCP;
@@ -2127,6 +2132,9 @@ static void wma_wow_parse_data_pkt(t_wma_handle *wma,
 	wma_wow_inc_wake_lock_stats_by_dst_addr(wma, vdev_id, dest_mac);
 
 	proto_subtype = wma_wow_get_pkt_proto_subtype(data, length);
+#ifdef CUSTOMIZED_WOW
+	wma->wow_proto = proto_subtype;
+#endif
 	proto_subtype_name = wma_pkt_proto_subtype_to_string(proto_subtype);
 	if (proto_subtype_name)
 		wma_info("WOW Wakeup: %s rcvd", proto_subtype_name);
@@ -2694,6 +2702,54 @@ static void wma_wake_event_log_reason(t_wma_handle *wma,
 	qdf_wma_wow_wakeup_stats_event(wma);
 }
 
+#ifdef CUSTOMIZED_WOW
+enum customized_wow_reason {
+	WOW_REASON_MAGIC = 0,
+	WOW_REASON_IPV4_UDP = 9,
+	WOW_REASON_IPV4_TCP = 10,
+	WOW_REASON_IPV6_UDP = 11,
+	WOW_REASON_IPV6_TCP = 12,
+};
+
+static int32_t wma_parse_wow_reason(t_wma_handle *wma, int32_t reason)
+{
+	int32_t wow_reason = -1;
+
+	switch (reason) {
+	case WOW_REASON_RECV_MAGIC_PATTERN:
+		wow_reason = WOW_REASON_MAGIC;
+		break;
+	case WOW_REASON_PATTERN_MATCH_FOUND:
+		switch (wma->wow_proto) {
+		case QDF_PROTO_IPV4_UDP:
+			wow_reason = WOW_REASON_IPV4_UDP;
+			break;
+		case QDF_PROTO_IPV4_TCP:
+			wow_reason = WOW_REASON_IPV4_TCP;
+			break;
+		case QDF_PROTO_IPV6_UDP:
+			wow_reason = WOW_REASON_IPV6_UDP;
+			break;
+		case QDF_PROTO_IPV6_TCP:
+			wow_reason = WOW_REASON_IPV6_TCP;
+			break;
+		default:
+			break;
+		}
+		break;
+	default:
+		 break;
+	}
+
+	return wow_reason;
+}
+#else
+static int32_t wma_parse_wow_reason(t_wma_handle *wma, int32_t reason)
+{
+	return reason;
+}
+#endif
+
 /**
  * wma_wow_wakeup_host_event() - wakeup host event handler
  * @handle: wma handle
@@ -2741,7 +2797,8 @@ int wma_wow_wakeup_host_event(void *handle, uint8_t *event, uint32_t len)
 	wma_inc_wow_stats(wma, wake_info);
 	wma_print_wow_stats(wma, wake_info);
 	wma_acquire_wow_wakelock(wma, wake_info->wake_reason);
-	ucfg_pmo_update_wow_reason(wma->psoc, wake_info->wake_reason);
+	ucfg_pmo_update_wow_reason(wma->psoc,
+		wma_parse_wow_reason(wma, wake_info->wake_reason));
 	ucfg_pmo_update_wow_reason_parsed(wma->psoc, true);
 
 	return errno;
