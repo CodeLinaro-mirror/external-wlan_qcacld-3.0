@@ -94,6 +94,20 @@ uint8_t *mlme_get_dynamic_oce_flags(struct wlan_objmgr_vdev *vdev)
 	return &mlme_priv->sta_dynamic_oce_value;
 }
 
+struct mlme_roam_invoke_entity_param *
+mlme_get_roam_invoke_params(struct wlan_objmgr_vdev *vdev)
+{
+	struct vdev_mlme_priv_obj *vdev_mlme;
+
+	vdev_mlme = wlan_vdev_mlme_get_priv_obj(vdev);
+	if (!vdev_mlme) {
+		mlme_err("vdev component object is NULL");
+		return NULL;
+	}
+
+	return &vdev_mlme->roam_invoke_params;
+}
+
 QDF_STATUS mlme_get_peer_mic_len(struct wlan_objmgr_psoc *psoc, uint8_t pdev_id,
 				 uint8_t *peer_mac, uint8_t *mic_len,
 				 uint8_t *mic_hdr_len)
