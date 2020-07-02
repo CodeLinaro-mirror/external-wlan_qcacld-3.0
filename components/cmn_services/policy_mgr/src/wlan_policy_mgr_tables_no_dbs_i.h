@@ -21,7 +21,6 @@
 
 #include "wlan_policy_mgr_api.h"
 
-#ifndef FEATURE_NO_DBS_INTRABAND_MCC_SUPPORT
 /**
  * second_connection_pcl_nodbs_table - table which provides PCL
  * for the 2nd connection, when we have a connection already in
@@ -1612,7 +1611,7 @@ third_connection_pcl_nodbs_table[PM_MAX_TWO_CONNECTION_MODE]
 
 };
 
-#else /* FEATURE_NO_DBS_INTRABAND_MCC_SUPPORT */
+#ifdef FEATURE_NO_DBS_INTRABAND_MCC_SUPPORT
 
 /**
  * second_connection_pcl_nodbs_no_interband_mcc_table - table
