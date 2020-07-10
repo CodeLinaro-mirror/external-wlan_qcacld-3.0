@@ -2156,6 +2156,16 @@ struct roam_init_params {
 };
 
 /**
+ * struct roam_disable_cfg - Firmware roam module disable parameters
+ * @vdev_id: vdev for which the roaming has to be enabled/disabled
+ * @cfg:  Config to enable/disable FW roam module
+ */
+struct roam_disable_cfg {
+	uint8_t vdev_id;
+	uint8_t cfg;
+};
+
+/**
  * struct roam_sync_timeout_timer_info - Info related to roam sync timer
  * @vdev_id: Vdev id for which host waiting roam sync ind from fw
  */

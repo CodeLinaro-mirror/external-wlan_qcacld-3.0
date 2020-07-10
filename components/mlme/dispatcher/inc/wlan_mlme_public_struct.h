@@ -1364,6 +1364,7 @@ enum station_keepalive_method {
  * @force_rsne_override:            Force rsnie override from user
  * @single_tid:                     Set replay counter for all TID
  * @allow_tpc_from_ap:              Support for AP power constraint
+ * @usr_disabled_roaming:           User config for roaming disable
  */
 struct wlan_mlme_sta_cfg {
 	uint32_t sta_keep_alive_period;
@@ -1383,6 +1384,7 @@ struct wlan_mlme_sta_cfg {
 	bool single_tid;
 	bool allow_tpc_from_ap;
 	enum station_keepalive_method sta_keepalive_method;
+	bool usr_disabled_roaming;
 };
 
 /**
