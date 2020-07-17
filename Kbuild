@@ -3446,7 +3446,7 @@ KBUILD_CPPFLAGS += $(cppflags-y)
 ifeq ($(call cc-option-yn, -Wmaybe-uninitialized), y)
 ccflags-y += -Wmaybe-uninitialized
 ifneq (y,$(CONFIG_ARCH_MSM))
-ccflags-y += -Wframe-larger-than=4096
+ccflags-y += -Wframe-larger-than=8192
 endif
 endif
 ccflags-y += -Wmissing-prototypes
