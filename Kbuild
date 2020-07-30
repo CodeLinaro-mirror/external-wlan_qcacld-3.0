@@ -2397,6 +2397,7 @@ cppflags-$(CONFIG_FEATURE_COEX) += -DFEATURE_COEX
 
 cppflags-$(CONFIG_PLD_IPCI_ICNSS_FLAG) += -DCONFIG_PLD_IPCI_ICNSS
 cppflags-$(CONFIG_PLD_SDIO_CNSS_FLAG) += -DCONFIG_PLD_SDIO_CNSS
+cppflags-$(CONFIG_WLAN_RESIDENT_DRIVER) += -DFEATURE_WLAN_RESIDENT_DRIVER
 
 ifeq ($(CONFIG_FORCE_USER_HINT_CELL_BASE_SELF_MANAGED), y)
 cppflags-y += -DCFG80211_USER_HINT_CELL_BASE_SELF_MANAGED
@@ -3445,7 +3446,13 @@ endif
 
 # Module information used by KBuild framework
 obj-$(CONFIG_QCA_CLD_WLAN) += $(MODNAME).o
+ifeq ($(CONFIG_WLAN_RESIDENT_DRIVER), y)
+$(MODNAME)-y := $(HDD_SRC_DIR)/wlan_hdd_main_module.o
+obj-$(CONFIG_QCA_CLD_WLAN) += wlan_resident.o
+wlan_resident-y := $(OBJS)
+else
 $(MODNAME)-y := $(OBJS)
+endif
 OBJS_DIRS := $(dir $(OBJS)) \
 	     $(WLAN_COMMON_ROOT)/$(HIF_CE_DIR)/ \
 	     $(QDF_OBJ_DIR)/ \
