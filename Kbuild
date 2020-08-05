@@ -2408,6 +2408,7 @@ OBJS += $(TXRX3.0_OBJS)
 endif
 
 ccflags-y += $(INCS)
+ccflags-y += -Wno-implicit-fallthrough
 
 cppflags-y +=	-DANI_OS_TYPE_ANDROID=6 \
 		-Wall\
