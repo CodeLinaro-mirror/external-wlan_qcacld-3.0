@@ -604,6 +604,7 @@ QDF_STATUS cds_open(struct wlan_objmgr_psoc *psoc)
 
 	/* Initialize the timer module */
 	qdf_timer_module_init();
+	qdf_mem_custom_init();
 
 	/* Initialize bug reporting structure */
 	cds_init_log_completion();
@@ -1342,7 +1343,7 @@ QDF_STATUS cds_close(struct wlan_objmgr_psoc *psoc)
 
 	cds_deinit_ini_config();
 	qdf_timer_module_deinit();
-
+	qdf_mem_custom_deinit();
 	cds_deregister_all_modules();
 
 	return QDF_STATUS_SUCCESS;
