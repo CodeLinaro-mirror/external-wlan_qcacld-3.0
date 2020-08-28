@@ -72,6 +72,17 @@ enum hdd_wlan_wmm_power_save {
 	HDD_WLAN_WMM_POWER_SAVE_UAPSD = 1,
 };
 
+enum host_target_comm_log {
+	HTC_CREDIT_HISTORY_LOG = 0,
+	COMMAND_LOG,
+	COMMAND_TX_CMP_LOG,
+	MGMT_COMMAND_LOG,
+	MGMT_COMMAND_TX_CMP_LOG,
+	EVENT_LOG,
+	RX_EVENT_LOG,
+	MGMT_EVENT_LOG
+};
+
 typedef enum {
 	/* TSPEC/re-assoc done, async */
 	HDD_WLAN_WMM_STATUS_SETUP_SUCCESS = 0,
@@ -376,6 +387,8 @@ void hdd_wext_send_event(struct net_device *dev, unsigned int cmd,
 {
 }
 #endif /* WLAN_WEXT_SUPPORT_ENABLE */
+
+void hdd_ioctl_log_buffer(int log_id, uint32_t count);
 
 #if defined(WLAN_WEXT_SUPPORT_ENABLE) && defined(HASTINGS_BT_WAR)
 int hdd_hastings_bt_war_enable_fw(struct hdd_context *hdd_ctx);

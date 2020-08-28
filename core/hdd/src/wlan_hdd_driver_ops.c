@@ -1715,10 +1715,14 @@ wlan_hdd_pld_uevent(struct device *dev, struct pld_uevent_data *event_data)
 {
 	struct qdf_notifer_data hang_evt_data;
 	enum qdf_hang_reason reason = QDF_REASON_UNSPECIFIED;
+	int i;
 
 	switch (event_data->uevent) {
 	case PLD_FW_DOWN:
 		hdd_info("Received firmware down indication");
+
+		for (i = 0; i <= MGMT_EVENT_LOG; i++)
+			hdd_ioctl_log_buffer(i, 1024);
 
 		/* NOTE! SSR cleanup logic goes in pld shutdown, not here */
 
