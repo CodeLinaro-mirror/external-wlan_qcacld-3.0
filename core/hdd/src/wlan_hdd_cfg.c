@@ -239,7 +239,9 @@ QDF_STATUS hdd_update_mac_config(struct hdd_context *hdd_ctx)
 	QDF_STATUS qdf_status = QDF_STATUS_SUCCESS;
 
 	memset(mac_table, 0, sizeof(mac_table));
-	status = request_firmware(&fw, WLAN_MAC_FILE, hdd_ctx->parent_dev);
+	status = request_firmware_direct(&fw,
+					 WLAN_MAC_FILE,
+					 hdd_ctx->parent_dev);
 	if (status) {
 		/*
 		 * request_firmware "fails" if the file is not found, which is a
