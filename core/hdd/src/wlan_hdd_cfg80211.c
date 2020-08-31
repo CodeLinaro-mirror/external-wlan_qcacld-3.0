@@ -150,6 +150,7 @@
 #include "os_if_nan.h"
 #include "wlan_hdd_apf.h"
 #include "wlan_hdd_cfr.h"
+#include "wlan_hdd_medium_assess.h"
 
 #define g_mode_rates_size (12)
 #define a_mode_rates_size (8)
@@ -1663,6 +1664,7 @@ static const struct nl80211_vendor_cmd_info wlan_hdd_cfg80211_vendor_events[] = 
 	},
 
 	BCN_RECV_FEATURE_VENDOR_EVENTS
+	FEATURE_MEDIUM_ASSESS_VENDOR_EVENTS
 	[QCA_NL80211_VENDOR_SUBCMD_ROAM_INDEX] = {
 		.vendor_id = QCA_NL80211_VENDOR_ID,
 		.subcmd = QCA_NL80211_VENDOR_SUBCMD_ROAM,
@@ -14441,6 +14443,7 @@ const struct wiphy_vendor_command hdd_wiphy_vendor_commands[] = {
 	FEATURE_HW_CAPABILITY_COMMANDS
 	FEATURE_THERMAL_VENDOR_COMMANDS
 	FEATURE_BTC_CHAIN_MODE_COMMANDS
+	FEATURE_MEDIUM_ASSESS_VENDOR_COMMANDS
 };
 
 struct hdd_context *hdd_cfg80211_wiphy_alloc(void)
