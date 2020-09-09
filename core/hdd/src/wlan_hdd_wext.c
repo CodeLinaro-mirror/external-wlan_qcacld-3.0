@@ -2877,6 +2877,17 @@
  */
 #define WE_SET_BA_AGEING_TIMEOUT		9
 
+enum host_target_comm_log {
+	HTC_CREDIT_HISTORY_LOG = 0,
+	COMMAND_LOG,
+	COMMAND_TX_CMP_LOG,
+	MGMT_COMMAND_LOG,
+	MGMT_COMMAND_TX_CMP_LOG,
+	EVENT_LOG,
+	RX_EVENT_LOG,
+	MGMT_EVENT_LOG
+};
+
 /* (SIOCIWFIRSTPRIV + 29) is currently unused */
 
 /* 802.11p IOCTL */
@@ -9551,7 +9562,7 @@ static int printk_adapter(void *priv, const char *fmt, ...)
 	return ret;
 }
 
-void hdd_ioctl_log_buffer(int log_id, uint32_t count)
+static void hdd_ioctl_log_buffer(int log_id, uint32_t count)
 {
 	qdf_abstract_print *print = &printk_adapter;
 
