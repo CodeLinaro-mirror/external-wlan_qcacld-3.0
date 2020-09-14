@@ -688,6 +688,18 @@ SYS_OBJS :=	$(SYS_COMMON_SRC_DIR)/wlan_qct_sys.o \
 		$(SYS_LEGACY_SRC_DIR)/utils/src/parser_api.o \
 		$(SYS_LEGACY_SRC_DIR)/utils/src/utils_parser.o
 
+############ Qcacld WMI ###################
+WMI_DIR := components/wmi
+
+CLD_WMI_INC  :=	-I$(WLAN_ROOT)/$(WMI_DIR)/inc
+
+ifeq ($(CONFIG_WMI_ROAM_SUPPORT), y)
+CLD_WMI_ROAM_OBJS +=	$(WMI_DIR)/src/wmi_unified_roam_tlv.o \
+			$(WMI_DIR)/src/wmi_unified_roam_api.o
+endif
+
+CLD_WMI_OBJS :=	$(CLD_WMI_ROAM_OBJS)
+
 ############ Qca-wifi-host-cmn ############
 QDF_OS_DIR :=	qdf
 QDF_OS_INC_DIR := $(QDF_OS_DIR)/inc
@@ -1448,11 +1460,6 @@ WMI_OBJS += $(WMI_OBJ_DIR)/wmi_unified_p2p_api.o
 WMI_OBJS += $(WMI_OBJ_DIR)/wmi_unified_p2p_tlv.o
 endif
 
-ifeq ($(CONFIG_WMI_ROAM_SUPPORT), y)
-WMI_OBJS += $(WMI_OBJ_DIR)/wmi_unified_roam_api.o
-WMI_OBJS += $(WMI_OBJ_DIR)/wmi_unified_roam_tlv.o
-endif
-
 ifeq ($(CONFIG_WMI_CONCURRENCY_SUPPORT), y)
 WMI_OBJS += $(WMI_OBJ_DIR)/wmi_unified_concurrency_api.o
 WMI_OBJS += $(WMI_OBJ_DIR)/wmi_unified_concurrency_tlv.o
@@ -2164,6 +2171,7 @@ INCS :=		$(HDD_INC) \
 		$(SAP_INC) \
 		$(SME_INC) \
 		$(SYS_INC) \
+		$(CLD_WMI_INC) \
 		$(QAL_INC) \
 		$(QDF_INC) \
 		$(WBUFF_INC) \
@@ -2283,6 +2291,7 @@ OBJS :=		$(HDD_OBJS) \
 		$(SAP_OBJS) \
 		$(SME_OBJS) \
 		$(SYS_OBJS) \
+		$(CLD_WMI_OBJS) \
 		$(QDF_OBJS) \
 		$(WBUFF_OBJS) \
 		$(CDS_OBJS) \
