@@ -323,6 +323,36 @@
 
 /*
  * <ini>
+ * sae_pk_ap_weightage - update scoring param based on SAE PK ap weightage
+ * @Min: 0
+ * @Max: 10
+ * @Default: 3
+ *
+ * This ini is used to calculate SAE PK ap weightage in roam score. SAE Public
+ * Key (SAE-PK) authentication is an extension of SAE that is intended for use
+ * cases where authentication is based on a password that might be
+ * distributed to or obtained by a potential adversary. With SAE-PK, the AP in
+ * an infrastructure network is additionally authenticated based on a static
+ * public/private key pair. This ini is also used for WFA certification.
+ *
+ * Related: None
+ *
+ * Supported Feature: STA
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_SAE_PK_AP_WEIGHTAGE CFG_INI_UINT( \
+		"sae_pk_ap_weightage", \
+		0, \
+		10, \
+		PLATFORM_VALUE(3, 0), \
+		CFG_VALUE_OR_DEFAULT,\
+		"SAE-PK AP weightage")
+
+/*
+ * <ini>
  * best_rssi_threshold - Best Rssi for score calculation
  * @Min: 0
  * @Max: 96
@@ -1366,5 +1396,6 @@
 	CFG(CFG_VENDOR_ROAM_SCORE_ALGORITHM) \
 	CFG(CFG_OCE_AP_TX_PWR_WEIGHTAGE) \
 	CFG(CFG_OCE_SUBNET_ID_WEIGHTAGE) \
+	CFG(CFG_SAE_PK_AP_WEIGHTAGE) \
 
 #endif /* __CFG_MLME_SCORING_H */

@@ -1834,6 +1834,7 @@ struct wlan_mlme_wmm_params {
  * @oce_wan_weightage: OCE WAN metrics weightage
  * @oce_ap_tx_pwr_weightage: weightage based on ap tx power
  * @oce_subnet_id_weightage: weightage based on subnet id
+ * @sae_pk_ap_weightage:SAE-PK AP weightage
  */
 struct  wlan_mlme_weight_config {
 	uint8_t rssi_weightage;
@@ -1849,6 +1850,7 @@ struct  wlan_mlme_weight_config {
 	uint8_t oce_wan_weightage;
 	uint8_t oce_ap_tx_pwr_weightage;
 	uint8_t oce_subnet_id_weightage;
+	uint8_t sae_pk_ap_weightage;
 };
 
 /**
