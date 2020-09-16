@@ -4178,6 +4178,25 @@ QDF_STATUS wma_process_fw_test_cmd(WMA_HANDLE handle,
 	return QDF_STATUS_SUCCESS;
 }
 
+QDF_STATUS wma_process_wfa_test_cmd(WMA_HANDLE handle,
+				    struct set_wfatest_params *wfa_test)
+{
+	tp_wma_handle wma_handle = (tp_wma_handle)handle;
+
+	if (!wma_handle || !wma_handle->wmi_handle) {
+		wma_err("WMA is closed, can not issue wfa test cmd");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (wmi_unified_wfa_test_cmd(wma_handle->wmi_handle,
+				     wfa_test)) {
+		wma_err("Failed to issue wfa test cmd");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	return QDF_STATUS_SUCCESS;
+}
+
 /**
  * wma_enable_disable_caevent_ind() - Issue WMI command to enable or
  * disable ca event indication

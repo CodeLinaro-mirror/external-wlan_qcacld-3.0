@@ -1899,6 +1899,15 @@ void sme_update_fine_time_measurement_capab(mac_handle_t mac_handle,
 					    uint32_t val);
 QDF_STATUS sme_ht40_stop_obss_scan(mac_handle_t mac_handle, uint32_t vdev_id);
 QDF_STATUS sme_set_fw_test(struct set_fwtest_params *fw_test);
+
+/**
+ * sme_set_wfa_test_config() - set wfa test config
+ * @wfa_test: wfa test param
+ *
+ * Return: Return QDF_STATUS, otherwise appropriate failure code
+ */
+QDF_STATUS sme_set_wfa_test_config(struct set_wfatest_params *wfa_test);
+
 QDF_STATUS sme_set_tsfcb(mac_handle_t mac_handle,
 	int (*cb_fn)(void *cb_ctx, struct stsf *ptsf), void *cb_ctx);
 

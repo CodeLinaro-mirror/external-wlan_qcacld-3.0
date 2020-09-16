@@ -1543,6 +1543,18 @@ QDF_STATUS wma_ht40_stop_obss_scan(tp_wma_handle wma_handle,
 QDF_STATUS wma_process_fw_test_cmd(WMA_HANDLE handle,
 				   struct set_fwtest_params *wma_fwtest);
 
+/**
+ * wma_process_wfa_test_cmd() - send wfa test command to fw.
+ * @handle: wma handle
+ * @wfa_test: wfa test param
+ *
+ * This function send wfa test command to fw.
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS wma_process_wfa_test_cmd(WMA_HANDLE handle,
+				    struct set_wfatest_params *wfa_test);
+
 QDF_STATUS wma_send_ht40_obss_scanind(tp_wma_handle wma,
 	struct obss_ht40_scanind *req);
 

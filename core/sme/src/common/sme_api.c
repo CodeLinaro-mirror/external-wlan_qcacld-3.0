@@ -12500,6 +12500,20 @@ QDF_STATUS sme_set_fw_test(struct set_fwtest_params *fw_test)
 	return wma_process_fw_test_cmd(wma_handle, fw_test);
 }
 
+QDF_STATUS sme_set_wfa_test_config(struct set_wfatest_params *wfa_test)
+{
+	void *wma_handle;
+
+	wma_handle = cds_get_context(QDF_MODULE_ID_WMA);
+	if (!wma_handle) {
+		QDF_TRACE(QDF_MODULE_ID_SME, QDF_TRACE_LEVEL_ERROR,
+			  "wma handle is NULL");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	return wma_process_wfa_test_cmd(wma_handle, wfa_test);
+}
+
 /**
  * sme_ht40_stop_obss_scan() - ht40 obss stop scan
  * @mac_handle: mac handel
