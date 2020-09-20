@@ -12612,6 +12612,7 @@ void csr_roam_wait_for_key_time_out_handler(void *pv)
 	} else {
 		spin_unlock(&mac->roam.roam_state_lock);
 	}
+
 }
 
 #ifdef WLAN_FEATURE_ROAM_OFFLOAD
@@ -20896,7 +20897,7 @@ static QDF_STATUS csr_process_roam_sync_callback(struct mac_context *mac_ctx,
 		csr_roam_roaming_offload_timer_action(mac_ctx,
 				0, session_id, ROAMING_OFFLOAD_TIMER_STOP);
 		if (session->discon_in_progress ||
-		    MLME_IS_ROAM_STATE_STOPPED(mac_ctx->psoc, session_id) ||
+		    (MLME_IS_ROAM_STATE_STOPPED(mac_ctx->psoc, session_id) &&
 		    !vdev_roam_params->roam_invoke_in_progress) ||
 		    !CSR_IS_ROAM_JOINED(mac_ctx, session_id)) {
 			QDF_TRACE(QDF_MODULE_ID_SME, QDF_TRACE_LEVEL_DEBUG,
@@ -20961,6 +20962,7 @@ static QDF_STATUS csr_process_roam_sync_callback(struct mac_context *mac_ctx,
 			csr_roam_disconnect(mac_ctx, session_id,
 				    eCSR_DISCONNECT_REASON_DEAUTH,
 				    eSIR_MAC_USER_TRIGGERED_ROAM_FAILURE);
+
 		vdev_roam_params->roam_invoke_in_progress = false;
 		goto end;
 	case SIR_ROAM_SYNCH_PROPAGATION:
@@ -21043,7 +21045,6 @@ static QDF_STATUS csr_process_roam_sync_callback(struct mac_context *mac_ctx,
 	if (!QDF_IS_STATUS_SUCCESS(status)) {
 		sme_err("LFR3: fail to parse IEs");
 		session->roam_synch_in_progress = false;
-		vdev_roam_params->roam_invoke_in_progress = false;
 		goto end;
 	}
 
@@ -21064,7 +21065,6 @@ static QDF_STATUS csr_process_roam_sync_callback(struct mac_context *mac_ctx,
 	roam_info = qdf_mem_malloc(sizeof(struct csr_roam_info));
 	if (!roam_info) {
 		session->roam_synch_in_progress = false;
-		vdev_roam_params->roam_invoke_in_progress = false;
 		qdf_mem_free(ies_local);
 		status = QDF_STATUS_E_NOMEM;
 		goto end;
@@ -21211,7 +21211,6 @@ static QDF_STATUS csr_process_roam_sync_callback(struct mac_context *mac_ctx,
 		roam_info->nAssocReqLength + roam_info->nAssocRspLength);
 	if (!roam_info->pbFrames) {
 		session->roam_synch_in_progress = false;
-		vdev_roam_params->roam_invoke_in_progress = false;
 		if (roam_info)
 			qdf_mem_free(roam_info);
 		qdf_mem_free(ies_local);
@@ -21372,7 +21371,6 @@ static QDF_STATUS csr_process_roam_sync_callback(struct mac_context *mac_ctx,
 
 	session->fRoaming = false;
 	session->roam_synch_in_progress = false;
-	vdev_roam_params->roam_invoke_in_progress = false;
 	sme_free_join_rsp_fils_params(roam_info);
 	qdf_mem_free(roam_info->pbFrames);
 	qdf_mem_free(roam_info);
@@ -21380,6 +21378,7 @@ static QDF_STATUS csr_process_roam_sync_callback(struct mac_context *mac_ctx,
 
 end:
 	wlan_objmgr_vdev_release_ref(vdev, WLAN_LEGACY_SME_ID);
+
 	return status;
 }
 

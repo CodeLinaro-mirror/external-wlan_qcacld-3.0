@@ -89,14 +89,6 @@ enum vdev_assoc_type {
 	VDEV_FT_REASSOC
 };
 
-/*
- * struct mlme_roam_invoke_entity_param - roam invoke entity params
- * @roam_invoke_in_progress: is roaming already in progress.
- */
-struct mlme_roam_invoke_entity_param {
-	bool roam_invoke_in_progress;
-};
-
 /**
  * wlan_mlme_roam_state_info - Structure containing roaming
  * state related details
@@ -135,15 +127,6 @@ struct wlan_mlme_roam {
 	struct wlan_mlme_sae_single_pmk sae_single_pmk;
 #endif
 };
-
-/*
- * mlme_get_roam_invoke_params() - get the roam invoke params
- * @vdev: vdev pointer
- *
- * Return: pointer to the vdev roam invoke config structure
- */
-struct mlme_roam_invoke_entity_param *
-mlme_get_roam_invoke_params(struct wlan_objmgr_vdev *vdev);
 
 /**
  * struct mlme_legacy_priv - VDEV MLME legacy priv object
