@@ -4182,10 +4182,20 @@ QDF_STATUS wma_process_wfa_test_cmd(WMA_HANDLE handle,
 				    struct set_wfatest_params *wfa_test)
 {
 	tp_wma_handle wma_handle = (tp_wma_handle)handle;
+	struct config_fils_params param = {0};
 
 	if (!wma_handle || !wma_handle->wmi_handle) {
 		wma_err("WMA is closed, can not issue wfa test cmd");
 		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (wfa_test->cmd == WFA_FILS_DISCV_FRAMES) {
+		param.vdev_id = wfa_test->vdev_id;
+		if (wfa_test->value)
+			param.fd_period = DEFAULT_FILS_DISCOVERY_PERIOD;
+
+		return wmi_unified_vdev_fils_enable_cmd_send(
+					wma_handle->wmi_handle, &param);
 	}
 
 	if (wmi_unified_wfa_test_cmd(wma_handle->wmi_handle,
