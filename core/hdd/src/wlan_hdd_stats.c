@@ -4163,7 +4163,8 @@ static int wlan_hdd_get_station_remote(struct wiphy *wiphy,
 	return status;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)) && \
+#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)) || \
+	defined(CFG80211_HE_SUPPORT_BACKPORT)) && \
 	defined(WLAN_FEATURE_11AX)
 /**
  * hdd_map_he_gi_to_os() - map txrate_gi to os guard interval

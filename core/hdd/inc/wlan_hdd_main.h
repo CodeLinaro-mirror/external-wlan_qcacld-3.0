@@ -1681,7 +1681,8 @@ struct hdd_context {
 	struct ieee80211_channel *channels_5ghz;
 
 #if (defined(CONFIG_BAND_6GHZ) && defined(CFG80211_6GHZ_BAND_SUPPORTED)) || \
-		(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
+		(LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)) || \
+		defined(CFG80211_HE_SUPPORT_BACKPORT)
 	struct ieee80211_sband_iftype_data *iftype_data_2g;
 	struct ieee80211_sband_iftype_data *iftype_data_5g;
 #endif
