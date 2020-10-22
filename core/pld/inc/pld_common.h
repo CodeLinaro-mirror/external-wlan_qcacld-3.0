@@ -448,18 +448,6 @@ int pld_get_fw_files_for_target(struct device *dev,
 				u32 target_type, u32 target_version);
 int pld_prevent_l1(struct device *dev);
 void pld_allow_l1(struct device *dev);
-
-/**
- * pld_set_pcie_gen_speed() - Set PCIE gen speed
- * @dev: device
- * @pcie_gen_speed: Required PCIE gen speed
- *
- * Send required PCIE Gen speed to platform driver
- *
- * Return: 0 for success. Negative error codes.
- */
-int pld_set_pcie_gen_speed(struct device *dev, u8 pcie_gen_speed);
-
 void pld_is_pci_link_down(struct device *dev);
 void pld_get_bus_reg_dump(struct device *dev, uint8_t *buf, uint32_t len);
 int pld_shadow_control(struct device *dev, bool enable);
