@@ -182,10 +182,6 @@ static inline int pld_ipci_get_thermal_state(struct device *dev,
 	return 0;
 }
 
-static inline int pld_ipci_exit_power_save(struct device *dev)
-{
-	return 0;
-}
 #else
 int pld_ipci_register_driver(void);
 void pld_ipci_unregister_driver(void);
@@ -335,9 +331,5 @@ static inline int pld_ipci_get_thermal_state(struct device *dev,
 	return icnss_get_curr_therm_cdev_state(dev, thermal_state, mon_id);
 }
 
-static inline int pld_ipci_exit_power_save(struct device *dev)
-{
-	return icnss_exit_power_save(dev);
-}
 #endif
 #endif
