@@ -4223,4 +4223,12 @@ sme_process_monitor_mode_vdev_up_evt(uint8_t vdev_id)
 }
 #endif
 
+/*
+ * sme_set_txtd_start_timestamp - Set txtd start timestamp
+ * @mac_handle: Opaque handle to the MAC context
+ * @ts: txtd start timestamp
+ *
+ *  Return: QDF_STATUS
+ */
+QDF_STATUS sme_set_txtd_start_timestamp(mac_handle_t mac_handle, uint32_t ts);
 #endif /* #if !defined( __SME_API_H ) */

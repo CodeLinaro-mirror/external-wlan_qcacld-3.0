@@ -582,6 +582,17 @@ void lim_extract_ap_capability(struct mac_context *mac_ctx, uint8_t *p_ie,
 
 	session->is_adaptive_11r_connection =
 			lim_extract_adaptive_11r_cap(p_ie, ie_len);
+
+	if (mac_ctx->mlme_cfg->sta.support_rvr_optimize &&
+	    wlan_get_vendor_ie_ptr_from_oui(
+			mac_ctx->mlme_cfg->sta.rvr_optimize_vendor_oui,
+			mac_ctx->mlme_cfg->sta.rvr_optimize_vendor_oui_length,
+			p_ie, ie_len)) {
+		sme_set_txtd_start_timestamp(MAC_HANDLE(mac_ctx),
+			mac_ctx->mlme_cfg->sta.txtd_start_timestamp);
+		mac_ctx->is_rvr_optimize_enabled = true;
+	}
+
 	qdf_mem_free(beacon_struct);
 	return;
 } /****** end lim_extract_ap_capability() ******/

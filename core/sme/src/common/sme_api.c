@@ -16545,3 +16545,22 @@ QDF_STATUS sme_process_monitor_mode_vdev_up_evt(uint8_t vdev_id)
 	return QDF_STATUS_SUCCESS;
 }
 #endif
+
+QDF_STATUS sme_set_txtd_start_timestamp(mac_handle_t mac_handle, uint32_t ts)
+{
+	void *wma_handle;
+
+	wma_handle = cds_get_context(QDF_MODULE_ID_WMA);
+	if (!wma_handle) {
+		sme_err("wma_handle is NULL");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (QDF_STATUS_SUCCESS !=
+		wma_set_txtd_start_timestamp(wma_handle, ts)) {
+		sme_err_rl("Failed to set txtd start timestamp");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	return QDF_STATUS_SUCCESS;
+}

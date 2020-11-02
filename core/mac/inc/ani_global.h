@@ -831,6 +831,7 @@ struct mac_context {
 #ifdef FEATURE_ANI_LEVEL_REQUEST
 	struct ani_level_params ani_params;
 #endif
+	bool is_rvr_optimize_enabled;
 };
 
 #ifdef FEATURE_WLAN_TDLS

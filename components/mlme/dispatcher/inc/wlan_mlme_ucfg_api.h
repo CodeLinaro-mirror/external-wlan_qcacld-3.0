@@ -4119,4 +4119,12 @@ ucfg_mlme_set_roam_reason_vsie_status(struct wlan_objmgr_psoc *psoc,
 }
 
 #endif
+
+/**
+ * ucfg_mlme_is_rvr_optimize_support - Get rvr optimize support or not
+ * @psoc: pointer to psoc object
+ *
+ * Return: Support rvr optimize or not
+ */
+bool ucfg_mlme_is_rvr_optimize_support(struct wlan_objmgr_psoc *psoc);
 #endif /* _WLAN_MLME_UCFG_API_H_ */

@@ -1895,3 +1895,10 @@ bool ucfg_mlme_validate_scan_period(uint32_t roam_scan_period)
 
 	return is_valid;
 }
+
+bool ucfg_mlme_is_rvr_optimize_support(struct wlan_objmgr_psoc *psoc)
+{
+	struct wlan_mlme_psoc_ext_obj *mlme_obj = mlme_get_psoc_ext_obj(psoc);
+
+	return mlme_obj->cfg.sta.support_rvr_optimize;
+}

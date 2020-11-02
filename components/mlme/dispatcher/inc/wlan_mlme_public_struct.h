@@ -1343,6 +1343,8 @@ enum station_keepalive_method {
 	MLME_STA_KEEPALIVE_COUNT
 };
 
+#define MAX_RVR_OPTIMIZE_VENDOR_OUI_LEN 8
+
 /**
  * struct wlan_mlme_sta_cfg - MLME STA configuration items
  * @sta_keep_alive_period:          Sends NULL frame to AP period
@@ -1362,6 +1364,10 @@ enum station_keepalive_method {
  * @force_rsne_override:            Force rsnie override from user
  * @single_tid:                     Set replay counter for all TID
  * @allow_tpc_from_ap:              Support for AP power constraint
+ * @support_rvr_optimize:           Support for RvR optimize
+ * @rvr_optimize_vendor_oui_length: RvR optimize vendor oui length
+ * @rvr_optimize_vendor_oui:        RvR optimize vendor oui
+ * @txtd_start_timestamp:           Txtd start timestamp
  */
 struct wlan_mlme_sta_cfg {
 	uint32_t sta_keep_alive_period;
@@ -1381,6 +1387,10 @@ struct wlan_mlme_sta_cfg {
 	bool single_tid;
 	bool allow_tpc_from_ap;
 	enum station_keepalive_method sta_keepalive_method;
+	bool support_rvr_optimize;
+	uint8_t rvr_optimize_vendor_oui_length;
+	uint8_t rvr_optimize_vendor_oui[MAX_RVR_OPTIMIZE_VENDOR_OUI_LEN];
+	uint32_t txtd_start_timestamp;
 };
 
 /**
