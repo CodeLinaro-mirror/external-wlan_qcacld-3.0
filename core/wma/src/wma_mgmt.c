@@ -3944,3 +3944,25 @@ QDF_STATUS wma_mgmt_frame_fill_peer_cb(struct wlan_objmgr_peer *peer,
 	return QDF_STATUS_SUCCESS;
 }
 #endif
+
+QDF_STATUS wma_set_txtd_start_timestamp(void *wma_handle, uint32_t ts)
+{
+	QDF_STATUS ret = QDF_STATUS_SUCCESS;
+	tp_wma_handle wma = (tp_wma_handle)wma_handle;
+	struct pdev_params pdevparam;
+
+	pdevparam.param_id = WMI_PDEV_PARAM_SET_TXTD_START_TIMESTAMP;
+	pdevparam.param_value = ts;
+
+	ret = wmi_unified_pdev_param_send(wma->wmi_handle,
+					  &pdevparam,
+					  WMA_WILDCARD_PDEV_ID);
+	if (QDF_IS_STATUS_ERROR(ret)) {
+		wma_err("Fail to set txtd start timestamp %d", ts);
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	wma_debug("Succeed to set txtd start timestamp %d", ts);
+
+	return QDF_STATUS_SUCCESS;
+}

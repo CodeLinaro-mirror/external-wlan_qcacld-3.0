@@ -1909,6 +1909,12 @@ static QDF_STATUS hdd_dis_connect_handler(struct hdd_adapter *adapter,
 
 	hdd_set_disconnect_status(adapter, false);
 
+	if (ucfg_mlme_is_rvr_optimize_support(hdd_ctx->psoc) &&
+	    MAC_CONTEXT(mac_handle)->is_rvr_optimize_enabled) {
+		sme_set_txtd_start_timestamp(mac_handle, 0xff);
+		MAC_CONTEXT(mac_handle)->is_rvr_optimize_enabled = false;
+	}
+
 	return status;
 }
 #endif

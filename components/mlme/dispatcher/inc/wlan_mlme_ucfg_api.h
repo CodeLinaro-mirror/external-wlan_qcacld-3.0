@@ -4114,4 +4114,11 @@ ucfg_mlme_is_sta_mon_conc_supported(struct wlan_objmgr_psoc *psoc)
 	return wlan_mlme_is_sta_mon_conc_supported(psoc);
 }
 
+/*
+ * ucfg_mlme_is_rvr_optimize_support - Get rvr optimize support or not
+ * @psoc: pointer to psoc object
+ *
+ * Return: Support rvr optimize or not
+ */
+bool ucfg_mlme_is_rvr_optimize_support(struct wlan_objmgr_psoc *psoc);
 #endif /* _WLAN_MLME_UCFG_API_H_ */

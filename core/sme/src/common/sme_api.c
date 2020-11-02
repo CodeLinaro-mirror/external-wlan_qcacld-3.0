@@ -16127,3 +16127,21 @@ enum csr_cfgdot11mode sme_phy_mode_to_dot11mode(enum wlan_phymode phy_mode)
 	return csr_phy_mode_to_dot11mode(phy_mode);
 }
 
+QDF_STATUS sme_set_txtd_start_timestamp(mac_handle_t mac_handle, uint32_t ts)
+{
+	void *wma_handle;
+
+	wma_handle = cds_get_context(QDF_MODULE_ID_WMA);
+	if (!wma_handle) {
+		sme_err("wma_handle is NULL");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (QDF_STATUS_SUCCESS !=
+		wma_set_txtd_start_timestamp(wma_handle, ts)) {
+		sme_err_rl("Failed to set txtd start timestamp");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	return QDF_STATUS_SUCCESS;
+}

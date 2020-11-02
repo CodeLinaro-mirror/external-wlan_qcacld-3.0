@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -482,6 +482,77 @@
 			CFG_VALUE_OR_DEFAULT, \
 			"Max modulated dtim")
 
+/*
+ * <ini>
+ * g_enable_rvr_optimize - Support for RvR optimize
+ * @Min: 0
+ * @Max: 1
+ * @Default: 1
+ *
+ * This ini allow to optimize RvR.
+ *
+ * Related: None.
+ *
+ * Supported Feature: RvR
+ *
+ * Usage: Internal/External
+ *
+ * </ini>
+ */
+#define CFG_ENABLE_RVR_OPTIMIZE CFG_INI_BOOL( \
+	"gEnableRvrOptimize", \
+	0, \
+	"Support for RvR optimize")
+
+#define MAX_RVR_OPTIMIZE_VENDOR_OUI_INI_LEN 16
+
+/*
+ * <ini>
+ * g_rvr_optimize_vendor_oui - Specify RvR optimize vendor oui
+ * @Default: Empty string
+ *
+ * This ini specify RvR optimize vendor oui
+ *
+ * Related: Need to enable g_enable_rvr_optimize
+ *
+ * Supported Feature: RvR
+ *
+ * Usage: Internal/External
+ *
+ * </ini>
+ */
+#define CFG_RVR_OPTIMIZE_VENDOR_OUI CFG_INI_STRING( \
+	"gRvrOptimizeVendorOui", \
+	0, \
+	MAX_RVR_OPTIMIZE_VENDOR_OUI_INI_LEN, \
+	"", \
+	"Specify RvR optimize vendor oui")
+
+/*
+ * <ini>
+ * g_rvr_optimize_vendor_oui - Specify RvR optimize vendor oui
+ * @Min: 0
+ * @Max: 0xffffffff
+ * @Default: 0
+ *
+ * This ini specify RvR optimize vendor oui
+ *
+ * Related: Need to enable g_enable_rvr_optimize
+ *
+ * Supported Feature: RvR
+ *
+ * Usage: Internal/External
+ *
+ * </ini>
+ */
+#define CFG_TXTD_START_TIMESTAMP CFG_INI_UINT( \
+	"gTxtdStartTimestamp", \
+	0, \
+	0xffffffff, \
+	0, \
+	CFG_VALUE_OR_DEFAULT, \
+	"Txtd start timestamp")
+
 #define CFG_STA_ALL \
 	CFG(CFG_INFRA_STA_KEEP_ALIVE_PERIOD) \
 	CFG(CFG_TGT_GTX_USR_CFG) \
@@ -500,6 +571,9 @@
 	CFG(CFG_STA_KEEPALIVE_METHOD) \
 	CFG(CFG_WT_CNF_TIMEOUT) \
 	CFG(CFG_CURRENT_RSSI) \
-	CFG(CFG_TX_POWER_CTRL)
+	CFG(CFG_TX_POWER_CTRL) \
+	CFG(CFG_ENABLE_RVR_OPTIMIZE) \
+	CFG(CFG_RVR_OPTIMIZE_VENDOR_OUI) \
+	CFG(CFG_TXTD_START_TIMESTAMP)
 
 #endif /* CFG_MLME_STA_H__ */

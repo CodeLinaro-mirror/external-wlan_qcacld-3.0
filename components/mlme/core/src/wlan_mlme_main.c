@@ -1463,6 +1463,23 @@ mlme_init_product_details_cfg(struct wlan_mlme_product_details_cfg
 		      sizeof(product_details->model_number));
 }
 
+static void
+mlme_sta_parse_rvr_optimize_vendor_oui(struct wlan_objmgr_psoc *psoc,
+				       struct wlan_mlme_sta_cfg *sta)
+{
+	char rvr_optimize_vendor_oui[MAX_RVR_OPTIMIZE_VENDOR_OUI_INI_LEN] = {0};
+
+	qdf_str_lcopy(rvr_optimize_vendor_oui,
+		      cfg_get(psoc, CFG_RVR_OPTIMIZE_VENDOR_OUI),
+		      MAX_RVR_OPTIMIZE_VENDOR_OUI_INI_LEN);
+
+	sta->rvr_optimize_vendor_oui_length =
+		qdf_str_len(rvr_optimize_vendor_oui) / 2;
+	qdf_hex_str_to_binary(sta->rvr_optimize_vendor_oui,
+			      rvr_optimize_vendor_oui,
+			      sta->rvr_optimize_vendor_oui_length);
+}
+
 static void mlme_init_sta_cfg(struct wlan_objmgr_psoc *psoc,
 			      struct wlan_mlme_sta_cfg *sta)
 {
@@ -1500,6 +1517,9 @@ static void mlme_init_sta_cfg(struct wlan_objmgr_psoc *psoc,
 	sta->allow_tpc_from_ap = cfg_get(psoc, CFG_TX_POWER_CTRL);
 	sta->sta_keepalive_method =
 		cfg_get(psoc, CFG_STA_KEEPALIVE_METHOD);
+	sta->support_rvr_optimize = cfg_get(psoc, CFG_ENABLE_RVR_OPTIMIZE);
+	mlme_sta_parse_rvr_optimize_vendor_oui(psoc, sta);
+	sta->txtd_start_timestamp = cfg_get(psoc, CFG_TXTD_START_TIMESTAMP);
 }
 
 static void mlme_init_stats_cfg(struct wlan_objmgr_psoc *psoc,

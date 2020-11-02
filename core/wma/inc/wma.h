@@ -2560,3 +2560,11 @@ QDF_STATUS wma_send_ani_level_request(tp_wma_handle wma_handle,
 QDF_STATUS wma_vdev_detach(struct del_vdev_params *pdel_vdev_req_param);
 #endif
 
+/**
+ * wma_set_txtd_start_timestamp - set txtd start timestamp
+ * @wma_handle: wma handle
+ * @ts: txtd start timestamp
+ *
+ * Return: QDF status
+ */
+QDF_STATUS wma_set_txtd_start_timestamp(void *wma_handle, uint32_t ts);
