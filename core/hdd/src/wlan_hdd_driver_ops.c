@@ -1722,7 +1722,7 @@ wlan_hdd_pld_uevent(struct device *dev, struct pld_uevent_data *event_data)
 		hdd_info("Received firmware down indication");
 
 		for (i = 0; i <= MGMT_EVENT_LOG; i++)
-			hdd_ioctl_log_buffer(i, 1024);
+			hdd_ioctl_log_buffer(i, 128);
 
 		/* NOTE! SSR cleanup logic goes in pld shutdown, not here */
 
