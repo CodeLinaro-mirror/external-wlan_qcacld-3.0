@@ -2150,7 +2150,7 @@ static inline void wma_print_wmi_cmd_log(uint32_t count,
 	t_wma_handle *wma = cds_get_context(QDF_MODULE_ID_WMA);
 
 	if (wma) {
-		print(print_priv, "Command Log (count %u)", count);
+		WMA_LOGI("Command Log (count %u)", count);
 		wmi_print_cmd_log(wma->wmi_handle, count, print, print_priv);
 	}
 }
@@ -2162,7 +2162,7 @@ static inline void wma_print_wmi_cmd_tx_cmp_log(uint32_t count,
 	t_wma_handle *wma = cds_get_context(QDF_MODULE_ID_WMA);
 
 	if (wma) {
-		print(print_priv, "Command Tx Complete Log (count %u)", count);
+		WMA_LOGI("Command Tx Complete Log (count %u)", count);
 		wmi_print_cmd_tx_cmp_log(wma->wmi_handle, count, print,
 					 print_priv);
 	}
@@ -2175,7 +2175,7 @@ static inline void wma_print_wmi_mgmt_cmd_log(uint32_t count,
 	t_wma_handle *wma = cds_get_context(QDF_MODULE_ID_WMA);
 
 	if (wma) {
-		print(print_priv, "Management Command Log (count %u)", count);
+		WMA_LOGI("Management Command Log (count %u)", count);
 		wmi_print_mgmt_cmd_log(wma->wmi_handle, count, print,
 				       print_priv);
 	}
@@ -2188,7 +2188,7 @@ static inline void wma_print_wmi_mgmt_cmd_tx_cmp_log(uint32_t count,
 	t_wma_handle *wma = cds_get_context(QDF_MODULE_ID_WMA);
 
 	if (wma) {
-		print(print_priv,
+		WMI_LOGI(
 		"Management Command Tx Complete Log (count %u)", count);
 		wmi_print_mgmt_cmd_tx_cmp_log(wma->wmi_handle, count, print,
 					      print_priv);
@@ -2202,7 +2202,7 @@ static inline void wma_print_wmi_event_log(uint32_t count,
 	t_wma_handle *wma = cds_get_context(QDF_MODULE_ID_WMA);
 
 	if (wma) {
-		print(print_priv, "Event Log (count %u)", count);
+		WMA_LOGI("Event Log (count %u)", count);
 		wmi_print_event_log(wma->wmi_handle, count, print, print_priv);
 	}
 }
@@ -2214,7 +2214,7 @@ static inline void wma_print_wmi_rx_event_log(uint32_t count,
 	t_wma_handle *wma = cds_get_context(QDF_MODULE_ID_WMA);
 
 	if (wma) {
-		print(print_priv, "Rx Event Log (count %u)", count);
+		WMA_LOGI("Rx Event Log (count %u)", count);
 		wmi_print_rx_event_log(wma->wmi_handle, count, print,
 				       print_priv);
 	}
@@ -2227,7 +2227,7 @@ static inline void wma_print_wmi_mgmt_event_log(uint32_t count,
 	t_wma_handle *wma = cds_get_context(QDF_MODULE_ID_WMA);
 
 	if (wma) {
-		print(print_priv, "Management Event Log (count %u)", count);
+		WMA_LOGI("Management Event Log (count %u)", count);
 		wmi_print_mgmt_event_log(wma->wmi_handle, count, print,
 					 print_priv);
 	}
