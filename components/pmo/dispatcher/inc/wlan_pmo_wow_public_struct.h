@@ -251,6 +251,9 @@ struct pmo_wow {
 
 	uint8_t ptrn_id_def;
 	uint8_t ptrn_id_usr;
+
+	bool wow_reason_parsed;
+	int32_t wow_reason;
 };
 
 /* WOW related structures */

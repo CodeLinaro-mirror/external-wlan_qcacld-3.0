@@ -1092,8 +1092,7 @@ typedef struct {
 	bool fw_therm_throt_support;
 	bool enable_tx_compl_tsf64;
 #ifdef CUSTOMIZED_WOW
-	uint32_t wake_reason;
-	uint32_t proto_subtype;
+	uint32_t wow_proto;
 #endif
 } t_wma_handle, *tp_wma_handle;
 

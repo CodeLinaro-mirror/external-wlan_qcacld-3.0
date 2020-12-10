@@ -901,3 +901,32 @@ ucfg_pmo_get_gpio_wakeup_mode(struct wlan_objmgr_psoc *psoc)
 	return pmo_psoc_ctx->psoc_cfg.gpio_wakeup_mode;
 }
 #endif
+
+void ucfg_pmo_update_wow_reason_parsed(struct wlan_objmgr_psoc *psoc,
+				       bool value)
+{
+	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
+
+	pmo_core_update_wow_reason_parsed(pmo_psoc_ctx, value);
+}
+
+bool ucfg_pmo_get_wow_reason_parsed(struct wlan_objmgr_psoc *psoc)
+{
+	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
+
+	return pmo_core_get_wow_reason_parsed(pmo_psoc_ctx);
+}
+
+void ucfg_pmo_update_wow_reason(struct wlan_objmgr_psoc *psoc, int32_t value)
+{
+	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
+
+	pmo_core_update_wow_reason(pmo_psoc_ctx, value);
+}
+
+int32_t ucfg_pmo_get_wow_reason(struct wlan_objmgr_psoc *psoc)
+{
+	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
+
+	return pmo_core_get_wow_reason(pmo_psoc_ctx);
+}

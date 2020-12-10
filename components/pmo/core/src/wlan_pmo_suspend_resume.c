@@ -733,6 +733,7 @@ pmo_core_enable_wow_in_fw(struct wlan_objmgr_psoc *psoc,
 	QDF_STATUS status;
 
 	pmo_enter();
+	pmo_core_update_wow_reason_parsed(psoc_ctx, false);
 	qdf_event_reset(&psoc_ctx->wow.target_suspend);
 	pmo_core_set_wow_nack(psoc_ctx, false);
 	host_credits = pmo_tgt_psoc_get_host_credits(psoc);

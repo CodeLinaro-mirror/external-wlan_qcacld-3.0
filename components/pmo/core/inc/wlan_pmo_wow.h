@@ -667,4 +667,45 @@ uint8_t pmo_get_num_wow_filters(struct wlan_objmgr_psoc *psoc);
 
 #endif /* WLAN_POWER_MANAGEMENT_OFFLOAD */
 
+static inline
+void pmo_core_update_wow_reason_parsed(struct pmo_psoc_priv_obj *psoc_ctx,
+				       bool value)
+{
+	qdf_spin_lock_bh(&psoc_ctx->lock);
+	psoc_ctx->wow.wow_reason_parsed = value;
+	qdf_spin_unlock_bh(&psoc_ctx->lock);
+}
+
+static inline
+bool pmo_core_get_wow_reason_parsed(struct pmo_psoc_priv_obj *psoc_ctx)
+{
+	bool wow_reason_parsed;
+
+	qdf_spin_lock_bh(&psoc_ctx->lock);
+	wow_reason_parsed = psoc_ctx->wow.wow_reason_parsed;
+	qdf_spin_unlock_bh(&psoc_ctx->lock);
+
+	return wow_reason_parsed;
+}
+
+static inline
+void pmo_core_update_wow_reason(struct pmo_psoc_priv_obj *psoc_ctx,
+				int32_t value)
+{
+	qdf_spin_lock_bh(&psoc_ctx->lock);
+	psoc_ctx->wow.wow_reason = value;
+	qdf_spin_unlock_bh(&psoc_ctx->lock);
+}
+
+static inline
+int32_t pmo_core_get_wow_reason(struct pmo_psoc_priv_obj *psoc_ctx)
+{
+	int32_t wow_reason;
+
+	qdf_spin_lock_bh(&psoc_ctx->lock);
+	wow_reason = psoc_ctx->wow.wow_reason;
+	qdf_spin_unlock_bh(&psoc_ctx->lock);
+
+	return wow_reason;
+}
 #endif /* end  of _WLAN_PMO_WOW_H_ */

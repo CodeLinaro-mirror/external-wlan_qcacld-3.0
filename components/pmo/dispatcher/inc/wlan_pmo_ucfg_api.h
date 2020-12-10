@@ -1131,6 +1131,12 @@ ucfg_pmo_get_active_uc_apf_mode(struct wlan_objmgr_psoc *psoc);
  */
 enum active_apf_mode
 ucfg_pmo_get_active_mc_bc_apf_mode(struct wlan_objmgr_psoc *psoc);
+
+void ucfg_pmo_update_wow_reason_parsed(struct wlan_objmgr_psoc *psoc,
+				       bool value);
+bool ucfg_pmo_get_wow_reason_parsed(struct wlan_objmgr_psoc *psoc);
+void ucfg_pmo_update_wow_reason(struct wlan_objmgr_psoc *psoc, int32_t value);
+int32_t ucfg_pmo_get_wow_reason(struct wlan_objmgr_psoc *psoc);
 #ifdef FEATURE_WLAN_APF
 /**
  * ucfg_pmo_is_apf_enabled() - to get apf configuration

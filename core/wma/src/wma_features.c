@@ -2150,7 +2150,7 @@ static void wma_wow_parse_data_pkt(t_wma_handle *wma,
 
 	proto_subtype = wma_wow_get_pkt_proto_subtype(data, length);
 #ifdef CUSTOMIZED_WOW
-	wma->proto_subtype = proto_subtype;
+	wma->wow_proto = proto_subtype;
 #endif
 	proto_subtype_name = wma_pkt_proto_subtype_to_string(proto_subtype);
 	if (proto_subtype_name)
@@ -2440,9 +2440,6 @@ static int wma_wake_event_packet(
 	case WOW_REASON_RA_MATCH:
 	case WOW_REASON_RECV_MAGIC_PATTERN:
 	case WOW_REASON_PACKET_FILTER_MATCH:
-#ifdef CUSTOMIZED_WOW
-		wma->wake_reason = wake_info->wake_reason;
-#endif
 		WMA_LOGD("Wake event packet:");
 		qdf_trace_hex_dump(QDF_MODULE_ID_WMA, QDF_TRACE_LEVEL_DEBUG,
 				   packet, packet_len);
@@ -2706,6 +2703,54 @@ static void wma_wake_event_log_reason(t_wma_handle *wma,
 	qdf_wma_wow_wakeup_stats_event(wma);
 }
 
+#ifdef CUSTOMIZED_WOW
+enum customized_wow_reason {
+	WOW_REASON_MAGIC = 0,
+	WOW_REASON_IPV4_UDP = 9,
+	WOW_REASON_IPV4_TCP = 10,
+	WOW_REASON_IPV6_UDP = 11,
+	WOW_REASON_IPV6_TCP = 12,
+};
+
+static int32_t wma_parse_wow_reason(t_wma_handle *wma, int32_t reason)
+{
+	int32_t wow_reason;
+
+	switch (reason) {
+	case WOW_REASON_RECV_MAGIC_PATTERN:
+		wow_reason = WOW_REASON_MAGIC;
+		break;
+	case WOW_REASON_PATTERN_MATCH_FOUND:
+		switch (wma->wow_proto) {
+		case QDF_PROTO_IPV4_UDP:
+			wow_reason = WOW_REASON_IPV4_UDP;
+			break;
+		case QDF_PROTO_IPV4_TCP:
+			wow_reason = WOW_REASON_IPV4_TCP;
+			break;
+		case QDF_PROTO_IPV6_UDP:
+			wow_reason = WOW_REASON_IPV6_UDP;
+			break;
+		case QDF_PROTO_IPV6_TCP:
+			wow_reason = WOW_REASON_IPV6_TCP;
+			break;
+		default:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+
+	return wow_reason;
+}
+#else
+static int32_t wma_parse_wow_reason(t_wma_handle *wma, int32_t reason)
+{
+	return reason;
+}
+#endif
+
 /**
  * wma_wow_wakeup_host_event() - wakeup host event handler
  * @handle: wma handle
@@ -2754,6 +2799,9 @@ int wma_wow_wakeup_host_event(void *handle, uint8_t *event, uint32_t len)
 	wma_inc_wow_stats(wma, wake_info);
 	wma_print_wow_stats(wma, wake_info);
 	wma_acquire_wow_wakelock(wma, wake_info->wake_reason);
+	ucfg_pmo_update_wow_reason(wma->psoc,
+		wma_parse_wow_reason(wma, wake_info->wake_reason));
+	ucfg_pmo_update_wow_reason_parsed(wma->psoc, true);
 
 	return errno;
 }
