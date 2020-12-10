@@ -2741,6 +2741,8 @@ int wma_wow_wakeup_host_event(void *handle, uint8_t *event, uint32_t len)
 	wma_inc_wow_stats(wma, wake_info);
 	wma_print_wow_stats(wma, wake_info);
 	wma_acquire_wow_wakelock(wma, wake_info->wake_reason);
+	ucfg_pmo_update_wow_reason(wma->psoc, wake_info->wake_reason);
+	ucfg_pmo_update_wow_reason_parsed(wma->psoc, true);
 
 	return errno;
 }

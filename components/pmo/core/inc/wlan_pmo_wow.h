@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -667,4 +667,71 @@ uint8_t pmo_get_num_wow_filters(struct wlan_objmgr_psoc *psoc);
 
 #endif /* WLAN_POWER_MANAGEMENT_OFFLOAD */
 
+/**
+ * pmo_core_update_wow_reason_parsed() - set wow reason if parsed
+ * @psoc_ctx: pointer to objmgr psoc handle
+ * @value: set true if wow reason parsed or false if not
+ *
+ * Return: none
+ */
+static inline
+void pmo_core_update_wow_reason_parsed(struct pmo_psoc_priv_obj *psoc_ctx,
+				       bool value)
+{
+	qdf_spin_lock_bh(&psoc_ctx->lock);
+	psoc_ctx->wow.wow_reason_parsed = value;
+	qdf_spin_unlock_bh(&psoc_ctx->lock);
+}
+
+/**
+ * pmo_core_get_wow_reason_parsed() - get wow reason if parsed
+ * @psoc_ctx: pointer to objmgr psoc handle
+ *
+ * Return: true if wow reason parsed or false if not
+ */
+static inline
+bool pmo_core_get_wow_reason_parsed(struct pmo_psoc_priv_obj *psoc_ctx)
+{
+	bool wow_reason_parsed;
+
+	qdf_spin_lock_bh(&psoc_ctx->lock);
+	wow_reason_parsed = psoc_ctx->wow.wow_reason_parsed;
+	qdf_spin_unlock_bh(&psoc_ctx->lock);
+
+	return wow_reason_parsed;
+}
+
+/**
+ * pmo_core_update_wow_reason() - update wow reason
+ * @psoc_ctx: pointer to objmgr psoc handle
+ * @value: wow reason
+ *
+ * Return: void
+ */
+static inline
+void pmo_core_update_wow_reason(struct pmo_psoc_priv_obj *psoc_ctx,
+				int32_t value)
+{
+	qdf_spin_lock_bh(&psoc_ctx->lock);
+	psoc_ctx->wow.wow_reason = value;
+	qdf_spin_unlock_bh(&psoc_ctx->lock);
+}
+
+/**
+ * pmo_core_get_wow_reason() - get wow reason
+ * @psoc_ctx: pointer to objmgr psoc handle
+ *
+ * Return: wow reason
+ */
+static inline
+int32_t pmo_core_get_wow_reason(struct pmo_psoc_priv_obj *psoc_ctx)
+{
+	int32_t wow_reason;
+
+	qdf_spin_lock_bh(&psoc_ctx->lock);
+	wow_reason = psoc_ctx->wow.wow_reason;
+	qdf_spin_unlock_bh(&psoc_ctx->lock);
+
+	return wow_reason;
+}
 #endif /* end  of _WLAN_PMO_WOW_H_ */

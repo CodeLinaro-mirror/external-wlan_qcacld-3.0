@@ -9493,3 +9493,35 @@ QDF_STATUS wma_send_ani_level_request(tp_wma_handle wma_handle,
 					      num_freqs);
 }
 #endif
+
+#define POLL_WOW_REASON_MAX 10
+int wma_get_wow_reason(int32_t *reason)
+{
+	tp_wma_handle wma;
+	int32_t wow_reason = -1;
+	uint32_t poll_wow_reason = 0;
+
+	wma = cds_get_context(QDF_MODULE_ID_WMA);
+
+	if (!wma) {
+		wma_err("Invalid wma handle");
+		*reason = wow_reason;
+		return -EINVAL;
+	}
+
+	while (poll_wow_reason++ < POLL_WOW_REASON_MAX) {
+		if (ucfg_pmo_get_wow_reason_parsed(wma->psoc)) {
+			wow_reason = ucfg_pmo_get_wow_reason(wma->psoc);
+			break;
+		}
+
+		qdf_mdelay(100);
+	}
+
+	if (poll_wow_reason == POLL_WOW_REASON_MAX)
+		wma_err("failed to get wow reaon due to timeout");
+
+	*reason = wow_reason;
+
+	return 0;
+}

@@ -1808,6 +1808,8 @@
  */
 #define WE_GET_RANGE_EXT                61
 
+#define WE_GET_WOW_REASON 62
+
 /* Private ioctls and their sub-ioctls */
 #define WLAN_PRIV_SET_INT_GET_INT     (SIOCIWFIRSTPRIV + 2)
 
@@ -5782,6 +5784,9 @@ static int __iw_setnone_getint(struct net_device *dev,
 					     WMI_VDEV_PARAM_HE_RANGE_EXT,
 					     VDEV_CMD);
 		break;
+	case WE_GET_WOW_REASON:
+		wma_get_wow_reason(value);
+		break;
 	default:
 	{
 		hdd_err("Invalid IOCTL get_value command %d",
@@ -9739,6 +9744,11 @@ static const struct iw_priv_args we_private_args[] = {
 	 0,
 	 IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
 	 "get_range_ext"},
+
+	{WE_GET_WOW_REASON,
+	 0,
+	 IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1,
+	 "get_wow_reason"},
 
 	/* handlers for main ioctl */
 	{WLAN_PRIV_SET_CHAR_GET_NONE,

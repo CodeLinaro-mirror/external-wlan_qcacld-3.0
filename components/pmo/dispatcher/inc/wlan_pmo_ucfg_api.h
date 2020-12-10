@@ -1123,6 +1123,41 @@ ucfg_pmo_get_active_uc_apf_mode(struct wlan_objmgr_psoc *psoc);
  */
 enum active_apf_mode
 ucfg_pmo_get_active_mc_bc_apf_mode(struct wlan_objmgr_psoc *psoc);
+
+/**
+ * ucfg_pmo_update_wow_reason_parsed() - set wow reason if parsed
+ * @psoc_ctx: pointer to objmgr psoc handle
+ * @value: set true if wow reason parsed or false if not
+ *
+ * Return: none
+ */
+void ucfg_pmo_update_wow_reason_parsed(struct wlan_objmgr_psoc *psoc,
+				       bool value);
+
+/**
+ * ucfg_pmo_get_wow_reason_parsed() - get wow reason if parsed
+ * @psoc_ctx: pointer to objmgr psoc handle
+ *
+ * Return: true if wow reason parsed or false if not
+ */
+bool ucfg_pmo_get_wow_reason_parsed(struct wlan_objmgr_psoc *psoc);
+
+/**
+ * ucfg_pmo_update_wow_reason() - update wow reason
+ * @psoc_ctx: pointer to objmgr psoc handle
+ * @value: wow reason
+ *
+ * Return: void
+ */
+void ucfg_pmo_update_wow_reason(struct wlan_objmgr_psoc *psoc, int32_t value);
+
+/**
+ * ucfg_pmo_get_wow_reason() - get wow reason
+ * @psoc_ctx: pointer to objmgr psoc handle
+ *
+ * Return: wow reason
+ */
+int32_t ucfg_pmo_get_wow_reason(struct wlan_objmgr_psoc *psoc);
 #ifdef FEATURE_WLAN_APF
 /**
  * ucfg_pmo_is_apf_enabled() - to get apf configuration

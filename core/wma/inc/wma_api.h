@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -829,4 +829,11 @@ QDF_STATUS wma_vdev_self_peer_create(struct vdev_mlme_obj *vdev_mlme);
  */
 void wma_cleanup_vdev(struct wlan_objmgr_vdev *vdev);
 
+/**
+ *wma_get_wow_reason() - get wow reason
+ *@reason: pointer to the reason
+ *
+ *  Return: 0 on success and non-zero for error
+ */
+int wma_get_wow_reason(int32_t *reason);
 #endif /* WMA_API_H */
