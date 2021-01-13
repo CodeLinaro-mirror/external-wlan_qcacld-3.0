@@ -3154,4 +3154,15 @@ QDF_STATUS mlme_save_vdev_max_mcs_idx(struct wlan_objmgr_vdev *vdev,
  */
 uint8_t mlme_get_vdev_max_mcs_idx(struct wlan_objmgr_vdev *vdev);
 #endif /* WLAN_FEATURE_SON */
+
+/*
+ * wlan_mlme_is_local_tpe_pref() - Get preference to use local TPE or
+ * regulatory TPE values
+ * @psoc: pointer to psoc object
+ *
+ * Return: True if there is local preference, false if there is regulatory
+ * preference
+ */
+bool wlan_mlme_is_local_tpe_pref(struct wlan_objmgr_psoc *psoc);
+
 #endif /* _WLAN_MLME_API_H_ */

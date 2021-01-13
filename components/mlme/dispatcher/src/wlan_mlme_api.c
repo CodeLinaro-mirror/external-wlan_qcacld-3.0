@@ -4877,3 +4877,14 @@ uint8_t mlme_get_vdev_max_mcs_idx(struct wlan_objmgr_vdev *vdev)
 	return mlme_priv->max_mcs_index;
 }
 #endif /* WLAN_FEATURE_SON */
+
+bool wlan_mlme_is_local_tpe_pref(struct wlan_objmgr_psoc *psoc)
+{
+	struct wlan_mlme_psoc_ext_obj *mlme_obj;
+
+	mlme_obj = mlme_get_psoc_ext_obj(psoc);
+	if (!mlme_obj)
+		return false;
+
+	return mlme_obj->cfg.power.use_local_tpe;
+}
