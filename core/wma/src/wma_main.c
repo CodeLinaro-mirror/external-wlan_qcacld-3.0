@@ -6833,6 +6833,12 @@ int wma_rx_service_ready_ext_event(void *handle, uint8_t *event,
 		wlan_res_cfg->pktcapture_support = false;
 	wlan_res_cfg->max_peer_ext_stats = WMA_SON_MAX_PEER_EXT_STATS;
 
+	if (wmi_service_enabled(wmi_handle,
+				wmi_service_sae_eapol_offload_support))
+		wlan_res_cfg->sae_eapol_offload = true;
+	else
+		wlan_res_cfg->sae_eapol_offload = false;
+
 	wma_debug("num_vdevs: %u", wlan_res_cfg->num_vdevs);
 
 	wma_init_dbr_params(wma_handle);
