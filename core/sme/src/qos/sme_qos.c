@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -890,6 +890,21 @@ QDF_STATUS sme_qos_msg_processor(struct mac_context *mac_ctx,
 	return status;
 }
 
+/**
+ * sme_qos_process_disconnect_roam_ind() - Delete the existing TSPEC
+ * flows when roaming due to disconnect is complete.
+ * @mac - Pointer to the global MAC parameter structure.
+ * @vdev_id: Vdev id
+ *
+ * Return: None
+ */
+static void
+sme_qos_process_disconnect_roam_ind(struct mac_context *mac,
+				    uint8_t vdev_id)
+{
+	sme_qos_delete_existing_flows(mac, vdev_id);
+}
+
 /*
  * sme_qos_csr_event_ind() - The QoS sub-module in SME expects notifications
  * from CSR when certain events occur as mentioned in sme_qos_csr_event_indType.
@@ -960,6 +975,10 @@ QDF_STATUS sme_qos_csr_event_ind(struct mac_context *mac,
 		status =
 			sme_qos_process_set_key_success_ind(mac, sessionId,
 							    pEvent_info);
+		break;
+	case SME_QOS_CSR_DISCONNECT_ROAM_COMPLETE:
+		sme_qos_process_disconnect_roam_ind(mac, sessionId);
+		status = QDF_STATUS_SUCCESS;
 		break;
 	default:
 		/* Err msg */
@@ -3839,6 +3858,11 @@ void sme_send_mscs_action_frame(uint8_t vdev_id)
 		return;
 
 	mscs_req->vdev_id = vdev_id;
+	if (!qos_session->assocInfo.bss_desc) {
+		sme_err("BSS descriptor is NULL so we won't send request to PE");
+		qdf_mem_free(mscs_req);
+		return;
+	}
 	qdf_mem_copy(&mscs_req->bssid.bytes[0],
 		     &qos_session->assocInfo.bss_desc->bssId[0],
 		     sizeof(struct qdf_mac_addr));
@@ -3882,9 +3906,6 @@ static QDF_STATUS sme_qos_add_ts_req(struct mac_context *mac,
 	tSirAddtsReq *pMsg = NULL;
 	struct sme_qos_sessioninfo *pSession;
 	QDF_STATUS status = QDF_STATUS_E_FAILURE;
-#ifdef FEATURE_WLAN_ESE
-	struct csr_roam_session *pCsrSession = CSR_GET_SESSION(mac, sessionId);
-#endif
 #ifdef FEATURE_WLAN_DIAG_SUPPORT
 	WLAN_HOST_DIAG_EVENT_DEF(qos, host_event_wlan_qos_payload_type);
 #endif
@@ -3965,7 +3986,7 @@ static QDF_STATUS sme_qos_add_ts_req(struct mac_context *mac,
 		  __func__, __LINE__,
 		  pTspec_Info->ts_info.up, pTspec_Info->ts_info.tid);
 #ifdef FEATURE_WLAN_ESE
-	if (pCsrSession->connectedProfile.isESEAssoc) {
+	if (wlan_cm_get_ese_assoc(mac->pdev, sessionId)) {
 		pMsg->req.tsrsIE.tsid = pTspec_Info->ts_info.up;
 		pMsg->req.tsrsPresent = 1;
 	}
@@ -5348,9 +5369,9 @@ static QDF_STATUS sme_qos_process_add_ts_success_rsp(struct mac_context *mac,
 	enum qca_wlan_ac_type ac, ac_index;
 	struct sme_qos_searchinfo search_key;
 	struct sme_qos_searchinfo search_key1;
-	struct csr_roam_session *csr_session;
 	uint8_t tspec_pending;
 	tListElem *pEntry = NULL;
+	enum QDF_OPMODE opmode;
 	struct sme_qos_flowinfoentry *flow_info = NULL;
 	enum sme_qos_wmmuptype up =
 		(enum sme_qos_wmmuptype) pRsp->tspec.tsinfo.traffic.userPrio;
@@ -5573,10 +5594,9 @@ static QDF_STATUS sme_qos_process_add_ts_success_rsp(struct mac_context *mac,
 	sme_qos_state_transition(sessionId, ac, SME_QOS_QOS_ON);
 
 	/* Inform this TSPEC IE change to FW */
-	csr_session = CSR_GET_SESSION(mac, sessionId);
-	if ((csr_session) && (csr_session->pCurRoamProfile) &&
-	    (csr_session->pCurRoamProfile->csrPersona == QDF_STA_MODE))
-		csr_roam_update_cfg(mac, sessionId,
+	opmode = wlan_get_opmode_from_vdev_id(mac->pdev, sessionId);
+	if (opmode == QDF_STA_MODE)
+		wlan_roam_update_cfg(mac->psoc, sessionId,
 				    REASON_CONNECT_IES_CHANGED);
 
 	(void)sme_qos_process_buffered_cmd(sessionId);
@@ -6490,8 +6510,7 @@ static QDF_STATUS sme_qos_save_assoc_info(struct sme_qos_sessioninfo *pSession,
 	qdf_mem_copy(bss_desc, pAssoc_info->bss_desc, bssLen);
 	pSession->assocInfo.bss_desc = bss_desc;
 	/* save the apsd info from assoc */
-	if (pAssoc_info->pProfile)
-		pSession->apsdMask |= pAssoc_info->pProfile->uapsd_mask;
+	pSession->apsdMask |= pAssoc_info->uapsd_mask;
 
 	/* [TODO] Do we need to update the global APSD bitmap? */
 	return QDF_STATUS_SUCCESS;
@@ -7556,7 +7575,6 @@ static QDF_STATUS sme_qos_request_reassoc(struct mac_context *mac,
 	struct sme_qos_acinfo *pACInfo;
 	QDF_STATUS status;
 	struct csr_roam_session *session;
-	tCsrRoamConnectedProfile connected_profile;
 	struct csr_roam_profile *roam_profile;
 	bool roam_offload_enable = true;
 
@@ -7576,12 +7594,11 @@ static QDF_STATUS sme_qos_request_reassoc(struct mac_context *mac,
 	if (roam_offload_enable) {
 		session = CSR_GET_SESSION(mac, sessionId);
 		roam_profile = session->pCurRoamProfile;
-		connected_profile = session->connectedProfile;
 		status = sme_fast_reassoc(MAC_HANDLE(mac), roam_profile,
-					  connected_profile.bssid.bytes,
-					  connected_profile.op_freq,
-					  sessionId,
-					  connected_profile.bssid.bytes);
+				session->connectedProfile.bssid.bytes,
+				session->connectedProfile.op_freq,
+				sessionId,
+				session->connectedProfile.bssid.bytes);
 	} else {
 		status = csr_reassoc(mac, sessionId, pModFields,
 				     &pSession->roamID, fForce);

@@ -710,9 +710,6 @@ lim_fill_sme_assoc_ind_params(
 		sme_assoc_ind->assocReqPtr = assoc_ind->assocReqPtr;
 	}
 
-	sme_assoc_ind->beaconPtr = session_entry->beacon;
-	sme_assoc_ind->beaconLength = session_entry->bcnLen;
-
 	/* Fill in peerMacAddr */
 	qdf_mem_copy(sme_assoc_ind->peerMacAddr, assoc_ind->peerMacAddr,
 		sizeof(tSirMacAddr));
@@ -1280,7 +1277,7 @@ QDF_STATUS lim_sta_handle_connect_fail(join_params *param)
 		 * make sure PE is sending eWNI_SME_JOIN_RSP
 		 * to SME
 		 */
-		lim_cleanup_rx_path(mac_ctx, sta_ds, session);
+		lim_cleanup_rx_path(mac_ctx, sta_ds, session, true);
 		qdf_mem_free(session->lim_join_req);
 		session->lim_join_req = NULL;
 		/* Cleanup if add bss failed */
@@ -1974,7 +1971,14 @@ void lim_process_ap_mlm_add_sta_rsp(struct mac_context *mac,
 	 * 2) PE receives eWNI_SME_ASSOC_CNF from SME
 	 * 3) BTAMP-AP sends Re/Association Response to BTAMP-STA
 	 */
-	lim_send_mlm_assoc_ind(mac, sta, pe_session);
+	if (lim_send_mlm_assoc_ind(mac, sta, pe_session) != QDF_STATUS_SUCCESS)
+		lim_reject_association(mac, sta->staAddr,
+				       sta->mlmStaContext.subType,
+				       true, sta->mlmStaContext.authType,
+				       sta->assocId, true,
+				       STATUS_UNSPECIFIED_FAILURE,
+				       pe_session);
+
 	/* fall though to reclaim the original Add STA Response message */
 end:
 	if (0 != limMsgQ->bodyptr) {
@@ -2016,7 +2020,8 @@ static void lim_process_ap_mlm_add_bss_rsp(struct mac_context *mac,
 		pe_session->limSystemRole = eLIM_AP_ROLE;
 
 		sch_edca_profile_update(mac, pe_session);
-		lim_init_pre_auth_list(mac);
+		/* For dual AP case, delete pre auth node if any */
+		lim_delete_pre_auth_list(mac);
 		/* Check the SAP security configuration.If configured to
 		 * WEP then max clients supported is 16
 		 */
@@ -2845,6 +2850,7 @@ void lim_process_switch_channel_rsp(struct mac_context *mac,
 	QDF_STATUS status;
 	uint16_t channelChangeReasonCode;
 	struct pe_session *pe_session;
+	struct wlan_channel *vdev_chan;
 	/* we need to process the deferred message since the initiating req. there might be nested request. */
 	/* in the case of nested request the new request initiated from the response will take care of resetting */
 	/* the deffered flag. */
@@ -2862,6 +2868,18 @@ void lim_process_switch_channel_rsp(struct mac_context *mac,
 	pe_session->chainMask = rsp->chain_mask;
 	pe_session->smpsMode = rsp->smps_mode;
 	pe_session->channelChangeReasonCode = 0xBAD;
+
+	vdev_chan = wlan_vdev_mlme_get_des_chan(pe_session->vdev);
+
+	if (WLAN_REG_IS_24GHZ_CH_FREQ(vdev_chan->ch_freq)) {
+		if (vdev_chan->ch_phymode == WLAN_PHYMODE_11B)
+			pe_session->nwType = eSIR_11B_NW_TYPE;
+		else
+			pe_session->nwType = eSIR_11G_NW_TYPE;
+	} else {
+		pe_session->nwType = eSIR_11A_NW_TYPE;
+	}
+	pe_debug("new network type for peer: %d", pe_session->nwType);
 	switch (channelChangeReasonCode) {
 	case LIM_SWITCH_CHANNEL_REASSOC:
 		lim_process_switch_channel_re_assoc_req(mac, pe_session, status);

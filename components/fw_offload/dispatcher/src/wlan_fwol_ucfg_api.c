@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -252,29 +252,6 @@ ucfg_fwol_get_thermal_temp(struct wlan_objmgr_psoc *psoc,
 }
 
 QDF_STATUS
-ucfg_fwol_get_neighbor_report_cfg(struct wlan_objmgr_psoc *psoc,
-				  struct wlan_fwol_neighbor_report_cfg
-				  *fwol_neighbor_report_cfg)
-{
-	struct wlan_fwol_psoc_obj *fwol_obj;
-	QDF_STATUS status = QDF_STATUS_SUCCESS;
-
-	if (!fwol_neighbor_report_cfg)
-		return QDF_STATUS_E_FAILURE;
-
-	fwol_obj = fwol_get_psoc_obj(psoc);
-	if (!fwol_obj) {
-		fwol_err("Failed to get fwol obj");
-		fwol_init_neighbor_report_cfg(psoc, fwol_neighbor_report_cfg);
-		status =  QDF_STATUS_E_FAILURE;
-	} else {
-		*fwol_neighbor_report_cfg = fwol_obj->cfg.neighbor_report_cfg;
-	}
-
-	return status;
-}
-
-QDF_STATUS
 ucfg_fwol_is_neighbor_report_req_supported(struct wlan_objmgr_psoc *psoc,
 					   bool *neighbor_report_req)
 {
@@ -356,6 +333,36 @@ static QDF_STATUS ucfg_fwol_get_ilp_config(struct wlan_objmgr_psoc *psoc,
 	}
 
 	*enable_ilp = fwol_obj->cfg.enable_ilp;
+	return QDF_STATUS_SUCCESS;
+}
+
+static QDF_STATUS ucfg_fwol_get_sap_sho(struct wlan_objmgr_psoc *psoc,
+					uint32_t *sap_sho)
+{
+	struct wlan_fwol_psoc_obj *fwol_obj;
+
+	fwol_obj = fwol_get_psoc_obj(psoc);
+	if (!fwol_obj) {
+		fwol_err("Failed to get FWOL obj");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	*sap_sho = fwol_obj->cfg.sap_sho;
+	return QDF_STATUS_SUCCESS;
+}
+
+static QDF_STATUS ucfg_fwol_get_hw_assist_config(struct wlan_objmgr_psoc *psoc,
+						 bool *disable_hw_assist)
+{
+	struct wlan_fwol_psoc_obj *fwol_obj;
+
+	fwol_obj = fwol_get_psoc_obj(psoc);
+	if (!fwol_obj) {
+		fwol_err("Failed to get FWOL obj");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	*disable_hw_assist = fwol_obj->cfg.disable_hw_assist;
 	return QDF_STATUS_SUCCESS;
 }
 
@@ -1042,11 +1049,19 @@ QDF_STATUS ucfg_fwol_configure_global_params(struct wlan_objmgr_psoc *psoc,
 	QDF_STATUS status;
 	bool value;
 
+	/* Configure ILP feature in FW */
 	status = ucfg_fwol_get_ilp_config(psoc, &value);
 	if (QDF_IS_STATUS_ERROR(status))
 		return status;
-
 	status = fwol_set_ilp_config(pdev, value);
+	if (QDF_IS_STATUS_ERROR(status))
+		return status;
+
+	/* Configure HW assist feature in FW */
+	status = ucfg_fwol_get_hw_assist_config(psoc, &value);
+	if (QDF_IS_STATUS_ERROR(status))
+		return status;
+	status = fwol_configure_hw_assist(pdev, value);
 	if (QDF_IS_STATUS_ERROR(status))
 		return status;
 
@@ -1058,5 +1073,18 @@ QDF_STATUS ucfg_fwol_configure_vdev_params(struct wlan_objmgr_psoc *psoc,
 					   enum QDF_OPMODE device_mode,
 					   uint8_t vdev_id)
 {
-	return QDF_STATUS_SUCCESS;
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	uint32_t value;
+
+	if (device_mode == QDF_SAP_MODE) {
+		status = ucfg_fwol_get_sap_sho(psoc, &value);
+		if (QDF_IS_STATUS_ERROR(status))
+			return status;
+
+		status = fwol_set_sap_sho(psoc, vdev_id, value);
+		if (QDF_IS_STATUS_ERROR(status))
+			return status;
+	}
+
+	return status;
 }

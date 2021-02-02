@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -116,6 +116,18 @@ uint8_t wlan_mlme_get_tx_power(struct wlan_objmgr_psoc *psoc,
  * Return: pointer to character array of power usage
  */
 char *wlan_mlme_get_power_usage(struct wlan_objmgr_psoc *psoc);
+
+/**
+ * wlan_mlme_get_enable_deauth_to_disassoc_map() - Get the deauth to disassoc
+ * map
+ * @psoc: pointer to psoc object
+ * @value: pointer to the value which will be filled for the caller
+ *
+ * Return: QDF Status
+ */
+QDF_STATUS
+wlan_mlme_get_enable_deauth_to_disassoc_map(struct wlan_objmgr_psoc *psoc,
+					    bool *value);
 
 /**
  * wlan_mlme_get_ht_cap_info() - Get the HT cap info config
@@ -545,6 +557,16 @@ QDF_STATUS wlan_mlme_set_assoc_sta_limit(struct wlan_objmgr_psoc *psoc,
 					 int value);
 
 /**
+ * wlan_mlme_get_assoc_sta_limit() - Get the assoc sta limit
+ * @psoc: pointer to psoc object
+ * @value: Pointer to value that needs to be filled by MLME
+ *
+ * Return: QDF Status
+ */
+QDF_STATUS wlan_mlme_get_assoc_sta_limit(struct wlan_objmgr_psoc *psoc,
+					 int *value);
+
+/**
  * wlan_mlme_set_sap_get_peer_info() - get the sap get peer info
  * @psoc: pointer to psoc object
  * @value: Value that needs to be set from the caller
@@ -822,15 +844,6 @@ QDF_STATUS wlan_mlme_get_bigtk_support(struct wlan_objmgr_psoc *psoc,
  * Return: True if capability is supported, else False
  */
 bool wlan_mlme_get_host_scan_abort_support(struct wlan_objmgr_psoc *psoc);
-
-/**
- * wlan_mlme_get_peer_create_conf_support  - Get if the firmware supports
- * peer create confirm event
- * @psoc: PSOC object pointer
- *
- * Return: True if capability is supported, else False
- */
-bool wlan_mlme_get_peer_create_conf_support(struct wlan_objmgr_psoc *psoc);
 
 /**
  * wlan_mlme_get_dual_sta_roam_support  - Get support for dual sta roaming
@@ -3029,4 +3042,30 @@ QDF_STATUS mlme_get_ext_opr_rate(struct wlan_objmgr_vdev *vdev, uint8_t *dst,
 QDF_STATUS mlme_set_ext_opr_rate(struct wlan_objmgr_vdev *vdev, uint8_t *src,
 				 qdf_size_t len);
 
+/**
+ * wlan_mlme_is_sta_mon_conc_supported() - Check if STA + Monitor mode
+ * concurrency is supported
+ * @psoc: pointer to psoc object
+ *
+ * Return: True if supported
+ */
+bool wlan_mlme_is_sta_mon_conc_supported(struct wlan_objmgr_psoc *psoc);
+
+#ifdef WLAN_SUPPORT_TWT
+/**
+ * mlme_is_twt_enabled() - Get if TWT is enabled via ini.
+ * @psoc: pointer to psoc object
+ * @val: pointer to the value to be filled
+ *
+ * Return: True if TWT is enabled else false.
+ */
+bool
+mlme_is_twt_enabled(struct wlan_objmgr_psoc *psoc);
+#else
+static inline bool
+mlme_is_twt_enabled(struct wlan_objmgr_psoc *psoc)
+{
+	return false;
+}
+#endif /* WLAN_SUPPORT_TWT */
 #endif /* _WLAN_MLME_API_H_ */

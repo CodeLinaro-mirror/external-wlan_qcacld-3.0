@@ -544,7 +544,7 @@ void lim_update_bcn_probe_filter(struct mac_context *mac_ctx,
 struct pe_session *pe_create_session(struct mac_context *mac,
 				     uint8_t *bssid, uint8_t *sessionId,
 				     uint16_t numSta, enum bss_type bssType,
-				     uint8_t vdev_id, enum QDF_OPMODE opmode)
+				     uint8_t vdev_id)
 {
 	QDF_STATUS status;
 	uint8_t i;
@@ -603,7 +603,6 @@ struct pe_session *pe_create_session(struct mac_context *mac,
 	*sessionId = i;
 	session_ptr->peSessionId = i;
 	session_ptr->bssType = bssType;
-	session_ptr->opmode = opmode;
 	session_ptr->gLimPhyMode = WNI_CFG_PHY_MODE_11G;
 	/* Initialize CB mode variables when session is created */
 	session_ptr->htSupportedChannelWidthSet = 0;
@@ -612,18 +611,12 @@ struct pe_session *pe_create_session(struct mac_context *mac,
 #ifdef FEATURE_WLAN_TDLS
 	qdf_mem_zero(session_ptr->peerAIDBitmap,
 		    sizeof(session_ptr->peerAIDBitmap));
-	session_ptr->tdls_prohibited = false;
-	session_ptr->tdls_chan_swit_prohibited = false;
 #endif
 	lim_update_tdls_set_state_for_fw(session_ptr, true);
 	session_ptr->fWaitForProbeRsp = 0;
 	session_ptr->fIgnoreCapsChange = 0;
 	session_ptr->is_session_obss_color_collision_det_enabled =
 		mac->mlme_cfg->obss_ht40.obss_color_collision_offload_enabled;
-
-	pe_debug("Create PE session: %d opmode %d vdev_id %d  BSSID: "QDF_MAC_ADDR_FMT" Max No of STA: %d",
-		 *sessionId, opmode, vdev_id, QDF_MAC_ADDR_REF(bssid),
-		 numSta);
 
 	if (bssType == eSIR_INFRA_AP_MODE) {
 		session_ptr->pSchProbeRspTemplate =
@@ -653,6 +646,12 @@ struct pe_session *pe_create_session(struct mac_context *mac,
 	session_ptr->vdev = vdev;
 	session_ptr->vdev_id = vdev_id;
 	session_ptr->mac_ctx = mac;
+	session_ptr->opmode = wlan_vdev_mlme_get_opmode(vdev);
+	mlme_set_tdls_chan_switch_prohibited(vdev, false);
+	mlme_set_tdls_prohibited(vdev, false);
+	pe_debug("Create PE session: %d opmode %d vdev_id %d  BSSID: "QDF_MAC_ADDR_FMT" Max No of STA: %d",
+		 *sessionId, session_ptr->opmode, vdev_id,
+		 QDF_MAC_ADDR_REF(bssid), numSta);
 
 	if (eSIR_INFRASTRUCTURE_MODE == bssType)
 		lim_ft_open(mac, &mac->lim.gpSession[i]);

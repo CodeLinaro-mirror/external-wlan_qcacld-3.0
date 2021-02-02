@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -43,6 +43,7 @@
 #include "../../core/src/vdev_mgr_ops.h"
 #include "wlan_pmo_ucfg_api.h"
 #include "wlan_objmgr_vdev_obj.h"
+#include <wlan_cm_api.h>
 
 static void lim_process_mlm_auth_req(struct mac_context *, uint32_t *);
 static void lim_process_mlm_assoc_req(struct mac_context *, uint32_t *);
@@ -53,17 +54,39 @@ static void lim_process_auth_rsp_timeout(struct mac_context *, uint32_t);
 static void lim_process_periodic_join_probe_req_timer(struct mac_context *);
 static void lim_process_auth_retry_timer(struct mac_context *);
 
-static void lim_fill_status_code(enum tx_ack_status ack_status,
+static void lim_fill_status_code(uint8_t frame_type,
+				 enum tx_ack_status ack_status,
 				 enum wlan_status_code *proto_status_code)
 {
-	if (ack_status == LIM_TX_FAILED)
-		*proto_status_code = STATUS_AUTH_TX_FAIL;
-	else if (ack_status == LIM_ACK_RCD_FAILURE)
-		*proto_status_code = STATUS_AUTH_NO_ACK_RECEIVED;
-	else if (ack_status == LIM_ACK_RCD_SUCCESS)
-		*proto_status_code = STATUS_AUTH_NO_RESP_RECEIVED;
-	else
-		*proto_status_code = STATUS_UNSPECIFIED_FAILURE;
+	if (frame_type == SIR_MAC_MGMT_AUTH) {
+		switch (ack_status) {
+		case LIM_TX_FAILED:
+			*proto_status_code = STATUS_AUTH_TX_FAIL;
+			break;
+		case LIM_ACK_RCD_FAILURE:
+			*proto_status_code = STATUS_AUTH_NO_ACK_RECEIVED;
+			break;
+		case LIM_ACK_RCD_SUCCESS:
+			*proto_status_code = STATUS_AUTH_NO_RESP_RECEIVED;
+			break;
+		default:
+			*proto_status_code = STATUS_UNSPECIFIED_FAILURE;
+		}
+	} else if (frame_type == SIR_MAC_MGMT_ASSOC_RSP) {
+		switch (ack_status) {
+		case LIM_TX_FAILED:
+			*proto_status_code = STATUS_ASSOC_TX_FAIL;
+			break;
+		case LIM_ACK_RCD_FAILURE:
+			*proto_status_code = STATUS_ASSOC_NO_ACK_RECEIVED;
+			break;
+		case LIM_ACK_RCD_SUCCESS:
+			*proto_status_code = STATUS_ASSOC_NO_RESP_RECEIVED;
+			break;
+		default:
+			*proto_status_code = STATUS_UNSPECIFIED_FAILURE;
+		}
+	}
 }
 
 /**
@@ -91,7 +114,8 @@ static void lim_process_sae_auth_timeout(struct mac_context *mac_ctx)
 
 	switch (session->limMlmState) {
 	case eLIM_MLM_WT_SAE_AUTH_STATE:
-		lim_fill_status_code(mac_ctx->auth_ack_status,
+		lim_fill_status_code(SIR_MAC_MGMT_AUTH,
+				     mac_ctx->auth_ack_status,
 				     &proto_status_code);
 		/*
 		 * SAE authentication is not completed. Restore from
@@ -269,7 +293,7 @@ lim_mlm_add_bss(struct mac_context *mac_ctx,
 	return eSIR_SME_SUCCESS;
 
 peer_cleanup:
-	wma_remove_bss_peer_on_vdev_start_failure(wma, vdev_id);
+	wma_remove_bss_peer_on_failure(wma, vdev_id);
 send_fail_resp:
 	wma_send_add_bss_resp(wma, vdev_id, QDF_STATUS_E_FAILURE);
 
@@ -325,33 +349,21 @@ end:
 		lim_send_start_bss_confirm(mac_ctx, &mlm_start_cnf);
 }
 
-/**
- * lim_post_join_set_link_state_callback()- registered callback to perform post
- * peer creation operations
- *
- * @mac: pointer to global mac structure
- * @callback_arg: registered callback argument
- * @status: peer creation status
- *
- * this is registered callback function during association to perform
- * post peer creation operation based on the peer creation status
- *
- * Return: none
- */
-static void lim_post_join_set_link_state_callback(
-		struct mac_context *mac,
-		struct pe_session *session_entry, QDF_STATUS status)
+void
+lim_post_join_set_link_state_callback(struct mac_context *mac, uint32_t vdev_id,
+				      QDF_STATUS status)
 {
 	tLimMlmJoinCnf mlm_join_cnf;
+	struct pe_session *session_entry;
 
+	session_entry = pe_find_session_by_vdev_id(mac, vdev_id);
 	if (!session_entry) {
-		pe_err("sessionId is NULL");
+		pe_err("vdev_id:%d PE session is NULL", vdev_id);
 		return;
 	}
 
 	if (QDF_IS_STATUS_ERROR(status)) {
-		pe_err("failed to find pe session for session id:%d",
-			session_entry->peSessionId);
+		pe_err("vdev%d: Failed to create peer", session_entry->vdev_id);
 		goto failure;
 	}
 
@@ -359,8 +371,7 @@ static void lim_post_join_set_link_state_callback(
 	 * store the channel switch session_entry in the lim
 	 * global variable
 	 */
-	session_entry->channelChangeReasonCode =
-			 LIM_SWITCH_CHANNEL_JOIN;
+	session_entry->channelChangeReasonCode = LIM_SWITCH_CHANNEL_JOIN;
 	session_entry->pLimMlmReassocRetryReq = NULL;
 	lim_send_switch_chnl_params(mac, session_entry);
 
@@ -376,38 +387,53 @@ failure:
 	lim_post_sme_message(mac, LIM_MLM_JOIN_CNF, (uint32_t *) &mlm_join_cnf);
 }
 
-/**
- * lim_process_mlm_post_join_suspend_link() - This function is called after the
- * suspend link while joining off channel.
- * @mac_ctx:    Pointer to Global MAC structure
- * @session:     session
- *
- * This function does following:
- *   Check for suspend state.
- *   If success, proceed with setting link state to receive the
- *   probe response/beacon from intended AP.
- *   Switch to the APs channel.
- *   On an error case, send the MLM_JOIN_CNF with error status.
- *
- * @Return None
- */
+#ifdef FEATURE_CM_ENABLE
+void lim_send_peer_create_resp(struct mac_context *mac, uint8_t vdev_id,
+			       QDF_STATUS status, uint8_t *peer_mac)
+{
+	struct wlan_objmgr_vdev *vdev;
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(mac->psoc,
+						    vdev_id,
+						    WLAN_LEGACY_MAC_ID);
+	wlan_cm_bss_peer_create_rsp(vdev, status,
+				    (struct qdf_mac_addr *)peer_mac);
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_LEGACY_MAC_ID);
+}
+
 static void
 lim_process_mlm_post_join_suspend_link(struct mac_context *mac_ctx,
 				       struct pe_session *session)
 {
-	QDF_STATUS status;
-
 	lim_deactivate_and_change_timer(mac_ctx, eLIM_JOIN_FAIL_TIMER);
 
 	/* assign appropriate sessionId to the timer object */
 	mac_ctx->lim.lim_timers.gLimJoinFailureTimer.sessionId =
 		session->peSessionId;
 
-	status = wma_add_bss_peer_sta(session->vdev_id, session->bssId);
-	lim_post_join_set_link_state_callback(mac_ctx, session, status);
-
-	return;
+	lim_post_join_set_link_state_callback(mac_ctx, session->vdev_id,
+					      QDF_STATUS_SUCCESS);
 }
+#else
+void lim_send_peer_create_resp(struct mac_context *mac, uint8_t vdev_id,
+			       QDF_STATUS status, uint8_t *peer_mac)
+{
+	lim_post_join_set_link_state_callback(mac, vdev_id, status);
+}
+
+static void
+lim_process_mlm_post_join_suspend_link(struct mac_context *mac_ctx,
+				       struct pe_session *session)
+{
+	lim_deactivate_and_change_timer(mac_ctx, eLIM_JOIN_FAIL_TIMER);
+
+	/* assign appropriate sessionId to the timer object */
+	mac_ctx->lim.lim_timers.gLimJoinFailureTimer.sessionId =
+		session->peSessionId;
+
+	wma_add_bss_peer_sta(session->vdev_id, session->bssId);
+}
+#endif
 
 /**
  * lim_process_mlm_join_req() - process mlm join request.
@@ -654,7 +680,7 @@ static void lim_process_mlm_auth_req(struct mac_context *mac_ctx, uint32_t *msg)
 {
 	uint32_t num_preauth_ctx;
 	tSirMacAddr curr_bssid;
-	tSirMacAuthFrameBody auth_frame_body;
+	tSirMacAuthFrameBody *auth_frame_body;
 	tLimMlmAuthCnf mlm_auth_cnf;
 	struct tLimPreAuthNode *preauth_node = NULL;
 	uint8_t session_id;
@@ -688,6 +714,10 @@ static void lim_process_mlm_auth_req(struct mac_context *mac_ctx, uint32_t *msg)
 		 * Unexpected auth request.
 		 * Return Auth confirm with Invalid parameters code.
 		 */
+		pe_err("Auth req not expected is_privacy_enabled %d is_auth_open_system %d auth type %d",
+			mac_ctx->mlme_cfg->wep_params.is_privacy_enabled,
+			mac_ctx->mlme_cfg->wep_params.is_auth_open_system,
+			mac_ctx->lim.gpLimMlmAuthReq->authType);
 		mlm_auth_cnf.resultCode = eSIR_SME_INVALID_PARAMETERS;
 		goto end;
 	}
@@ -723,22 +753,30 @@ static void lim_process_mlm_auth_req(struct mac_context *mac_ctx, uint32_t *msg)
 
 	session->limPrevMlmState = session->limMlmState;
 
+	auth_frame_body = qdf_mem_malloc(sizeof(*auth_frame_body));
+	if (!auth_frame_body) {
+		pe_err("mem alloc failed for auth frame body");
+		return;
+	}
+
 	if ((mac_ctx->lim.gpLimMlmAuthReq->authType == eSIR_AUTH_TYPE_SAE) &&
 	     !session->sae_pmk_cached) {
 		if (lim_process_mlm_auth_req_sae(mac_ctx, session) !=
 					QDF_STATUS_SUCCESS) {
 			mlm_auth_cnf.resultCode = eSIR_SME_INVALID_PARAMETERS;
+			qdf_mem_free(auth_frame_body);
 			goto end;
 		} else {
 			pe_debug("lim_process_mlm_auth_req_sae is successful");
-			auth_frame_body.authAlgoNumber = eSIR_AUTH_TYPE_SAE;
-			auth_frame_body.authTransactionSeqNumber =
+			auth_frame_body->authAlgoNumber = eSIR_AUTH_TYPE_SAE;
+			auth_frame_body->authTransactionSeqNumber =
 							SIR_MAC_AUTH_FRAME_1;
-			auth_frame_body.authStatusCode = 0;
-			host_log_wlan_auth_info(auth_frame_body.authAlgoNumber,
-				auth_frame_body.authTransactionSeqNumber,
-				auth_frame_body.authStatusCode);
+			auth_frame_body->authStatusCode = 0;
+			host_log_wlan_auth_info(auth_frame_body->authAlgoNumber,
+				auth_frame_body->authTransactionSeqNumber,
+				auth_frame_body->authStatusCode);
 
+			qdf_mem_free(auth_frame_body);
 			return;
 		}
 	} else
@@ -750,21 +788,21 @@ static void lim_process_mlm_auth_req(struct mac_context *mac_ctx, uint32_t *msg)
 	/* Mark auth algo as open when auth type is SAE and PMK is cached */
 	if ((mac_ctx->lim.gpLimMlmAuthReq->authType == eSIR_AUTH_TYPE_SAE) &&
 	   session->sae_pmk_cached) {
-		auth_frame_body.authAlgoNumber = eSIR_OPEN_SYSTEM;
+		auth_frame_body->authAlgoNumber = eSIR_OPEN_SYSTEM;
 	} else {
-		auth_frame_body.authAlgoNumber =
+		auth_frame_body->authAlgoNumber =
 		(uint8_t) mac_ctx->lim.gpLimMlmAuthReq->authType;
 	}
 
 	/* Prepare & send Authentication frame */
-	auth_frame_body.authTransactionSeqNumber = SIR_MAC_AUTH_FRAME_1;
-	auth_frame_body.authStatusCode = 0;
-	host_log_wlan_auth_info(auth_frame_body.authAlgoNumber,
-				auth_frame_body.authTransactionSeqNumber,
-				auth_frame_body.authStatusCode);
+	auth_frame_body->authTransactionSeqNumber = SIR_MAC_AUTH_FRAME_1;
+	auth_frame_body->authStatusCode = 0;
+	host_log_wlan_auth_info(auth_frame_body->authAlgoNumber,
+				auth_frame_body->authTransactionSeqNumber,
+				auth_frame_body->authStatusCode);
 	mac_ctx->auth_ack_status = LIM_ACK_NOT_RCD;
 	lim_send_auth_mgmt_frame(mac_ctx,
-		&auth_frame_body, mac_ctx->lim.gpLimMlmAuthReq->peerMacAddr,
+		auth_frame_body, mac_ctx->lim.gpLimMlmAuthReq->peerMacAddr,
 		LIM_NO_WEP_IN_FC, session);
 
 	/* assign appropriate session_id to the timer object */
@@ -792,6 +830,8 @@ static void lim_process_mlm_auth_req(struct mac_context *mac_ctx, uint32_t *msg)
 							      != TX_SUCCESS)
 			pe_err("could not activate Auth Retry timer");
 	}
+
+	qdf_mem_free(auth_frame_body);
 
 	return;
 end:
@@ -1081,7 +1121,7 @@ lim_process_mlm_disassoc_req_ntf(struct mac_context *mac_ctx,
 		send_disassoc_frame = 1;
 		/* Receive path cleanup with dummy packet */
 		if (QDF_STATUS_SUCCESS !=
-		    lim_cleanup_rx_path(mac_ctx, stads, session)) {
+		    lim_cleanup_rx_path(mac_ctx, stads, session, true)) {
 			mlm_disassoccnf.resultCode =
 				eSIR_SME_RESOURCES_UNAVAILABLE;
 			goto end;
@@ -1645,7 +1685,7 @@ static void lim_handle_sae_auth_timeout(struct mac_context *mac_ctx,
 	struct sae_auth_retry *sae_retry;
 
 	sae_retry = mlme_get_sae_auth_retry(session_entry->vdev);
-	if (!(sae_retry && sae_retry->sae_auth.data)) {
+	if (!(sae_retry && sae_retry->sae_auth.ptr)) {
 		pe_debug("sae auth frame is not buffered vdev id %d",
 			 session_entry->vdev_id);
 		return;
@@ -1654,7 +1694,7 @@ static void lim_handle_sae_auth_timeout(struct mac_context *mac_ctx,
 	pe_debug("retry sae auth for seq num %d vdev id %d",
 		 mac_ctx->mgmtSeqNum, session_entry->vdev_id);
 	lim_send_frame(mac_ctx, session_entry->vdev_id,
-		       sae_retry->sae_auth.data, sae_retry->sae_auth.len);
+		       sae_retry->sae_auth.ptr, sae_retry->sae_auth.len);
 
 	sae_retry->sae_auth_max_retry--;
 	/* Activate Auth Retry timer if max_retries are not done */
@@ -1697,33 +1737,41 @@ static void lim_process_auth_retry_timer(struct mac_context *mac_ctx)
 	if (tx_timer_running(&mac_ctx->lim.lim_timers.gLimAuthFailureTimer) &&
 	    (session_entry->limMlmState == eLIM_MLM_WT_AUTH_FRAME2_STATE) &&
 	     (LIM_ACK_RCD_SUCCESS != mac_ctx->auth_ack_status)) {
-		tSirMacAuthFrameBody    auth_frame;
-
 		/*
 		 * Send the auth retry only in case we have received ack failure
 		 * else just restart the retry timer.
 		 */
 		if (((mac_ctx->auth_ack_status == LIM_ACK_RCD_FAILURE) ||
 		     (mac_ctx->auth_ack_status == LIM_TX_FAILED)) &&
-		    mac_ctx->lim.gpLimMlmAuthReq) {
+		      mac_ctx->lim.gpLimMlmAuthReq) {
+			tSirMacAuthFrameBody *auth_frame;
+
 			auth_type = mac_ctx->lim.gpLimMlmAuthReq->authType;
+
+			auth_frame = qdf_mem_malloc(sizeof(*auth_frame));
+			if (!auth_frame) {
+				pe_err("malloc failed for auth_frame");
+				return;
+			}
 
 			/* Prepare & send Authentication frame */
 			if (session_entry->sae_pmk_cached &&
 			    auth_type == eSIR_AUTH_TYPE_SAE)
-				auth_frame.authAlgoNumber = eSIR_OPEN_SYSTEM;
+				auth_frame->authAlgoNumber = eSIR_OPEN_SYSTEM;
 			else
-				auth_frame.authAlgoNumber = (uint8_t)auth_type;
+				auth_frame->authAlgoNumber = (uint8_t)auth_type;
 
-			auth_frame.authTransactionSeqNumber =
+			auth_frame->authTransactionSeqNumber =
 						SIR_MAC_AUTH_FRAME_1;
-			auth_frame.authStatusCode = 0;
+			auth_frame->authStatusCode = 0;
 			pe_debug("Retry Auth");
 			mac_ctx->auth_ack_status = LIM_ACK_NOT_RCD;
 			lim_increase_fils_sequence_number(session_entry);
-			lim_send_auth_mgmt_frame(mac_ctx, &auth_frame,
+			lim_send_auth_mgmt_frame(mac_ctx, auth_frame,
 				mac_ctx->lim.gpLimMlmAuthReq->peerMacAddr,
 				LIM_NO_WEP_IN_FC, session_entry);
+
+			qdf_mem_free(auth_frame);
 		}
 
 		lim_deactivate_and_change_timer(mac_ctx, eLIM_AUTH_RETRY_TIMER);
@@ -1792,7 +1840,8 @@ void lim_process_auth_failure_timeout(struct mac_context *mac_ctx)
 			}
 			mac_ctx->mlme_cfg->timeouts.auth_failure_timeout = val;
 		}
-		lim_fill_status_code(mac_ctx->auth_ack_status,
+		lim_fill_status_code(SIR_MAC_MGMT_AUTH,
+				     mac_ctx->auth_ack_status,
 				     &proto_status_code);
 		lim_restore_from_auth_state(mac_ctx,
 				eSIR_SME_AUTH_TIMEOUT_RESULT_CODE,
@@ -1968,7 +2017,8 @@ void lim_process_assoc_failure_timeout(struct mac_context *mac_ctx,
 			lim_delete_pre_auth_node(mac_ctx,
 						 session->bssId);
 		}
-		lim_fill_status_code(mac_ctx->assoc_ack_status,
+		lim_fill_status_code(SIR_MAC_MGMT_ASSOC_RSP,
+				     mac_ctx->assoc_ack_status,
 				     &proto_status_code);
 
 		mlm_assoc_cnf.resultCode = eSIR_SME_ASSOC_TIMEOUT_RESULT_CODE;

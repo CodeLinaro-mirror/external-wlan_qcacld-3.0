@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -88,6 +88,20 @@ char *wlan_mlme_get_power_usage(struct wlan_objmgr_psoc *psoc)
 		return NULL;
 
 	return mlme_obj->cfg.power.power_usage.data;
+}
+
+QDF_STATUS
+wlan_mlme_get_enable_deauth_to_disassoc_map(struct wlan_objmgr_psoc *psoc,
+					    bool *value)
+{
+	struct wlan_mlme_psoc_ext_obj *mlme_obj;
+
+	mlme_obj = mlme_get_psoc_ext_obj(psoc);
+	if (!mlme_obj)
+		return QDF_STATUS_E_INVAL;
+
+	*value = mlme_obj->cfg.gen.enable_deauth_to_disassoc_map;
+	return QDF_STATUS_SUCCESS;
 }
 
 QDF_STATUS wlan_mlme_get_ht_cap_info(struct wlan_objmgr_psoc *psoc,
@@ -472,8 +486,6 @@ wlan_mlme_update_cfg_with_tgt_caps(struct wlan_objmgr_psoc *psoc,
 	mlme_obj->cfg.gen.bigtk_support = tgt_caps->bigtk_support;
 	mlme_obj->cfg.gen.stop_all_host_scan_support =
 			tgt_caps->stop_all_host_scan_support;
-	mlme_obj->cfg.gen.peer_create_conf_support =
-			tgt_caps->peer_create_conf_support;
 	mlme_obj->cfg.gen.dual_sta_roam_fw_support =
 			tgt_caps->dual_sta_roam_fw_support;
 
@@ -579,10 +591,6 @@ QDF_STATUS mlme_update_tgt_he_caps_in_cfg(struct wlan_objmgr_psoc *psoc,
 			mlme_obj->cfg.he_caps.dot11_he_cap.twt_request);
 	mlme_obj->cfg.he_caps.dot11_he_cap.twt_request = value;
 
-	value = QDF_MIN(he_cap->twt_responder,
-			mlme_obj->cfg.he_caps.dot11_he_cap.twt_responder);
-	mlme_obj->cfg.he_caps.dot11_he_cap.twt_responder = value;
-
 	value = QDF_MIN(he_cap->fragmentation,
 			mlme_obj->cfg.he_caps.he_dynamic_fragmentation);
 
@@ -613,8 +621,14 @@ QDF_STATUS mlme_update_tgt_he_caps_in_cfg(struct wlan_objmgr_psoc *psoc,
 	mlme_obj->cfg.he_caps.dot11_he_cap.trigd_rsp_sched =
 					he_cap->trigd_rsp_sched;
 	mlme_obj->cfg.he_caps.dot11_he_cap.a_bsr = he_cap->a_bsr;
-	mlme_obj->cfg.he_caps.dot11_he_cap.broadcast_twt =
-					he_cap->broadcast_twt;
+
+	value = QDF_MIN(he_cap->broadcast_twt,
+			mlme_obj->cfg.he_caps.dot11_he_cap.broadcast_twt);
+	mlme_obj->cfg.he_caps.dot11_he_cap.broadcast_twt = value;
+
+	mlme_obj->cfg.he_caps.dot11_he_cap.flex_twt_sched =
+			he_cap->flex_twt_sched;
+
 	mlme_obj->cfg.he_caps.dot11_he_cap.ba_32bit_bitmap =
 					he_cap->ba_32bit_bitmap;
 	mlme_obj->cfg.he_caps.dot11_he_cap.mu_cascade = he_cap->mu_cascade;
@@ -626,8 +640,6 @@ QDF_STATUS mlme_update_tgt_he_caps_in_cfg(struct wlan_objmgr_psoc *psoc,
 		mlme_obj->cfg.he_caps.dot11_he_cap.max_ampdu_len_exp_ext =
 					he_cap->max_ampdu_len_exp_ext;
 	mlme_obj->cfg.he_caps.dot11_he_cap.amsdu_frag = he_cap->amsdu_frag;
-	mlme_obj->cfg.he_caps.dot11_he_cap.flex_twt_sched =
-					he_cap->flex_twt_sched;
 	mlme_obj->cfg.he_caps.dot11_he_cap.rx_ctrl_frame =
 					he_cap->rx_ctrl_frame;
 	mlme_obj->cfg.he_caps.dot11_he_cap.bsrp_ampdu_aggr =
@@ -1745,6 +1757,20 @@ QDF_STATUS wlan_mlme_set_assoc_sta_limit(struct wlan_objmgr_psoc *psoc,
 	return QDF_STATUS_SUCCESS;
 }
 
+QDF_STATUS wlan_mlme_get_assoc_sta_limit(struct wlan_objmgr_psoc *psoc,
+					 int *value)
+{
+	struct wlan_mlme_psoc_ext_obj *mlme_obj;
+
+	mlme_obj = mlme_get_psoc_ext_obj(psoc);
+	if (!mlme_obj)
+		return QDF_STATUS_E_FAILURE;
+
+	*value = mlme_obj->cfg.sap_cfg.assoc_sta_limit;
+
+	return QDF_STATUS_SUCCESS;
+}
+
 QDF_STATUS wlan_mlme_get_sap_get_peer_info(struct wlan_objmgr_psoc *psoc,
 					   bool *value)
 {
@@ -2097,16 +2123,6 @@ bool wlan_mlme_get_host_scan_abort_support(struct wlan_objmgr_psoc *psoc)
 	return mlme_obj->cfg.gen.stop_all_host_scan_support;
 }
 
-bool wlan_mlme_get_peer_create_conf_support(struct wlan_objmgr_psoc *psoc)
-{
-	struct wlan_mlme_psoc_ext_obj *mlme_obj = mlme_get_psoc_ext_obj(psoc);
-
-	if (!mlme_obj)
-		return false;
-
-	return mlme_obj->cfg.gen.peer_create_conf_support;
-}
-
 bool wlan_mlme_get_dual_sta_roam_support(struct wlan_objmgr_psoc *psoc)
 {
 	struct wlan_mlme_psoc_ext_obj *mlme_obj = mlme_get_psoc_ext_obj(psoc);
@@ -2274,10 +2290,8 @@ QDF_STATUS wlan_mlme_set_rts_threshold(struct wlan_objmgr_psoc *psoc,
 
 	wma_handle = cds_get_context(QDF_MODULE_ID_WMA);
 
-	if (!wma_handle) {
-		wma_err("wma_handle is NULL");
+	if (!wma_handle)
 		return QDF_STATUS_E_INVAL;
-	}
 
 	mlme_obj = mlme_get_psoc_ext_obj(psoc);
 
@@ -2312,10 +2326,8 @@ QDF_STATUS wlan_mlme_set_frag_threshold(struct wlan_objmgr_psoc *psoc,
 
 	wma_handle = cds_get_context(QDF_MODULE_ID_WMA);
 
-	if (!wma_handle) {
-		wma_err("wma_handle is NULL");
+	if (!wma_handle)
 		return QDF_STATUS_E_INVAL;
-	}
 
 	mlme_obj = mlme_get_psoc_ext_obj(psoc);
 
@@ -3699,9 +3711,9 @@ void mlme_get_converted_timestamp(uint32_t timestamp, char *time)
 	secs = timestamp / 1000;
 	mins = secs / 60;
 	hr = mins / 60;
-	qdf_snprintf(time, TIME_STRING_LEN, "[%02d:%02d:%02d.%06u]",
-		     (hr % 24), (mins % 60), (secs % 60),
-		     (timestamp % 1000) * 1000);
+	qdf_snprint(time, TIME_STRING_LEN, "[%02d:%02d:%02d.%06u]",
+		    (hr % 24), (mins % 60), (secs % 60),
+		    (timestamp % 1000) * 1000);
 }
 
 #if defined(WLAN_SAE_SINGLE_PMK) && defined(WLAN_FEATURE_ROAM_OFFLOAD)
@@ -4579,12 +4591,6 @@ QDF_STATUS mlme_get_opr_rate(struct wlan_objmgr_vdev *vdev, uint8_t *dst,
 		return QDF_STATUS_E_FAILURE;
 	}
 
-	if (*len < mlme_priv->opr_rate_set.len) {
-		mlme_legacy_err("Invalid len %zd, opr_rate len %zd",
-				*len, mlme_priv->opr_rate_set.len);
-		return QDF_STATUS_E_INVAL;
-	}
-
 	*len = mlme_priv->opr_rate_set.len;
 	qdf_mem_copy(dst, mlme_priv->opr_rate_set.data, *len);
 
@@ -4635,12 +4641,6 @@ QDF_STATUS mlme_get_ext_opr_rate(struct wlan_objmgr_vdev *vdev, uint8_t *dst,
 		return QDF_STATUS_E_FAILURE;
 	}
 
-	if (*len < mlme_priv->ext_opr_rate_set.len) {
-		mlme_legacy_err("Invalid len %zd, ext_opr_rate len %zd",
-				*len, mlme_priv->ext_opr_rate_set.len);
-		return QDF_STATUS_E_INVAL;
-	}
-
 	*len = mlme_priv->ext_opr_rate_set.len;
 	qdf_mem_copy(dst, mlme_priv->ext_opr_rate_set.data, *len);
 
@@ -4673,4 +4673,25 @@ QDF_STATUS mlme_set_ext_opr_rate(struct wlan_objmgr_vdev *vdev, uint8_t *src,
 	qdf_mem_copy(mlme_priv->ext_opr_rate_set.data, src, len);
 
 	return QDF_STATUS_SUCCESS;
+}
+
+static enum monitor_mode_concurrency
+wlan_mlme_get_monitor_mode_concurrency(struct wlan_objmgr_psoc *psoc)
+{
+	struct wlan_mlme_psoc_ext_obj *mlme_obj;
+
+	mlme_obj = mlme_get_psoc_ext_obj(psoc);
+	if (!mlme_obj)
+		return cfg_default(CFG_MONITOR_MODE_CONCURRENCY);
+
+	return mlme_obj->cfg.gen.monitor_mode_concurrency;
+}
+
+bool wlan_mlme_is_sta_mon_conc_supported(struct wlan_objmgr_psoc *psoc)
+{
+	if (wlan_mlme_get_monitor_mode_concurrency(psoc) ==
+						MONITOR_MODE_CONC_STA_SCAN_MON)
+		return true;
+
+	return false;
 }

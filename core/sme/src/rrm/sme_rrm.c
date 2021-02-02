@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -38,6 +38,7 @@
 #include <wlan_scan_utils_api.h>
 #include <wlan_reg_services_api.h>
 #include <wlan_utility.h>
+#include <../../core/src/wlan_cm_vdev_api.h>
 
 /* Roam score for a neighbor AP will be calculated based on the below
  * definitions. The calculated roam score will be used to select the
@@ -579,14 +580,24 @@ static QDF_STATUS sme_rrm_send_scan_result(struct mac_context *mac_ctx,
 	}
 
 	session = CSR_GET_SESSION(mac_ctx, session_id);
-	if ((!session) ||  (!csr_is_conn_state_connected_infra(
-	    mac_ctx, session_id)) ||
-	    (!session->pConnectBssDesc)) {
+
+	/* This is temp ifdef will be removed in near future */
+#ifdef FEATURE_CM_ENABLE
+	if (!session || !cm_is_vdevid_connected(mac_ctx->pdev, session_id) ||
+	    !session->pConnectBssDesc) {
 		sme_err("Invaild session");
 		status = QDF_STATUS_E_FAILURE;
 		goto rrm_send_scan_results_done;
 	}
-
+#else
+	if (!session ||
+	    !csr_is_conn_state_connected_infra(mac_ctx, session_id) ||
+	    !session->pConnectBssDesc) {
+		sme_err("Invaild session");
+		status = QDF_STATUS_E_FAILURE;
+		goto rrm_send_scan_results_done;
+	}
+#endif
 
 	while (scan_results) {
 		/*
@@ -1083,10 +1094,10 @@ QDF_STATUS sme_rrm_process_beacon_report_req_ind(struct mac_context *mac,
 	bool chan_valid;
 	uint32_t *rrm_freq_list, *local_rrm_freq_list;
 	uint32_t bcn_chan_freq, local_bcn_chan_freq;
-	tRrmPEContext rrm_context;
+	tpRrmPEContext rrm_ctx;
 
 	sme_rrm_ctx = &mac->rrm.rrmSmeContext[beacon_req->measurement_idx];
-	rrm_context = mac->rrm.rrmPEContext;
+	rrm_ctx = &mac->rrm.rrmPEContext;
 
 	status = csr_roam_get_session_id_from_bssid(mac, (struct qdf_mac_addr *)
 						    beacon_req->bssId,
@@ -1222,8 +1233,8 @@ QDF_STATUS sme_rrm_process_beacon_report_req_ind(struct mac_context *mac,
 		chan_valid = true;
 
 		if (beacon_req->measurement_idx > 0) {
-			for (j = 0; j < rrm_context.beacon_rpt_chan_num; j ++) {
-				if (rrm_context.beacon_rpt_chan_list[j] ==
+			for (j = 0; j < rrm_ctx->beacon_rpt_chan_num; j++) {
+				if (rrm_ctx->beacon_rpt_chan_list[j] ==
 				    local_bcn_chan_freq) {
 				/*
 				 * Ignore this channel, As this is already
@@ -1236,17 +1247,19 @@ QDF_STATUS sme_rrm_process_beacon_report_req_ind(struct mac_context *mac,
 		}
 
 		if (chan_valid) {
-			rrm_context.
-			beacon_rpt_chan_list[rrm_context.beacon_rpt_chan_num] =
-							local_bcn_chan_freq;
-			rrm_context.beacon_rpt_chan_num++;
+			uint8_t beacon_rpt_chan_num;
 
-			if (rrm_context.beacon_rpt_chan_num >=
+			beacon_rpt_chan_num = rrm_ctx->beacon_rpt_chan_num;
+			rrm_ctx->beacon_rpt_chan_list[beacon_rpt_chan_num] =
+						local_bcn_chan_freq;
+			rrm_ctx->beacon_rpt_chan_num++;
+
+			if (rrm_ctx->beacon_rpt_chan_num >=
 			    MAX_NUM_CHANNELS) {
 			    /* this should never happen */
 				sme_err("Reset beacon_rpt_chan_num : %d",
-					rrm_context.beacon_rpt_chan_num);
-				rrm_context.beacon_rpt_chan_num = 0;
+					rrm_ctx->beacon_rpt_chan_num);
+				rrm_ctx->beacon_rpt_chan_num = 0;
 			}
 			local_rrm_freq_list[local_num_channel] =
 							local_bcn_chan_freq;

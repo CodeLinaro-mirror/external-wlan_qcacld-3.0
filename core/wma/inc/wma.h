@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -67,8 +67,6 @@
  */
 #define WMA_MAC_TO_PDEV_MAP(x) ((x) + (1))
 #define WMA_PDEV_TO_MAC_MAP(x) ((x) - (1))
-
-#define WMA_MAX_MGMT_MPDU_LEN 2000
 
 #define MAX_PRINT_FAILURE_CNT 50
 
@@ -166,6 +164,9 @@
 #define WMA_PDEV_SET_HW_MODE_RESP 0x06
 #define WMA_PDEV_MAC_CFG_RESP 0x07
 
+#define WMA_PEER_CREATE_RESPONSE 0x08
+#define WMA_PEER_CREATE_RESPONSE_TIMEOUT SIR_PEER_CREATE_RESPONSE_TIMEOUT
+
 /* FW response timeout values in milli seconds */
 #define WMA_VDEV_PLCY_MGR_TIMEOUT        SIR_VDEV_PLCY_MGR_TIMEOUT
 #define WMA_VDEV_HW_MODE_REQUEST_TIMEOUT WMA_VDEV_PLCY_MGR_TIMEOUT
@@ -206,6 +207,8 @@
 #define WMA_DISASSOC_RECV_WAKE_LOCK_DURATION    WAKELOCK_DURATION_RECOMMENDED
 #define WMA_ROAM_HO_WAKE_LOCK_DURATION          (500)          /* in msec */
 #define WMA_ROAM_PREAUTH_WAKE_LOCK_DURATION     (2 * 1000)
+
+#define WMA_REASON_PROBE_REQ_WPS_IE_RECV_DURATION     (3 * 1000)
 
 #ifdef FEATURE_WLAN_AUTO_SHUTDOWN
 #define WMA_AUTO_SHUTDOWN_WAKE_LOCK_DURATION    WAKELOCK_DURATION_RECOMMENDED
@@ -967,6 +970,7 @@ typedef struct {
 	qdf_wake_lock_t wow_auto_shutdown_wl;
 	qdf_wake_lock_t roam_ho_wl;
 	qdf_wake_lock_t roam_preauth_wl;
+	qdf_wake_lock_t probe_req_wps_wl;
 	int wow_nack;
 	qdf_atomic_t is_wow_bus_suspended;
 #ifdef WLAN_FEATURE_LPSS
@@ -1038,6 +1042,18 @@ typedef struct {
 	bool fw_therm_throt_support;
 	bool enable_tx_compl_tsf64;
 } t_wma_handle, *tp_wma_handle;
+
+/**
+ * wma_validate_handle() - Validate WMA handle
+ * @wma_handle: wma handle
+ *
+ * This function will log on error and hence caller should not log on error
+ *
+ * Return: errno if WMA handle is NULL; 0 otherwise
+ */
+#define wma_validate_handle(wma_handle) \
+        __wma_validate_handle(wma_handle, __func__)
+int __wma_validate_handle(tp_wma_handle wma_handle, const char *func);
 
 /**
  * wma_vdev_nss_chain_params_send() - send vdev nss chain params to fw.
@@ -1418,10 +1434,6 @@ struct wma_roam_invoke_cmd {
 	bool forced_roaming;
 };
 
-A_UINT32 e_csr_auth_type_to_rsn_authmode(enum csr_akm_type authtype,
-					 eCsrEncryptionType encr);
-A_UINT32 e_csr_encryption_type_to_rsn_cipherset(eCsrEncryptionType encr);
-
 /**
  * wma_trigger_uapsd_params() - set trigger uapsd parameter
  * @wmi_handle: wma handle
@@ -1641,7 +1653,18 @@ void wma_process_set_pdev_vht_ie_req(tp_wma_handle wma,
 QDF_STATUS wma_remove_peer(tp_wma_handle wma, uint8_t *mac_addr,
 			   uint8_t vdev_id, bool no_fw_peer_delete);
 
-QDF_STATUS wma_create_peer(tp_wma_handle wma, uint8_t peer_addr[6],
+/**
+ * wma_create_peer() - Call wma_add_peer() to send peer create command to fw
+ * and setup cdp peer
+ * @wma: wma handle
+ * @peer_addr: peer mac address
+ * @peer_type: peer type
+ * @vdev_id: vdev id
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS wma_create_peer(tp_wma_handle wma,
+			   uint8_t peer_addr[QDF_MAC_ADDR_SIZE],
 			   u_int32_t peer_type, u_int8_t vdev_id);
 
 QDF_STATUS wma_peer_unmap_conf_cb(uint8_t vdev_id,
@@ -2471,8 +2494,8 @@ QDF_STATUS wma_post_chan_switch_setup(uint8_t vdev_id);
 QDF_STATUS wma_vdev_pre_start(uint8_t vdev_id, bool restart);
 
 /**
- * wma_remove_bss_peer_on_vdev_start_failure() - remove the bss peers in case of
- * vdev start request failure
+ * wma_remove_bss_peer_on_failure() - remove the bss peers in case of
+ * failure
  * @wma: wma handle.
  * @vdev_id: vdev id
  *
@@ -2481,8 +2504,7 @@ QDF_STATUS wma_vdev_pre_start(uint8_t vdev_id, bool restart);
  *
  * Return: None;
  */
-void wma_remove_bss_peer_on_vdev_start_failure(tp_wma_handle wma,
-					       uint8_t vdev_id);
+void wma_remove_bss_peer_on_failure(tp_wma_handle wma, uint8_t vdev_id);
 
 /**
  * wma_send_add_bss_resp() - send add bss failure

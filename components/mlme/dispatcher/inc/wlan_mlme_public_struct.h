@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -28,11 +28,12 @@
 #include <wmi_unified_param.h>
 #include <sir_api.h>
 #include "wlan_cm_roam_public_struct.h"
+#include "wlan_mlme_twt_public_struct.h"
+#include "cfg_mlme_generic.h"
+#include "host_diag_core_event.h"
 
 #define OWE_TRANSITION_OUI_TYPE "\x50\x6f\x9a\x1c"
 #define OWE_TRANSITION_OUI_SIZE 4
-
-#define CFG_VALID_CHANNEL_LIST_LEN              100
 
 #define CFG_PMKID_MODES_OKC                        (0x1)
 #define CFG_PMKID_MODES_PMKSA_CACHING              (0x2)
@@ -85,6 +86,30 @@
 #define CFG_VALID_CHANNEL_LIST_STRING_LEN (CFG_VALID_CHANNEL_LIST_LEN * 4)
 
 #define DEFAULT_ROAM_TRIGGER_BITMAP 0xFFFFFFFF
+
+/**
+ * detect AP off based FW reported last RSSI > roaming Low rssi
+ * and not less than 20db of host cached RSSI
+ */
+#define AP_OFF_RSSI_OFFSET 20
+
+enum diagwlan_status_eventsubtype {
+	DIAG_WLAN_STATUS_CONNECT = 0,
+	DIAG_WLAN_STATUS_DISCONNECT
+};
+
+enum diagwlan_status_eventreason {
+	DIAG_REASON_UNSPECIFIED = 0,
+	DIAG_REASON_USER_REQUESTED,
+	DIAG_REASON_MIC_ERROR,
+	DIAG_REASON_DISASSOC,
+	DIAG_REASON_DEAUTH,
+	DIAG_REASON_HANDOFF,
+	DIAG_REASON_ROAM_SYNCH_IND,
+	DIAG_REASON_ROAM_SYNCH_CNF,
+	DIAG_REASON_ROAM_HO_FAIL,
+};
+
 /**
  * struct mlme_cfg_str - generic structure for all mlme CFG string items
  *
@@ -983,6 +1008,7 @@ struct wlan_vht_config {
  * @sap_max_inactivity_override: Override updating ap_sta_inactivity from
  * hostapd.conf
  * @sap_uapsd_enabled: Flag to enable/disable UAPSD for SAP
+ * @reject_addba_req: Flag to decline ADDBA Req from SAP
  */
 struct wlan_mlme_qos {
 	uint32_t tx_aggregation_size;
@@ -1003,6 +1029,7 @@ struct wlan_mlme_qos {
 	uint32_t tx_non_aggr_sw_retry_threshold;
 	bool sap_max_inactivity_override;
 	bool sap_uapsd_enabled;
+	bool reject_addba_req;
 };
 
 #ifdef WLAN_FEATURE_11AX
@@ -1024,7 +1051,6 @@ struct wlan_mlme_he_caps {
 	uint32_t he_sta_obsspd;
 	uint16_t he_mcs_12_13_supp_2g;
 	uint16_t he_mcs_12_13_supp_5g;
-	bool enable_6g_sec_check;
 };
 #endif
 
@@ -1272,10 +1298,10 @@ struct wlan_mlme_ratemask {
  * @bigtk_support: Whether BIGTK is supported or not
  * @stop_all_host_scan_support: Target capability that indicates if the target
  * supports stop all host scan request type.
- * @peer_create_conf_support: Peer create confirmation command support
  * @dual_sta_roam_fw_support: Firmware support for dual sta roaming feature
  * @sae_connect_retries: sae connect retry bitmask
  * @wls_6ghz_capable: wifi location service(WLS) is 6ghz capable
+ * @monitor_mode_concurrency: Monitor mode concurrency supported
  */
 struct wlan_mlme_generic {
 	uint32_t band_capability;
@@ -1314,10 +1340,10 @@ struct wlan_mlme_generic {
 	uint8_t dfs_chan_ageout_time;
 	bool bigtk_support;
 	bool stop_all_host_scan_support;
-	bool peer_create_conf_support;
 	bool dual_sta_roam_fw_support;
 	uint32_t sae_connect_retries;
 	bool wls_6ghz_capable;
+	enum monitor_mode_concurrency monitor_mode_concurrency;
 };
 
 /*
@@ -1392,17 +1418,25 @@ struct wlan_mlme_acs {
 
 /*
  * struct wlan_mlme_cfg_twt - All twt related cfg items
- * @is_twt_bcast_enabled: twt capability for the session
  * @is_twt_enabled: global twt configuration
- * @is_twt_responder_enabled: twt responder
- * @is_twt_requestor_enabled: twt requestor
+ * @is_bcast_responder_enabled: bcast responder enable/disable
+ * @is_bcast_requestor_enabled: bcast requestor enable/disable
+ * @bcast_requestor_tgt_cap: Broadcast requestor target capability
+ * @bcast_responder_tgt_cap: Broadcast responder target capability
+ * @is_twt_nudge_tgt_cap_enabled: support for nudge request enable/disable
+ * @is_all_twt_tgt_cap_enabled: support for all twt enable/disable
+ * @is_twt_statistics_tgt_cap_enabled: support for twt statistics
  * @twt_congestion_timeout: congestion timeout value
  */
 struct wlan_mlme_cfg_twt {
-	bool is_twt_bcast_enabled;
 	bool is_twt_enabled;
-	bool is_twt_responder_enabled;
-	bool is_twt_requestor_enabled;
+	bool is_bcast_responder_enabled;
+	bool is_bcast_requestor_enabled;
+	bool bcast_requestor_tgt_cap;
+	bool bcast_responder_tgt_cap;
+	bool is_twt_nudge_tgt_cap_enabled;
+	bool is_all_twt_tgt_cap_enabled;
+	bool is_twt_statistics_tgt_cap_enabled;
 	uint32_t twt_congestion_timeout;
 };
 
@@ -1528,6 +1562,9 @@ struct wlan_mlme_sta_cfg {
 	bool allow_tpc_from_ap;
 	enum station_keepalive_method sta_keepalive_method;
 	bool usr_disabled_roaming;
+#ifdef FEATURE_WLAN_DIAG_SUPPORT_CSR
+	host_event_wlan_status_payload_type event_payload;
+#endif
 };
 
 /**
@@ -1717,6 +1754,7 @@ struct fw_scan_channels {
  * @saved_freq_list: Valid channel list
  * @sae_single_pmk_feature_enabled: Contains value of ini
  * sae_single_pmk_feature_enabled
+ * @rso_user_config: RSO user config
  */
 struct wlan_mlme_lfr_cfg {
 	bool mawc_roam_enabled;
@@ -1832,6 +1870,7 @@ struct wlan_mlme_lfr_cfg {
 #if defined(WLAN_SAE_SINGLE_PMK) && defined(WLAN_FEATURE_ROAM_OFFLOAD)
 	bool sae_single_pmk_feature_enabled;
 #endif
+	struct rso_config_params rso_user_config;
 };
 
 /**
@@ -2364,6 +2403,34 @@ struct wlan_mlme_reg {
 	bool retain_nol_across_regdmn_update;
 };
 
+#define IOT_AGGR_INFO_MAX_NUM 32
+
+/**
+ * struct wlan_iot_aggr - IOT related AGGR rule
+ *
+ * @oui: OUI for the rule
+ * @oui_len: length of the OUI
+ * @ampdu_sz: max aggregation size in no. of MPDUs
+ * @amsdu_sz: max aggregation size in no. of MSDUs
+ */
+struct wlan_iot_aggr {
+	uint8_t oui[OUI_LENGTH];
+	uint32_t oui_len;
+	uint32_t ampdu_sz;
+	uint32_t amsdu_sz;
+};
+
+/**
+ * struct wlan_mlme_iot - IOT related CFG Items
+ *
+ * @aggr: aggr rules
+ * @aggr_num: number of the configured aggr rules
+ */
+struct wlan_mlme_iot {
+	struct wlan_iot_aggr aggr[IOT_AGGR_INFO_MAX_NUM];
+	uint32_t aggr_num;
+};
+
 /**
  * struct wlan_mlme_cfg - MLME config items
  * @chainmask_cfg: VHT chainmask related cfg items
@@ -2407,6 +2474,7 @@ struct wlan_mlme_reg {
  * @trig_score_delta: Roam score delta value for various roam triggers
  * @trig_min_rssi: Expected minimum RSSI value of candidate AP for
  * various roam triggers
+ * @iot: IOT related CFG items
  */
 struct wlan_mlme_cfg {
 	struct wlan_mlme_chainmask chainmask_cfg;
@@ -2451,6 +2519,7 @@ struct wlan_mlme_cfg {
 	struct roam_trigger_score_delta trig_score_delta[NUM_OF_ROAM_TRIGGERS];
 	struct roam_trigger_min_rssi trig_min_rssi[NUM_OF_ROAM_MIN_RSSI];
 	struct wlan_mlme_ratemask ratemask_cfg;
+	struct wlan_mlme_iot iot;
 };
 
 enum pkt_origin {
@@ -2487,6 +2556,7 @@ struct wlan_mlme_sae_single_pmk {
  * @data_11kv:          Neighbor report/BTM parameters.
  * @btm_rsp:            BTM response information
  * @roam_init_info:     Roam initial info
+ * @roam_msg_info:      roam related message information
  */
 struct mlme_roam_debug_info {
 	struct wmi_roam_trigger_info trigger;
@@ -2495,15 +2565,6 @@ struct mlme_roam_debug_info {
 	struct wmi_neighbor_report_data data_11kv;
 	struct roam_btm_response_data btm_rsp;
 	struct roam_initial_data roam_init_info;
-};
-
-/**
- * struct wlan_ies - Generic WLAN Information Element(s) format
- * @len: Total length of the IEs
- * @data: IE data
- */
-struct wlan_ies {
-	uint16_t len;
-	uint8_t *data;
+	struct roam_msg_info roam_msg_info;
 };
 #endif

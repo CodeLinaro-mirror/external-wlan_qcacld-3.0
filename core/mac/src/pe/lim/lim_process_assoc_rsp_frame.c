@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -42,6 +42,8 @@
 #include "lim_send_messages.h"
 #include "lim_process_fils.h"
 #include "wlan_blm_api.h"
+#include "wlan_mlme_twt_api.h"
+#include "wlan_mlme_ucfg_api.h"
 
 /**
  * lim_update_stads_htcap() - Updates station Descriptor HT capability
@@ -205,7 +207,7 @@ void lim_update_assoc_sta_datas(struct mac_context *mac_ctx,
 		return;
 	}
 	sta_ds->vhtSupportedRxNss =
-		((sta_ds->supportedRates.vhtRxMCSMap & MCSMAPMASK2x2)
+		((sta_ds->supportedRates.vhtTxMCSMap & MCSMAPMASK2x2)
 		 == MCSMAPMASK2x2) ? 1 : 2;
 
 	/* If one of the rates is 11g rates, set the ERP mode. */
@@ -429,12 +431,15 @@ static void lim_update_stads_ext_cap(struct mac_context *mac_ctx,
 	tpDphHashNode sta_ds)
 {
 	struct s_ext_cap *ext_cap;
+	struct wlan_objmgr_vdev *vdev;
+	struct vdev_mlme_obj *mlme_obj;
 
 	if (!assoc_rsp->ExtCap.present) {
 		sta_ds->timingMeasCap = 0;
 #ifdef FEATURE_WLAN_TDLS
-		session_entry->tdls_prohibited = false;
-		session_entry->tdls_chan_swit_prohibited = false;
+		mlme_set_tdls_prohibited(session_entry->vdev, false);
+		mlme_set_tdls_chan_switch_prohibited(session_entry->vdev,
+						     false);
 #endif
 		pe_debug("ExtCap not present");
 		return;
@@ -442,10 +447,22 @@ static void lim_update_stads_ext_cap(struct mac_context *mac_ctx,
 
 	ext_cap = (struct s_ext_cap *)assoc_rsp->ExtCap.bytes;
 	lim_set_stads_rtt_cap(sta_ds, ext_cap, mac_ctx);
+
+	vdev = session_entry->vdev;
+	if (vdev) {
+		mlme_obj = wlan_vdev_mlme_get_cmpt_obj(vdev);
+		if (!mlme_obj)
+			pe_err("vdev component object is NULL");
+		else
+			mlme_obj->ext_vdev_ptr->connect_info.timing_meas_cap =
+							sta_ds->timingMeasCap;
+	}
+
 #ifdef FEATURE_WLAN_TDLS
-	session_entry->tdls_prohibited = ext_cap->tdls_prohibited;
-	session_entry->tdls_chan_swit_prohibited =
-		ext_cap->tdls_chan_swit_prohibited;
+	mlme_set_tdls_prohibited(session_entry->vdev, ext_cap->tdls_prohibited);
+	mlme_set_tdls_chan_switch_prohibited(session_entry->vdev,
+					    ext_cap->tdls_chan_swit_prohibited);
+		;
 	pe_debug("ExtCap: tdls_prohibited: %d tdls_chan_swit_prohibited: %d",
 		ext_cap->tdls_prohibited,
 		ext_cap->tdls_chan_swit_prohibited);
@@ -595,6 +612,36 @@ static void clean_up_ft_sha384(tpSirAssocRsp assoc_rsp, bool sha384_akm)
 	}
 }
 
+#ifdef WLAN_FEATURE_ROAM_OFFLOAD
+static void lim_set_r0kh(tpSirAssocRsp assoc_rsp, struct pe_session *session)
+{
+	struct mlme_legacy_priv *mlme_priv;
+
+	mlme_priv = wlan_vdev_mlme_get_ext_hdl(session->vdev);
+	if (!mlme_priv)
+		return;
+	if (assoc_rsp->sha384_ft_subelem.r0kh_id.present) {
+		mlme_priv->connect_info.ft_info.r0kh_id_len =
+			assoc_rsp->sha384_ft_subelem.r0kh_id.num_PMK_R0_ID;
+		qdf_mem_copy(mlme_priv->connect_info.ft_info.r0kh_id,
+			     assoc_rsp->sha384_ft_subelem.r0kh_id.PMK_R0_ID,
+			     mlme_priv->connect_info.ft_info.r0kh_id_len);
+	} else if (assoc_rsp->FTInfo.R0KH_ID.present) {
+		mlme_priv->connect_info.ft_info.r0kh_id_len =
+			assoc_rsp->FTInfo.R0KH_ID.num_PMK_R0_ID;
+		qdf_mem_copy(mlme_priv->connect_info.ft_info.r0kh_id,
+			assoc_rsp->FTInfo.R0KH_ID.PMK_R0_ID,
+			mlme_priv->connect_info.ft_info.r0kh_id_len);
+	} else {
+		mlme_priv->connect_info.ft_info.r0kh_id_len = 0;
+		qdf_mem_zero(mlme_priv->connect_info.ft_info.r0kh_id,
+			     ROAM_R0KH_ID_MAX_LEN);
+	}
+}
+#else
+static inline
+void lim_set_r0kh(tpSirAssocRsp assoc_rsp, struct pe_session *session) {}
+#endif
 /**
  * lim_process_assoc_rsp_frame() - Processes assoc response
  * @mac_ctx: Pointer to Global MAC structure
@@ -625,14 +672,13 @@ lim_process_assoc_rsp_frame(struct mac_context *mac_ctx, uint8_t *rx_pkt_info,
 	tLimMlmAssocCnf assoc_cnf;
 	tSchBeaconStruct *beacon;
 	uint8_t vdev_id = session_entry->vdev_id;
-#ifdef WLAN_FEATURE_ROAM_OFFLOAD
-	struct csr_roam_session *roam_session;
-#endif
 	uint8_t ap_nss;
 	int8_t rssi;
 	QDF_STATUS status;
 	enum ani_akm_type auth_type;
 	bool sha384_akm;
+	int ret;
+	uint8_t amsdu_sz;
 
 	assoc_cnf.resultCode = eSIR_SME_SUCCESS;
 	/* Update PE session Id */
@@ -777,27 +823,7 @@ lim_process_assoc_rsp_frame(struct mac_context *mac_ctx, uint8_t *rx_pkt_info,
 
 	lim_update_ric_data(mac_ctx, session_entry, assoc_rsp);
 
-#ifdef WLAN_FEATURE_ROAM_OFFLOAD
-	roam_session =
-		&mac_ctx->roam.roamSession[vdev_id];
-	if (assoc_rsp->sha384_ft_subelem.r0kh_id.present) {
-		roam_session->ftSmeContext.r0kh_id_len =
-			assoc_rsp->sha384_ft_subelem.r0kh_id.num_PMK_R0_ID;
-		qdf_mem_copy(roam_session->ftSmeContext.r0kh_id,
-			     assoc_rsp->sha384_ft_subelem.r0kh_id.PMK_R0_ID,
-			     roam_session->ftSmeContext.r0kh_id_len);
-	} else if (assoc_rsp->FTInfo.R0KH_ID.present) {
-		roam_session->ftSmeContext.r0kh_id_len =
-			assoc_rsp->FTInfo.R0KH_ID.num_PMK_R0_ID;
-		qdf_mem_copy(roam_session->ftSmeContext.r0kh_id,
-			assoc_rsp->FTInfo.R0KH_ID.PMK_R0_ID,
-			roam_session->ftSmeContext.r0kh_id_len);
-	} else {
-		roam_session->ftSmeContext.r0kh_id_len = 0;
-		qdf_mem_zero(roam_session->ftSmeContext.r0kh_id,
-			     SIR_ROAM_R0KH_ID_MAX_LEN);
-	}
-#endif
+	lim_set_r0kh(assoc_rsp, session_entry);
 
 #ifdef FEATURE_WLAN_ESE
 	lim_update_ese_tspec(mac_ctx, session_entry, assoc_rsp);
@@ -914,6 +940,13 @@ lim_process_assoc_rsp_frame(struct mac_context *mac_ctx, uint8_t *rx_pkt_info,
 		lim_update_obss_scanparams(session_entry,
 				&assoc_rsp->obss_scanparams);
 
+	if (lim_is_session_he_capable(session_entry))
+		mlme_set_twt_peer_capabilities(
+				mac_ctx->psoc,
+				(struct qdf_mac_addr *)current_bssid,
+				&assoc_rsp->he_cap,
+				&assoc_rsp->he_op);
+
 	lim_diag_event_report(mac_ctx, WLAN_PE_DIAG_ROAM_ASSOC_COMP_EVENT,
 			      session_entry,
 			      (assoc_rsp->status_code ? QDF_STATUS_E_FAILURE :
@@ -1017,8 +1050,8 @@ lim_process_assoc_rsp_frame(struct mac_context *mac_ctx, uint8_t *rx_pkt_info,
 			session_entry->gUapsdPerAcDeliveryEnableMask = 0;
 			session_entry->gUapsdPerAcTriggerEnableMask = 0;
 
-			if (lim_cleanup_rx_path(mac_ctx, sta_ds, session_entry)
-				!= QDF_STATUS_SUCCESS) {
+			if (lim_cleanup_rx_path(mac_ctx, sta_ds, session_entry,
+						true) != QDF_STATUS_SUCCESS) {
 				pe_err("Could not cleanup the rx path");
 				goto assocReject;
 			}
@@ -1028,6 +1061,24 @@ lim_process_assoc_rsp_frame(struct mac_context *mac_ctx, uint8_t *rx_pkt_info,
 	}
 	pe_debug("Successfully Associated with BSS " QDF_MAC_ADDR_FMT,
 		 QDF_MAC_ADDR_REF(hdr->sa));
+
+	/*
+	 * If fail to get the global max amsdu size, or the value is
+	 * 0 (which means FW automode selection), and it hits 'iot_amsdu_sz'
+	 * when parsing vendor IEs in assoc rsp frame, set this iot amsdu size.
+	 */
+	status = ucfg_mlme_get_max_amsdu_num(mac_ctx->psoc, &amsdu_sz);
+	if ((QDF_IS_STATUS_ERROR(status) || !amsdu_sz) &&
+	    assoc_rsp->iot_amsdu_sz) {
+		pe_debug("Try to set iot amsdu size: %u",
+			 assoc_rsp->iot_amsdu_sz);
+		ret = wma_cli_set_command(session_entry->smeSessionId,
+					  GEN_VDEV_PARAM_AMSDU,
+					  assoc_rsp->iot_amsdu_sz, GEN_CMD);
+		if (ret)
+			pe_err("Failed to set iot amsdu size: %d", ret);
+	}
+
 #ifdef FEATURE_WLAN_ESE
 	if (session_entry->eseContext.tsm.tsmInfo.state)
 		session_entry->eseContext.tsm.tsmMetrics.RoamingCount = 0;
@@ -1087,7 +1138,6 @@ lim_process_assoc_rsp_frame(struct mac_context *mac_ctx, uint8_t *rx_pkt_info,
 			session_entry->ap_mu_edca_params[QCA_WLAN_AC_VO] =
 				assoc_rsp->mu_edca.acvo;
 		}
-
 	}
 
 	if (beacon->VHTCaps.present)

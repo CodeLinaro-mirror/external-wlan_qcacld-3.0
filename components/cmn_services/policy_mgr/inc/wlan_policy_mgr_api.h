@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -76,7 +76,7 @@ typedef const enum policy_mgr_conc_next_action
  * @CSA_REASON_BAND_RESTRICTED: band disabled or re-enabled
  * @CSA_REASON_DCS: DCS
  * @CSA_REASON_CHAN_DISABLED: channel is disabled
- *
+ * @CSA_REASON_CHAN_PASSIVE: channel is passive
  */
 enum sap_csa_reason_code {
 	CSA_REASON_UNKNOWN,
@@ -91,6 +91,7 @@ enum sap_csa_reason_code {
 	CSA_REASON_BAND_RESTRICTED,
 	CSA_REASON_DCS,
 	CSA_REASON_CHAN_DISABLED,
+	CSA_REASON_CHAN_PASSIVE,
 };
 
 /**
@@ -470,22 +471,6 @@ uint32_t policy_mgr_get_connection_count(struct wlan_objmgr_psoc *psoc);
  * Return: uint32_t value of concurrency mask
  */
 uint32_t policy_mgr_get_concurrency_mode(struct wlan_objmgr_psoc *psoc);
-
-/**
- * policy_mgr_search_and_check_for_session_conc() - Checks if
- * concurrecy is allowed
- * @psoc: PSOC object information
- * @session_id: Session id
- * @roam_profile: Pointer to the roam profile
- *
- * Searches and gets the channel number from the scan results and checks if
- * concurrency is allowed for the given session ID
- *
- * Return: Non zero channel frequency value if concurrency is allowed else  0
- */
-uint32_t policy_mgr_search_and_check_for_session_conc(
-		struct wlan_objmgr_psoc *psoc,
-		uint8_t session_id, void *roam_profile);
 
 /**
  * policy_mgr_is_chnl_in_diff_band() - to check that given channel
@@ -1397,6 +1382,7 @@ typedef void (*policy_mgr_pdev_set_hw_mode_cback)(uint32_t status,
  *		beacon update
  * @reason: Reason for nss update
  * @original_vdev_id: original request hwmode change vdev id
+ * @request_id: cm req id
  *
  * This function is the callback registered with SME at nss
  * update request time
@@ -1408,7 +1394,7 @@ typedef void (*policy_mgr_nss_update_cback)(struct wlan_objmgr_psoc *psoc,
 		uint8_t vdev_id,
 		uint8_t next_action,
 		enum policy_mgr_conn_update_reason reason,
-		uint32_t original_vdev_id);
+		uint32_t original_vdev_id, uint32_t request_id);
 
 /**
  * struct policy_mgr_sme_cbacks - SME Callbacks to be invoked
@@ -1434,14 +1420,8 @@ struct policy_mgr_sme_cbacks {
 		policy_mgr_nss_update_cback cback,
 		uint8_t next_action, struct wlan_objmgr_psoc *psoc,
 		enum policy_mgr_conn_update_reason reason,
-		uint32_t original_vdev_id);
+		uint32_t original_vdev_id, uint32_t request_id);
 	QDF_STATUS (*sme_change_mcc_beacon_interval)(uint8_t session_id);
-	QDF_STATUS (*sme_get_ap_channel_from_scan)(
-		void *roam_profile,
-		void **scan_cache,
-		uint32_t *ch_freq, uint8_t vdev_id);
-	QDF_STATUS (*sme_scan_result_purge)(
-				void *scan_result);
 	QDF_STATUS (*sme_rso_start_cb)(
 		mac_handle_t mac_handle, uint8_t vdev_id,
 		uint8_t reason, enum wlan_cm_rso_control_requestor requestor);
@@ -1664,23 +1644,6 @@ void policy_mgr_soc_set_dual_mac_cfg_cb(struct wlan_objmgr_psoc *psoc,
  */
 bool policy_mgr_map_concurrency_mode(enum QDF_OPMODE *old_mode,
 				     enum policy_mgr_con_mode *new_mode);
-
-/**
- * policy_mgr_get_channel_from_scan_result() - to get channel from scan result
- * @psoc: PSOC object information
- * @roam_profile: pointer to roam profile
- * @ch_freq: channel frequency to be filled
- * @vdev_id: vdev id
- *
- * This routine gets channel which most likely a candidate to which STA
- * will make connection.
- *
- * Return: QDF_STATUS
- */
-QDF_STATUS
-policy_mgr_get_channel_from_scan_result(struct wlan_objmgr_psoc *psoc,
-					void *roam_profile,
-					uint32_t *ch_freq, uint8_t vdev_id);
 
 /**
  * policy_mgr_mode_specific_num_open_sessions() - to get number of open sessions
@@ -3014,6 +2977,21 @@ bool policy_mgr_is_safe_channel(struct wlan_objmgr_psoc *psoc,
 				uint32_t ch_freq);
 
 /**
+ * policy_mgr_is_sap_freq_allowed - Check if the channel is allowed for sap
+ * @psoc: PSOC object information
+ * @sap_freq: channel frequency to be checked
+ *
+ * Check the factors as below to decide whether the channel is allowed or not:
+ * If the channel is in LTE coex channel avoidance list;
+ * If it's STA+SAP SCC;
+ * If STA+SAP SCC on LTE coex channel is allowed.
+ *
+ * Return: true for allowed, else false
+ */
+bool policy_mgr_is_sap_freq_allowed(struct wlan_objmgr_psoc *psoc,
+				    uint32_t sap_freq);
+
+/**
  * policy_mgr_get_ch_width() - Convert hw_mode_bandwidth to phy_ch_width
  * @bw: Hardware mode band width used by WMI
  *
@@ -3200,7 +3178,19 @@ void policy_mgr_check_and_stop_opportunistic_timer(
 void policy_mgr_set_weight_of_dfs_passive_channels_to_zero(
 		struct wlan_objmgr_psoc *psoc, uint32_t *pcl,
 		uint32_t *len, uint8_t *weight_list, uint32_t weight_len);
-
+/**
+ * policy_mgr_is_sap_allowed_on_dfs_freq() - check if sap allowed on dfs freq
+ * @pdev: id of objmgr pdev
+ * @vdev_id: vdev id
+ * @ch_freq: channel freq
+ * This function is used to check if sta_sap_scc_on_dfs_chan ini is set,
+ * DFS master capability is assumed disabled in the driver.
+ *
+ * Return: true if sap is allowed on dfs freq,
+ * otherwise false
+ */
+bool policy_mgr_is_sap_allowed_on_dfs_freq(struct wlan_objmgr_pdev *pdev,
+					   uint8_t vdev_id, qdf_freq_t ch_freq);
 /**
  * policy_mgr_is_sta_sap_scc_allowed_on_dfs_chan() - check if sta+sap scc
  * allowed on dfs chan
@@ -3602,6 +3592,18 @@ bool policy_mgr_dump_channel_list(uint32_t len,
 				  uint8_t *pcl_weight);
 
 /**
+ * policy_mgr_filter_passive_ch() -filter out passive channels from the list
+ * @pdev: Pointer to pdev
+ * @ch_freq_list: pointer to channel frequency list
+ * @ch_cnt: number of channels in list
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS policy_mgr_filter_passive_ch(struct wlan_objmgr_pdev *pdev,
+					uint32_t *ch_freq_list,
+					uint32_t *ch_cnt);
+
+/**
  * policy_mgr_is_restart_sap_required() - check whether sap need restart
  * @psoc: psoc pointer
  * @vdev_id: vdev id
@@ -3635,4 +3637,22 @@ uint8_t policy_mgr_get_roam_enabled_sta_session_id(
 						struct wlan_objmgr_psoc *psoc,
 						uint8_t vdev_id);
 
+/**
+ * policy_mgr_is_sta_mon_concurrency() - check if MONITOR and STA concurrency
+ * is UP.
+ * @psoc: pointer to psoc object
+ *
+ * Return: True - if STA and monitor concurrency is there, else False
+ *
+ */
+bool policy_mgr_is_sta_mon_concurrency(struct wlan_objmgr_psoc *psoc);
+
+/**
+ * policy_mgr_check_mon_concurrency() - Checks if monitor intf can be added.
+ * @psoc: pointer to psoc object
+ *
+ * Return: QDF_STATUS_SUCCESS if allowed, else send failure
+ *
+ */
+QDF_STATUS policy_mgr_check_mon_concurrency(struct wlan_objmgr_psoc *psoc);
 #endif /* __WLAN_POLICY_MGR_API_H */

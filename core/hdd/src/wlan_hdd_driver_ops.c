@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -47,6 +47,7 @@
 #include <qdf_notifier.h>
 #include <qdf_hang_event_notifier.h>
 #include "wlan_hdd_thermal.h"
+#include "wlan_hdd_bus_bandwidth.h"
 
 #ifdef MODULE
 #define WLAN_MODULE_NAME  module_name(THIS_MODULE)
@@ -523,6 +524,26 @@ static void hdd_soc_load_unlock(struct device *dev)
 	hdd_allow_suspend(WIFI_POWER_EVENT_WAKELOCK_DRIVER_INIT);
 }
 
+#ifdef DP_MEM_PRE_ALLOC
+/**
+ * hdd_init_dma_mask() - Set the DMA mask for dma memory pre-allocation
+ * @dev: device handle
+ * @bus_type: Bus type for which init is being done
+ *
+ * Return: 0 - success, non-zero on failure
+ */
+static int hdd_init_dma_mask(struct device *dev, enum qdf_bus_type bus_type)
+{
+	return hif_init_dma_mask(dev, bus_type);
+}
+#else
+static inline int
+hdd_init_dma_mask(struct device *dev, enum qdf_bus_type bus_type)
+{
+	return QDF_STATUS_SUCCESS;
+}
+#endif
+
 static int __hdd_soc_probe(struct device *dev,
 			   void *bdev,
 			   const struct hif_bus_id *bid,
@@ -540,6 +561,10 @@ static int __hdd_soc_probe(struct device *dev,
 	cds_set_recovery_in_progress(false);
 
 	errno = hdd_init_qdf_ctx(dev, bdev, bus_type, bid);
+	if (errno)
+		goto unlock;
+
+	errno = hdd_init_dma_mask(dev, bus_type);
 	if (errno)
 		goto unlock;
 
@@ -1094,6 +1119,7 @@ hdd_to_pmo_wow_enable_params(struct wow_enable_params *in_params,
 /**
  * __wlan_hdd_bus_suspend() - handles platform supsend
  * @wow_params: collection of wow enable override parameters
+ * @type: WoW suspend type
  *
  * Does precondtion validation. Ensures that a subsystem restart isn't in
  * progress. Ensures that no load or unload is in progress. Does:
@@ -1105,7 +1131,8 @@ hdd_to_pmo_wow_enable_params(struct wow_enable_params *in_params,
  *     -EBUSY or -EAGAIN if another opperation is in progress and
  *     wlan will not be ready to suspend in time.
  */
-static int __wlan_hdd_bus_suspend(struct wow_enable_params wow_params)
+static int __wlan_hdd_bus_suspend(struct wow_enable_params wow_params,
+				  enum qdf_suspend_type type)
 {
 	int err;
 	QDF_STATUS status;
@@ -1114,12 +1141,18 @@ static int __wlan_hdd_bus_suspend(struct wow_enable_params wow_params)
 	void *dp_soc;
 	struct pmo_wow_enable_params pmo_params;
 	int pending;
+	struct bbm_params param = {0};
 
 	hdd_info("starting bus suspend");
 
 	hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
-	if (!hdd_ctx)
-		return -ENODEV;
+
+	err = wlan_hdd_validate_context(hdd_ctx);
+	if (err)
+		return err;
+
+	/* Wait for the stop module if already in progress */
+	hdd_psoc_idle_timer_stop(hdd_ctx);
 
 	/* If Wifi is off, return success for system suspend */
 	if (hdd_ctx->driver_status != DRIVER_MODULES_ENABLED) {
@@ -1127,9 +1160,6 @@ static int __wlan_hdd_bus_suspend(struct wow_enable_params wow_params)
 		return 0;
 	}
 
-	err = wlan_hdd_validate_context(hdd_ctx);
-	if (err)
-		return err;
 
 	hif_ctx = cds_get_context(QDF_MODULE_ID_HIF);
 	if (!hif_ctx)
@@ -1161,7 +1191,7 @@ static int __wlan_hdd_bus_suspend(struct wow_enable_params wow_params)
 	}
 
 	status = ucfg_pmo_psoc_bus_suspend_req(hdd_ctx->psoc,
-					       QDF_SYSTEM_SUSPEND,
+					       type,
 					       &pmo_params);
 	err = qdf_status_to_os_return(status);
 	if (err) {
@@ -1186,7 +1216,9 @@ static int __wlan_hdd_bus_suspend(struct wow_enable_params wow_params)
 	 * Remove bus votes at the very end, after making sure there are no
 	 * pending bus transactions from WLAN SOC for TX/RX.
 	 */
-	pld_request_bus_bandwidth(hdd_ctx->parent_dev, PLD_BUS_WIDTH_NONE);
+	param.policy = BBM_NON_PERSISTENT_POLICY;
+	param.policy_info.flag = BBM_APPS_SUSPEND;
+	hdd_bbm_apply_independent_policy(hdd_ctx, &param);
 
 	hdd_info("bus suspend succeeded");
 	return 0;
@@ -1197,7 +1229,7 @@ resume_hif:
 
 resume_pmo:
 	status = ucfg_pmo_psoc_bus_resume_req(hdd_ctx->psoc,
-					      QDF_SYSTEM_SUSPEND);
+					      type);
 	QDF_BUG(QDF_IS_STATUS_SUCCESS(status));
 
 late_hif_resume:
@@ -1215,13 +1247,13 @@ int wlan_hdd_bus_suspend(void)
 {
 	struct wow_enable_params default_params = {0};
 
-	return __wlan_hdd_bus_suspend(default_params);
+	return __wlan_hdd_bus_suspend(default_params, QDF_SYSTEM_SUSPEND);
 }
 
 #ifdef WLAN_SUSPEND_RESUME_TEST
 int wlan_hdd_unit_test_bus_suspend(struct wow_enable_params wow_params)
 {
-	return __wlan_hdd_bus_suspend(wow_params);
+	return __wlan_hdd_bus_suspend(wow_params, QDF_UNIT_TEST_WOW_SUSPEND);
 }
 #endif
 
@@ -1299,6 +1331,8 @@ done:
 /**
  * wlan_hdd_bus_resume() - handles platform resume
  *
+ * @type: WoW suspend type
+ *
  * Does precondtion validation. Ensures that a subsystem restart isn't in
  * progress.  Ensures that no load or unload is in progress.  Ensures that
  * it has valid pointers for the required contexts.
@@ -1309,13 +1343,14 @@ done:
  *
  * return: error code or 0 for success
  */
-int wlan_hdd_bus_resume(void)
+int wlan_hdd_bus_resume(enum qdf_suspend_type type)
 {
 	struct hdd_context *hdd_ctx = cds_get_context(QDF_MODULE_ID_HDD);
 	void *hif_ctx;
 	int status;
 	QDF_STATUS qdf_status;
 	void *dp_soc;
+	struct bbm_params param = {0};
 
 	if (cds_is_driver_recovering())
 		return 0;
@@ -1343,13 +1378,9 @@ int wlan_hdd_bus_resume(void)
 	 * Add bus votes at the beginning, before making sure there are any
 	 * bus transactions from WLAN SOC for TX/RX.
 	 */
-	if (hdd_is_any_adapter_connected(hdd_ctx)) {
-		pld_request_bus_bandwidth(hdd_ctx->parent_dev,
-					  PLD_BUS_WIDTH_MEDIUM);
-	} else {
-		pld_request_bus_bandwidth(hdd_ctx->parent_dev,
-					  PLD_BUS_WIDTH_NONE);
-	}
+	param.policy = BBM_NON_PERSISTENT_POLICY;
+	param.policy_info.flag = BBM_APPS_RESUME;
+	hdd_bbm_apply_independent_policy(hdd_ctx, &param);
 
 	status = hif_bus_resume(hif_ctx);
 	if (status) {
@@ -1358,7 +1389,7 @@ int wlan_hdd_bus_resume(void)
 	}
 
 	qdf_status = ucfg_pmo_psoc_bus_resume_req(hdd_ctx->psoc,
-						  QDF_SYSTEM_SUSPEND);
+						  type);
 	status = qdf_status_to_os_return(qdf_status);
 	if (status) {
 		hdd_err("Failed pmo bus resume");
@@ -1791,7 +1822,7 @@ static int wlan_hdd_pld_resume(struct device *dev,
 	if (errno)
 		return errno;
 
-	errno = wlan_hdd_bus_resume();
+	errno = wlan_hdd_bus_resume(QDF_SYSTEM_SUSPEND);
 
 	osif_psoc_sync_op_stop(psoc_sync);
 
@@ -1916,7 +1947,7 @@ wlan_hdd_pld_uevent(struct device *dev, struct pld_uevent_data *event_data)
 	switch (event_data->uevent) {
 	case PLD_FW_DOWN:
 		hdd_debug("Received firmware down indication");
-
+		hdd_dump_log_buffer();
 		cds_set_target_ready(false);
 		cds_set_recovery_in_progress(true);
 

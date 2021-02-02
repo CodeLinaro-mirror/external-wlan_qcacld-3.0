@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -826,23 +826,30 @@ enum wlan_status_code lim_check_rsn_ie(struct pe_session *session,
 				      bool *pmf_connection)
 {
 	struct wlan_objmgr_vdev *vdev;
-	tSirMacRsnInfo rsn_ie;
+	tSirMacRsnInfo *rsn_ie;
 	struct wlan_crypto_params peer_crypto_params;
 
-	rsn_ie.info[0] = WLAN_ELEMID_RSN;
-	rsn_ie.info[1] = assoc_req->rsn.length;
+	rsn_ie = qdf_mem_malloc(sizeof(*rsn_ie));
+	if (!rsn_ie) {
+		pe_err("malloc failed for rsn_ie");
+		return STATUS_UNSPECIFIED_FAILURE;
+	}
 
-	rsn_ie.length = assoc_req->rsn.length + 2;
-	qdf_mem_copy(&rsn_ie.info[2], assoc_req->rsn.info,
+	rsn_ie->info[0] = WLAN_ELEMID_RSN;
+	rsn_ie->info[1] = assoc_req->rsn.length;
+
+	rsn_ie->length = assoc_req->rsn.length + 2;
+	qdf_mem_copy(&rsn_ie->info[2], assoc_req->rsn.info,
 		     assoc_req->rsn.length);
 	if (wlan_crypto_check_rsn_match(mac_ctx->psoc, session->smeSessionId,
-					&rsn_ie.info[0], rsn_ie.length,
+					&rsn_ie->info[0], rsn_ie->length,
 					&peer_crypto_params)) {
 		vdev = wlan_objmgr_get_vdev_by_id_from_psoc(mac_ctx->psoc,
 							session->smeSessionId,
 							WLAN_LEGACY_MAC_ID);
 		if (!vdev) {
 			pe_err("vdev is NULL");
+			qdf_mem_free(rsn_ie);
 			return STATUS_UNSPECIFIED_FAILURE;
 		}
 		if ((peer_crypto_params.rsn_caps &
@@ -851,12 +858,15 @@ enum wlan_status_code lim_check_rsn_ie(struct pe_session *session,
 			*pmf_connection = true;
 
 		wlan_objmgr_vdev_release_ref(vdev, WLAN_LEGACY_MAC_ID);
+		qdf_mem_free(rsn_ie);
 		return lim_check_crypto_param(assoc_req, &peer_crypto_params);
 
 	} else {
+		qdf_mem_free(rsn_ie);
 		return STATUS_INVALID_IE;
 	}
 
+	qdf_mem_free(rsn_ie);
 	return STATUS_SUCCESS;
 }
 
@@ -865,26 +875,44 @@ static enum wlan_status_code lim_check_wpa_ie(struct pe_session *session,
 					     tpSirAssocReq assoc_req,
 					     tDot11fIEWPA *wpa)
 {
-	uint8_t buffer[WLAN_MAX_IE_LEN];
+	uint8_t *buffer;
 	uint32_t dot11f_status, written = 0, nbuffer = WLAN_MAX_IE_LEN;
-	tSirMacRsnInfo wpa_ie = {0};
+	tSirMacRsnInfo *wpa_ie;
 	struct wlan_crypto_params peer_crypto_params;
+
+	buffer = qdf_mem_malloc(WLAN_MAX_IE_LEN);
+	if (!buffer) {
+		pe_err("malloc failed for ie buffer");
+		return STATUS_INVALID_IE;
+	}
 
 	dot11f_status = dot11f_pack_ie_wpa(mac_ctx, wpa, buffer,
 					   nbuffer, &written);
 	if (DOT11F_FAILED(dot11f_status)) {
 		pe_err("Failed to re-pack the RSN IE (0x%0x8)", dot11f_status);
+		qdf_mem_free(buffer);
 		return STATUS_INVALID_IE;
 	}
 
-	wpa_ie.length = (uint8_t) written;
-	qdf_mem_copy(&wpa_ie.info[0], buffer, wpa_ie.length);
+	wpa_ie = qdf_mem_malloc(sizeof(*wpa_ie));
+	if (!wpa_ie) {
+		pe_err("malloc failed for wpa ie");
+		qdf_mem_free(buffer);
+		return STATUS_INVALID_IE;
+	}
+
+	wpa_ie->length = (uint8_t)written;
+	qdf_mem_copy(&wpa_ie->info[0], buffer, wpa_ie->length);
+	qdf_mem_free(buffer);
+
 	if (wlan_crypto_check_wpa_match(mac_ctx->psoc, session->smeSessionId,
-					&wpa_ie.info[0], wpa_ie.length,
+					&wpa_ie->info[0], wpa_ie->length,
 					&peer_crypto_params)) {
+		qdf_mem_free(wpa_ie);
 		return lim_check_crypto_param(assoc_req, &peer_crypto_params);
 	}
 
+	qdf_mem_free(wpa_ie);
 	return STATUS_INVALID_IE;
 }
 
@@ -1722,8 +1750,8 @@ static bool lim_update_sta_ds(struct mac_context *mac_ctx, tpSirMacMgmtHdr hdr,
 		sta_ds->vhtSupportedRxNss = assoc_req->operMode.rxNSS + 1;
 	} else {
 		sta_ds->vhtSupportedRxNss =
-			((sta_ds->supportedRates.vhtRxMCSMap & MCSMAPMASK2x2)
-				== MCSMAPMASK2x2) ? 1 : 2;
+			 ((sta_ds->supportedRates.vhtTxMCSMap & MCSMAPMASK2x2)
+			  == MCSMAPMASK2x2) ? 1 : 2;
 	}
 	lim_update_stads_he_6ghz_op(session, sta_ds);
 	lim_update_sta_ds_op_classes(assoc_req, sta_ds);
@@ -2739,6 +2767,8 @@ bool lim_fill_lim_assoc_ind_params(
 	const uint8_t *wpsie = NULL;
 	uint8_t maxidx, i;
 	bool wme_enable;
+	struct wlan_objmgr_vdev *vdev;
+	struct vdev_mlme_obj *mlme_obj;
 
 	if (!session_entry->parsedAssocReq) {
 		pe_err(" Parsed Assoc req is NULL");
@@ -2869,8 +2899,6 @@ bool lim_fill_lim_assoc_ind_params(
 	/* Required for indicating the frames to upper layer */
 	assoc_ind->assocReqLength = assoc_req->assocReqFrameLength;
 	assoc_ind->assocReqPtr = assoc_req->assocReqFrame;
-	assoc_ind->beaconPtr = session_entry->beacon;
-	assoc_ind->beaconLength = session_entry->bcnLen;
 
 	assoc_ind->chan_info.mhz = session_entry->curr_op_freq;
 	assoc_ind->chan_info.band_center_freq1 =
@@ -2951,22 +2979,26 @@ bool lim_fill_lim_assoc_ind_params(
 	if (wlan_reg_is_6ghz_chan_freq(session_entry->curr_op_freq))
 		assoc_ind->ch_width =
 			lim_convert_channel_width_enum(sta_ds->ch_width);
+
+	vdev = session_entry->vdev;
+	if (!vdev)
+		return true;
+
+	mlme_obj = wlan_vdev_mlme_get_cmpt_obj(vdev);
+	if (!mlme_obj)
+		pe_err("vdev component object is NULL");
+	else
+		qdf_mem_copy(
+			&mlme_obj->ext_vdev_ptr->connect_info.chan_info,
+			&assoc_ind->chan_info,
+			sizeof(mlme_obj->ext_vdev_ptr->connect_info.chan_info));
+
 	return true;
 }
 
-/**
- * lim_send_mlm_assoc_ind() - Sends assoc indication to SME
- * @mac_ctx: Global Mac context
- * @sta_ds: Station DPH hash entry
- * @session_entry: PE session entry
- *
- * This function sends either LIM_MLM_ASSOC_IND
- * or LIM_MLM_REASSOC_IND to SME.
- *
- * Return: None
- */
-void lim_send_mlm_assoc_ind(struct mac_context *mac_ctx,
-	tpDphHashNode sta_ds, struct pe_session *session_entry)
+QDF_STATUS lim_send_mlm_assoc_ind(struct mac_context *mac_ctx,
+				  tpDphHashNode sta_ds,
+				  struct pe_session *session_entry)
 {
 	tpLimMlmAssocInd assoc_ind;
 	tpSirAssocReq assoc_req;
@@ -2976,7 +3008,7 @@ void lim_send_mlm_assoc_ind(struct mac_context *mac_ctx,
 
 	if (!session_entry->parsedAssocReq) {
 		pe_err(" Parsed Assoc req is NULL");
-		return;
+		return QDF_STATUS_E_INVAL;
 	}
 
 	/* Get a copy of the already parsed Assoc Request */
@@ -2985,7 +3017,7 @@ void lim_send_mlm_assoc_ind(struct mac_context *mac_ctx,
 
 	if (!assoc_req) {
 		pe_err("assoc req for assoc_id:%d is NULL", sta_ds->assocId);
-		return;
+		return QDF_STATUS_E_INVAL;
 	}
 
 	/* Get the phy_mode */
@@ -3009,17 +3041,17 @@ void lim_send_mlm_assoc_ind(struct mac_context *mac_ctx,
 		if (!assoc_ind) {
 			lim_release_peer_idx(mac_ctx, sta_ds->assocId,
 					     session_entry);
-			return;
+			return QDF_STATUS_E_INVAL;
 		}
 		if (!lim_fill_lim_assoc_ind_params(assoc_ind, mac_ctx,
 						   sta_ds, session_entry)) {
 			qdf_mem_free(assoc_ind);
-			return;
+			return QDF_STATUS_E_INVAL;
 		}
 		lim_post_sme_message(mac_ctx, LIM_MLM_ASSOC_IND,
 				     (uint32_t *)assoc_ind);
 		qdf_mem_free(assoc_ind);
 	}
 
-	return;
+	return QDF_STATUS_SUCCESS;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -787,6 +787,75 @@
 		1, \
 		"ILP configuration")
 
+/*
+ *
+ * <ini>
+ * sap_sho_config - Bitmap to Enable/Disable SAP HW offload
+ * @Min: 0
+ * @Max: 3
+ * @Default: 0
+ *
+ * This INI is used to configure sap hw offload.
+ *
+ * bit-0: enable/disable SHO
+ * bit-1: enable for Sta connected state as well.
+ * bit-2 to bit-31: Reserved
+ *
+ * Related: None
+ *
+ * Supported Feature: SAP
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_SAP_SHO_CONFIG CFG_INI_UINT(\
+		"sap_sho_config", \
+		0, \
+		3, \
+		1, \
+		CFG_VALUE_OR_DEFAULT, \
+		"enable SHO config")
+
+/*
+ * <ini>
+ * g_disable_hw_assist - Flag to disable HW assist feature
+ * @Default: 0
+ *
+ * This ini is used to enable/disable the HW assist feature in FW
+ *
+ * Related: none
+ *
+ * Supported Feature: STA/SAP
+ *
+ * Usage: External
+ *
+ * <ini>
+ */
+
+#define CFG_DISABLE_HW_ASSIST CFG_INI_BOOL( \
+		"g_disable_hw_assist", \
+		0, \
+		"Disable HW assist feature in FW")
+
+/*
+ * <ini>
+ * g_enable_pci_gen - To enable pci gen switch
+ * @Default: 0
+ *
+ * Related: None
+ *
+ * Supported Feature: PCI
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+
+#define CFG_ENABLE_PCI_GEN CFG_INI_BOOL( \
+		"g_enable_pci_gen", \
+		0, \
+		"enable pci gen")
+
 #define CFG_FWOL_GENERIC_ALL \
 	CFG_FWOL_DHCP \
 	CFG(CFG_ENABLE_ANI) \
@@ -815,5 +884,9 @@
 	CFG(CFG_ENABLE_SECONDARY_RATE) \
 	CFG(CFG_SET_SAP_XLNA_BYPASS) \
 	CFG(CFG_SET_ENABLE_ILP) \
-	CFG(CFG_ENABLE_FW_WOW_MODULE_LOG_LEVEL)
+	CFG(CFG_ENABLE_FW_WOW_MODULE_LOG_LEVEL) \
+	CFG(CFG_SAP_SHO_CONFIG) \
+	CFG(CFG_DISABLE_HW_ASSIST) \
+	CFG(CFG_ENABLE_PCI_GEN)
+
 #endif

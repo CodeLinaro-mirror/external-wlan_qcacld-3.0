@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021 The Linux Foundation. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -3918,7 +3918,7 @@ static int hdd_we_set_nss(struct hdd_adapter *adapter, int nss)
 		return -EINVAL;
 	}
 
-	status = hdd_update_nss(adapter, nss);
+	status = hdd_update_nss(adapter, nss, nss);
 	if (QDF_IS_STATUS_ERROR(status))
 		hdd_err("cfg set failed, value %d status %d", nss, status);
 
@@ -5360,7 +5360,7 @@ static int __iw_setnone_getint(struct net_device *dev,
 	}
 	case WE_GET_MAX_ASSOC:
 	{
-		if (ucfg_mlme_set_assoc_sta_limit(hdd_ctx->psoc, *value) !=
+		if (ucfg_mlme_get_assoc_sta_limit(hdd_ctx->psoc, value) !=
 		    QDF_STATUS_SUCCESS) {
 			hdd_err("CFG_ASSOC_STA_LIMIT failed");
 			ret = -EIO;
@@ -6514,8 +6514,7 @@ static int __iw_get_char_setnone(struct net_device *dev,
 		enable_snr_monitoring =
 				ucfg_scan_is_snr_monitor_enabled(hdd_ctx->psoc);
 		if (!enable_snr_monitoring ||
-		    eConnectionState_Associated !=
-		    sta_ctx->conn_info.conn_state) {
+		    !hdd_cm_is_vdev_associated(adapter)) {
 			hdd_err("getSNR failed: Enable SNR Monitoring-%d, ConnectionState-%d",
 				enable_snr_monitoring,
 				sta_ctx->conn_info.conn_state);
@@ -7489,7 +7488,6 @@ static int __iw_add_tspec(struct net_device *dev, struct iw_request_info *info,
 			  union iwreq_data *wrqu, char *extra)
 {
 	struct hdd_adapter *adapter = WLAN_HDD_GET_PRIV_PTR(dev);
-	struct hdd_station_ctx *sta_ctx = WLAN_HDD_GET_STATION_CTX_PTR(adapter);
 	hdd_wlan_wmm_status_e *wmm_status = (hdd_wlan_wmm_status_e *) extra;
 	int params[HDD_WLAN_WMM_PARAM_COUNT];
 	struct sme_qos_wmmtspecinfo tspec;
@@ -7517,7 +7515,7 @@ static int __iw_add_tspec(struct net_device *dev, struct iw_request_info *info,
 		return -EPERM;
 
 	/* we must be associated in order to add a tspec */
-	if (eConnectionState_Associated != sta_ctx->conn_info.conn_state) {
+	if (!hdd_cm_is_vdev_associated(adapter)) {
 		*wmm_status = HDD_WLAN_WMM_STATUS_SETUP_FAILED_BAD_PARAM;
 		return 0;
 	}
@@ -7812,7 +7810,6 @@ static int __iw_set_fties(struct net_device *dev, struct iw_request_info *info,
 			  union iwreq_data *wrqu, char *extra)
 {
 	struct hdd_adapter *adapter = WLAN_HDD_GET_PRIV_PTR(dev);
-	struct hdd_station_ctx *sta_ctx = WLAN_HDD_GET_STATION_CTX_PTR(adapter);
 	struct hdd_context *hdd_ctx;
 	int ret;
 
@@ -7836,7 +7833,7 @@ static int __iw_set_fties(struct net_device *dev, struct iw_request_info *info,
 		return -EINVAL;
 	}
 	/* Added for debug on reception of Re-assoc Req. */
-	if (eConnectionState_Associated != sta_ctx->conn_info.conn_state) {
+	if (!hdd_cm_is_vdev_associated(adapter)) {
 		hdd_debug("Called with Ie of length = %d when not associated",
 		       wrqu->data.length);
 		hdd_debug("Should be Re-assoc Req IEs");
@@ -7927,7 +7924,7 @@ static int __iw_set_host_offload(struct net_device *dev,
 	if (0 != ret)
 		return ret;
 
-	if (!hdd_conn_is_connected(WLAN_HDD_GET_STATION_CTX_PTR(adapter))) {
+	if (!hdd_cm_is_vdev_associated(adapter)) {
 		hdd_err("dev is not in CONNECTED state, ignore!!!");
 		return -EINVAL;
 	}
@@ -8181,7 +8178,7 @@ static int __iw_set_packet_filter_params(struct net_device *dev,
 		return -ENOTSUPP;
 	}
 
-	if (!hdd_conn_is_connected(WLAN_HDD_GET_STATION_CTX_PTR(adapter))) {
+	if (!hdd_cm_is_vdev_associated(adapter)) {
 		hdd_err("Packet filter not supported in disconnected state");
 		return -ENOTSUPP;
 	}
@@ -8273,7 +8270,7 @@ static int __iw_get_statistics(struct net_device *dev,
 		return ret;
 
 	sta_ctx = WLAN_HDD_GET_STATION_CTX_PTR(adapter);
-	if (eConnectionState_Associated != sta_ctx->conn_info.conn_state) {
+	if (!hdd_cm_is_vdev_associated(adapter)) {
 		wrqu->data.length = 0;
 		return 0;
 	}
@@ -8835,6 +8832,16 @@ static void hdd_ioctl_log_buffer(int log_id, uint32_t count)
 		break;
 	}
 }
+
+#ifdef WLAN_DUMP_LOG_BUF_CNT
+void hdd_dump_log_buffer(void)
+{
+	int i;
+
+	for (i = 0; i <= MGMT_EVENT_LOG; i++)
+		hdd_ioctl_log_buffer(i, WLAN_DUMP_LOG_BUF_CNT);
+}
+#endif
 
 #ifdef CONFIG_DP_TRACE
 void hdd_set_dump_dp_trace(uint16_t cmd_type, uint16_t count)

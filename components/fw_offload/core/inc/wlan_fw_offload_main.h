@@ -215,6 +215,8 @@ struct wlan_fwol_neighbor_report_cfg {
  * @dhcp_max_num_clients: Max number of DHCP client supported
  * @dwelltime_params: adaptive dwell time parameters
  * @enable_ilp: ILP HW block configuration
+ * @sap_sho: SAP SHO HW offload configuration
+ * @disable_hw_assist: Flag to configure HW assist feature in FW
  */
 struct wlan_fwol_cfg {
 	/* Add CFG and INI items here */
@@ -268,6 +270,8 @@ struct wlan_fwol_cfg {
 #endif
 	struct adaptive_dwelltime_params dwelltime_params;
 	bool enable_ilp;
+	uint32_t sap_sho;
+	bool disable_hw_assist;
 };
 
 /**
@@ -403,4 +407,28 @@ fwol_set_adaptive_dwelltime_config(
  */
 QDF_STATUS fwol_set_ilp_config(struct wlan_objmgr_pdev *pdev,
 			       bool enable_ilp);
+
+/**
+ * fwol_set_sap_sho() - API to set SAP SHO config
+ * @psoc: pointer to the psoc object
+ * @vdev_id: vdev id
+ * @sap_sho: enable/disable config for SAP SHO
+ * SHO- SoftAP hardware offload – When enabled the beacon/probe resp
+ * will be offloaded to HW.
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS fwol_set_sap_sho(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+			    uint32_t sap_sho);
+
+/**
+ * fwol_configure_hw_assist() - API to configure HW assist feature in FW
+ * @pdev: pointer to the pdev object
+ * @disable_he_assist: Flag to enable/disable HW assist feature
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS fwol_configure_hw_assist(struct wlan_objmgr_pdev *pdev,
+				    bool disable_hw_assist);
+
 #endif
