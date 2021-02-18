@@ -1076,6 +1076,7 @@ struct wlan_mlme_chain_cfg {
  * supports stop all host scan request type.
  * @peer_create_conf_support: Peer create confirmation command support
  * @dual_sta_roam_fw_support: Firmware support for dual sta roaming feature
+ * @ocv_support: FW supports OCV
  *
  * Add all the mlme-tgt related capablities here, and the public API would fill
  * the related capability in the required mlme cfg structure.
@@ -1086,6 +1087,7 @@ struct mlme_tgt_caps {
 	bool stop_all_host_scan_support;
 	bool peer_create_conf_support;
 	bool dual_sta_roam_fw_support;
+	bool ocv_support;
 };
 
 /**
@@ -1303,6 +1305,7 @@ struct wlan_mlme_ratemask {
  * @wls_6ghz_capable: wifi location service(WLS) is 6ghz capable
  * @monitor_mode_concurrency: Monitor mode concurrency supported
  * @wds_mode: wds mode supported
+ * @ocv_support: FW supports OCV or not
  */
 struct wlan_mlme_generic {
 	uint32_t band_capability;
@@ -1346,6 +1349,7 @@ struct wlan_mlme_generic {
 	bool wls_6ghz_capable;
 	enum monitor_mode_concurrency monitor_mode_concurrency;
 	enum wlan_wds_mode wds_mode;
+	bool ocv_support;
 };
 
 /*
