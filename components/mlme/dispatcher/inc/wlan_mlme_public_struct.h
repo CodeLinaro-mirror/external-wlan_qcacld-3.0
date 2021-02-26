@@ -1302,6 +1302,7 @@ struct wlan_mlme_ratemask {
  * @sae_connect_retries: sae connect retry bitmask
  * @wls_6ghz_capable: wifi location service(WLS) is 6ghz capable
  * @monitor_mode_concurrency: Monitor mode concurrency supported
+ * @wds_mode: wds mode supported
  */
 struct wlan_mlme_generic {
 	uint32_t band_capability;
@@ -1344,6 +1345,7 @@ struct wlan_mlme_generic {
 	uint32_t sae_connect_retries;
 	bool wls_6ghz_capable;
 	enum monitor_mode_concurrency monitor_mode_concurrency;
+	enum wlan_wds_mode wds_mode;
 };
 
 /*
