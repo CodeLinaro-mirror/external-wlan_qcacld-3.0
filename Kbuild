@@ -1782,6 +1782,10 @@ ifeq ($(CONFIG_WDI_EVENT_ENABLE), y)
 DP_OBJS +=     $(DP_SRC)/dp_wdi_event.o
 endif
 
+ifeq ($(CONFIG_FEATURE_MEC), y)
+DP_OBJS += $(DP_SRC)/dp_txrx_wds.o
+endif
+
 ############ CFG ############
 WCFG_DIR := wlan_cfg
 WCFG_INC := -I$(WLAN_COMMON_INC)/$(WCFG_DIR)
@@ -3783,6 +3787,11 @@ endif
 cppflags-$(CONFIG_FEATURE_STA_MODE_VOTE_LINK) += -DFEATURE_STA_MODE_VOTE_LINK
 cppflags-$(CONFIG_WLAN_ENABLE_GPIO_WAKEUP) += -DWLAN_ENABLE_GPIO_WAKEUP
 cppflags-$(CONFIG_WLAN_MAC_ADDR_UPDATE_DISABLE) += -DWLAN_MAC_ADDR_UPDATE_DISABLE
+
+#Flags to enable/disable WDS specific features
+cppflags-$(CONFIG_FEATURE_WDS) += -DFEATURE_WDS
+cppflags-$(CONFIG_FEATURE_MEC) += -DFEATURE_MEC
+cppflags-$(CONFIG_FEATURE_MCL_REPEATER) += -DFEATURE_MCL_REPEATER
 
 KBUILD_CPPFLAGS += $(cppflags-y)
 
