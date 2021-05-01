@@ -4138,4 +4138,25 @@ ucfg_mlme_is_sta_mon_conc_supported(struct wlan_objmgr_psoc *psoc)
  * Return: Support rvr optimize or not
  */
 bool ucfg_mlme_is_rvr_optimize_support(struct wlan_objmgr_psoc *psoc);
+
+static inline QDF_STATUS
+ucfg_mlme_cfg_get_vht_ampdu_len_exp(struct wlan_objmgr_psoc *psoc,
+				    uint8_t *value)
+{
+	return wlan_mlme_cfg_get_vht_ampdu_len_exp(psoc, value);
+}
+
+static inline QDF_STATUS
+ucfg_mlme_cfg_get_vht_max_mpdu_len(struct wlan_objmgr_psoc *psoc,
+				   uint8_t *value)
+{
+	return wlan_mlme_cfg_get_vht_max_mpdu_len(psoc, value);
+}
+
+static inline QDF_STATUS
+ucfg_mlme_cfg_get_ht_smps(struct wlan_objmgr_psoc *psoc,
+			  uint8_t *value)
+{
+	return wlan_mlme_cfg_get_ht_smps(psoc, value);
+}
 #endif /* _WLAN_MLME_UCFG_API_H_ */
