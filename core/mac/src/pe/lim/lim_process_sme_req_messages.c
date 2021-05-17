@@ -4175,6 +4175,11 @@ void lim_calculate_tpc(struct mac_context *mac,
 	struct vdev_mlme_obj *mlme_obj;
 	uint8_t tpe_power;
 
+	if (LIM_IS_STA_ROLE(session) && !session->lim_join_req) {
+		pe_err("Join Request is NULL");
+		return;
+	}
+
 	mlme_obj = wlan_vdev_mlme_get_cmpt_obj(session->vdev);
 	if (!mlme_obj) {
 		pe_err("vdev component object is NULL");
