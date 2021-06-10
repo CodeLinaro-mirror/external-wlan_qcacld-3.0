@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2013-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2018, 2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -73,6 +74,7 @@
 #define A_PRINTF(args ...) \
 	QDF_TRACE_ERROR(QDF_MODULE_ID_QDF, args)
 #define A_SNPRINTF(buf, len, args ...)   snprintf(buf, len, args)
+#define A_OFFSETOF(type, field)   offsetof(type, field)
 
 /*
  * Timer Functions
