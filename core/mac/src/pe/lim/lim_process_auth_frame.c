@@ -1613,7 +1613,7 @@ bool lim_process_sae_preauth_frame(struct mac_context *mac, uint8_t *rx_pkt)
 	frm_len = WMA_GET_RX_PAYLOAD_LEN(rx_pkt);
 
 	if (frm_len < 2) {
-		pe_debug("LFR3: Invalid auth frame len:%d", frm_len);
+		pe_debug("LFR2/3: Invalid auth frame len:%d", frm_len);
 		return false;
 	}
 
@@ -1621,7 +1621,7 @@ bool lim_process_sae_preauth_frame(struct mac_context *mac, uint8_t *rx_pkt)
 	if (auth_alg != eSIR_AUTH_TYPE_SAE)
 		return false;
 
-	pe_debug("LFR3: SAE auth frame: seq_ctrl:0x%X auth_transaction_num:%d",
+	pe_debug("LFR2/3: SAE auth frame: seq_ctrl:0x%X auth_transaction_num:%d",
 		 ((dot11_hdr->seqControl.seqNumHi << 8) |
 		  (dot11_hdr->seqControl.seqNumLo << 4) |
 		  (dot11_hdr->seqControl.fragNum)), *(uint16_t *)(frm_body + 2));
@@ -1656,6 +1656,7 @@ QDF_STATUS lim_process_auth_frame_no_session(struct mac_context *mac, uint8_t *p
 	QDF_STATUS ret_status = QDF_STATUS_E_FAILURE;
 	int i;
 	bool sae_auth_frame;
+	uint16_t auth_transaction_num;
 
 	pHdr = WMA_GET_RX_MAC_HEADER(pBd);
 	pBody = WMA_GET_RX_MPDU_DATA(pBd);
@@ -1670,10 +1671,6 @@ QDF_STATUS lim_process_auth_frame_no_session(struct mac_context *mac, uint8_t *p
 		return QDF_STATUS_E_FAILURE;
 	}
 
-	sae_auth_frame = lim_process_sae_preauth_frame(mac, pBd);
-	if (sae_auth_frame)
-		return QDF_STATUS_SUCCESS;
-
 	/* Auth frame has come on a new BSS, however, we need to find the session
 	 * from where the auth-req was sent to the new AP
 	 */
@@ -1684,8 +1681,6 @@ QDF_STATUS lim_process_auth_frame_no_session(struct mac_context *mac, uint8_t *p
 		    true) {
 			/* Found the session */
 			pe_session = &mac->lim.gpSession[i];
-			mac->lim.gpSession[i].ftPEContext.ftPreAuthSession =
-				false;
 		}
 	}
 
@@ -1700,6 +1695,21 @@ QDF_STATUS lim_process_auth_frame_no_session(struct mac_context *mac, uint8_t *p
 		return QDF_STATUS_E_FAILURE;
 	}
 
+	sae_auth_frame = lim_process_sae_preauth_frame(mac, pBd);
+	if (sae_auth_frame) {
+		auth_transaction_num = *(uint16_t *)(pBody + 2);
+		if (auth_transaction_num == SIR_MAC_AUTH_FRAME_2) {
+			/* Send the Auth response to SME */
+			lim_handle_ft_pre_auth_rsp(mac,
+						   QDF_STATUS_SUCCESS,
+						   pBody,
+						   frameLen,
+						   pe_session);
+			pe_session->ftPEContext.ftPreAuthSession = false;
+		}
+		return QDF_STATUS_SUCCESS;
+	}
+	pe_session->ftPEContext.ftPreAuthSession = false;
 	lim_print_mac_addr(mac, pHdr->bssId, LOGD);
 	lim_print_mac_addr(mac,
 			   pe_session->ftPEContext.pFTPreAuthReq->preAuthbssId,

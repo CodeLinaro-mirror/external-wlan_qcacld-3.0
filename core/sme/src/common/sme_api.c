@@ -6108,6 +6108,23 @@ void sme_update_session_assoc_ie(mac_handle_t mac_handle,
 	session->nAddIEAssocLength = src_profile->nAddIEAssocLength;
 	qdf_mem_copy(session->pAddIEAssoc, src_profile->pAddIEAssoc,
 		     src_profile->nAddIEAssocLength);
+
+	if (session->pCurRoamProfile &&
+	    src_profile->nAddIEAssocLength > 0) {
+		qdf_mem_free(session->pCurRoamProfile->pAddIEAssoc);
+		session->pCurRoamProfile->nAddIEAssocLength = 0;
+		session->pCurRoamProfile->pAddIEAssoc =
+			qdf_mem_malloc(src_profile->nAddIEAssocLength);
+		if (!session->pCurRoamProfile->pAddIEAssoc) {
+			sme_warn("Allocate mem fail for AddIEAssoc!");
+			return;
+		}
+		session->pCurRoamProfile->nAddIEAssocLength =
+			src_profile->nAddIEAssocLength;
+		qdf_mem_copy(session->pCurRoamProfile->pAddIEAssoc,
+			     src_profile->pAddIEAssoc,
+			     src_profile->nAddIEAssocLength);
+	}
 }
 
 QDF_STATUS sme_send_rso_connect_params(mac_handle_t mac_handle,
