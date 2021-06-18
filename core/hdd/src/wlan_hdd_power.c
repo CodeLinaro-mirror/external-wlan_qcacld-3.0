@@ -1834,6 +1834,12 @@ static int __wlan_hdd_cfg80211_suspend_wlan(struct wiphy *wiphy,
 	struct hdd_adapter *adapter;
 	mac_handle_t mac_handle;
 	int rc;
+	struct hdd_hostapd_state *hapd_state;
+	struct csr_del_sta_params params = {
+		.peerMacAddr = QDF_MAC_ADDR_BCAST_INIT,
+		.reason_code = eSIR_MAC_DEAUTH_LEAVING_BSS_REASON,
+		.subtype = SIR_MAC_MGMT_DEAUTH,
+	};
 
 	hdd_enter();
 
@@ -1885,6 +1891,14 @@ static int __wlan_hdd_cfg80211_suspend_wlan(struct wiphy *wiphy,
 				 */
 				hdd_err("SAP does not support suspend!!");
 				return -EOPNOTSUPP;
+			} else if (ucfg_pmo_get_disconnect_sap_tdls_in_wow(
+				   hdd_ctx->psoc)) {
+				hapd_state =
+					WLAN_HDD_GET_HOSTAP_STATE_PTR(adapter);
+				if (hapd_state)
+					hdd_softap_deauth_all_sta(adapter,
+								  hapd_state,
+								  &params);
 			}
 		} else if (QDF_P2P_GO_MODE == adapter->device_mode) {
 			if (!ucfg_pmo_get_enable_sap_suspend(
@@ -1894,7 +1908,19 @@ static int __wlan_hdd_cfg80211_suspend_wlan(struct wiphy *wiphy,
 				 */
 				hdd_err("GO does not support suspend!!");
 				return -EOPNOTSUPP;
+			} else if (ucfg_pmo_get_disconnect_sap_tdls_in_wow(
+				   hdd_ctx->psoc)) {
+				hapd_state =
+					WLAN_HDD_GET_HOSTAP_STATE_PTR(adapter);
+				if (hapd_state)
+					hdd_softap_deauth_all_sta(adapter,
+								  hapd_state,
+								  &params);
 			}
+		} else if (QDF_TDLS_MODE == adapter->device_mode) {
+			if (ucfg_pmo_get_disconnect_sap_tdls_in_wow(
+								hdd_ctx->psoc))
+				ucfg_tdls_teardown_links(hdd_ctx->psoc);
 		}
 	}
 	/* p2p cleanup task based on scheduler */

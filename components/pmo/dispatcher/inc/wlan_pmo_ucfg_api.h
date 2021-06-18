@@ -1197,6 +1197,15 @@ ucfg_pmo_get_gpio_wakeup_mode(struct wlan_objmgr_psoc *psoc)
 }
 #endif
 
+/*
+ * ucfg_pmo_get_disconnect_sap_tdls_in_wow: get if disconnect sap/p2p_go
+ * or tdls in wow
+ * @psoc: objmgr psoc
+ *
+ * Return: true in case support else false
+ */
+bool
+ucfg_pmo_get_disconnect_sap_tdls_in_wow(struct wlan_objmgr_psoc *psoc);
 #else /* WLAN_POWER_MANAGEMENT_OFFLOAD */
 static inline QDF_STATUS
 ucfg_pmo_psoc_open(struct wlan_objmgr_psoc *psoc)
@@ -1839,6 +1848,12 @@ enum active_apf_mode
 ucfg_pmo_get_active_mc_bc_apf_mode(struct wlan_objmgr_psoc *psoc)
 {
 	return 0;
+}
+
+static inline bool
+ucfg_pmo_get_disconnect_sap_tdls_in_wow(struct wlan_objmgr_psoc *psoc)
+{
+	return false;
 }
 #endif /* WLAN_POWER_MANAGEMENT_OFFLOAD */
 

@@ -416,6 +416,29 @@
 	CFG_VALUE_OR_DEFAULT, \
 	"RA rate limit interval")
 
+/*
+ * <ini>
+ * disconnect_sap_tdls_in_wow - disconnect sap tdls in wow
+ * @Min: 0
+ * @Max: 1
+ * @Default: 0
+ *
+ * Due to the limitation on third party platform, add ini to take
+ * special care of the below wow case to avoid fw crash.
+ * The sap/p2p_go shall kick out all the connected sta/p2p_gc and
+ * then go to suspend considering d0wow/d3wow is not supported.
+ * Teardown tdls link proactively since auto sleep mechanism not
+ * supported.
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_DISCONNECT_SAP_TDLS_IN_WOW CFG_INI_BOOL( \
+		"disconnect_sap_tdls_in_wow", \
+		0, \
+		"disconnect sap tdls in wow")
+
 #define CFG_PMO_COMMON_ALL \
 	CFG(CFG_ENABLE_SAP_SUSPEND) \
 	CFG(CFG_PMO_ENABLE_HOST_ARPOFFLOAD) \
@@ -433,6 +456,7 @@
 	CFG(CFG_PMO_ACTIVE_MODE) \
 	CFG(CFG_PMO_PWR_FAILURE) \
 	CFG(CFG_PMO_WOW_DATA_INACTIVITY_TIMEOUT) \
-	CFG(CFG_RA_RATE_LIMIT_INTERVAL)
+	CFG(CFG_RA_RATE_LIMIT_INTERVAL) \
+	CFG(CFG_DISCONNECT_SAP_TDLS_IN_WOW)
 
 #endif /* WLAN_PMO_COMMON_CFG_H__ */

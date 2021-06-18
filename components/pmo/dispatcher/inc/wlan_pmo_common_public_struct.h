@@ -324,6 +324,7 @@ enum pmo_gpio_wakeup_mode {
  * @enable_gpio_wakeup: enable gpio wakeup
  * @gpio_wakeup_pin: gpio wakeup pin
  * @gpio_wakeup_mode: gpio wakeup mode
+ * @disconnect_sap_tdls_in_wow: sap/p2p_go disconnect or teardown tdls link
  */
 struct pmo_psoc_cfg {
 	bool ptrn_match_enable_all_vdev;
@@ -393,6 +394,7 @@ struct pmo_psoc_cfg {
 	uint32_t gpio_wakeup_pin;
 	enum pmo_gpio_wakeup_mode gpio_wakeup_mode;
 #endif
+	bool disconnect_sap_tdls_in_wow;
 };
 
 /**

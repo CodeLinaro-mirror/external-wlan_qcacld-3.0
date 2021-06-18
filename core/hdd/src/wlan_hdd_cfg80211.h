@@ -782,4 +782,18 @@ QDF_STATUS wlan_hdd_send_sta_authorized_event(
 					struct hdd_adapter *adapter,
 					struct hdd_context *hdd_ctx,
 					const struct qdf_mac_addr *mac_addr);
+
+struct hdd_hostapd_state;
+
+/**
+ * hdd_softap_deauth_all_sta() - Deauth all sta in the sta list
+ * @adapter: pointer to adapter structure
+ * @hapd_state: pointer to hostapd state structure
+ * @param: pointer to del sta params
+ *
+ * Return: QDF_STATUS on success, corresponding QDF failure status on failure
+ */
+QDF_STATUS hdd_softap_deauth_all_sta(struct hdd_adapter *adapter,
+				     struct hdd_hostapd_state *hapd_state,
+				     struct csr_del_sta_params *param);
 #endif
