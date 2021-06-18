@@ -938,3 +938,11 @@ int32_t ucfg_pmo_get_wow_reason(struct wlan_objmgr_psoc *psoc)
 
 	return pmo_core_get_wow_reason(pmo_psoc_ctx);
 }
+
+bool
+ucfg_pmo_get_disconnect_sap_tdls_in_wow(struct wlan_objmgr_psoc *psoc)
+{
+	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
+
+	return pmo_psoc_ctx->psoc_cfg.disconnect_sap_tdls_in_wow;
+}
