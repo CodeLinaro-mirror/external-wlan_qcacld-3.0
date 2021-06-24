@@ -265,6 +265,14 @@ bool cm_csr_is_handoff_in_progress(uint8_t vdev_id);
 void cm_csr_disconnect_on_wait_key_timeout(uint8_t vdev_id);
 #endif
 
+/**
+ * cm_csr_send_set_ie()  - CM wrapper to send the set IE request
+ * @vdev: Object manager VDEV
+ *
+ * Return: None
+ */
+void cm_csr_send_set_ie(struct wlan_objmgr_vdev *vdev);
+
 #ifdef FEATURE_CM_ENABLE
 static inline QDF_STATUS
 cm_ext_hdl_create(struct wlan_objmgr_vdev *vdev, cm_ext_t **ext_cm_ptr)
