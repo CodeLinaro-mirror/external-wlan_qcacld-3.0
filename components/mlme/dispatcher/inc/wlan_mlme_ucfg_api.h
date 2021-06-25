@@ -4171,4 +4171,16 @@ ucfg_mlme_cfg_get_ht_smps(struct wlan_objmgr_psoc *psoc,
 {
 	return wlan_mlme_cfg_get_ht_smps(psoc, value);
 }
+
+/**
+ * ucfg_mlme_get_wds_mode() - Get the configured WDS mode
+ * @psoc: pointer to psoc object
+ *
+ * Return: supported wds mode from enum wlan_wds_mode
+ */
+static inline uint32_t
+ucfg_mlme_get_wds_mode(struct wlan_objmgr_psoc *psoc)
+{
+	return wlan_mlme_get_wds_mode(psoc);
+}
 #endif /* _WLAN_MLME_UCFG_API_H_ */
