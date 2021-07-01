@@ -9894,20 +9894,27 @@ void wlan_hdd_set_pm_qos_request(struct hdd_context *hdd_ctx,
 	}
 }
 #else
+#if defined(MSM_PLATFORM)
+#define CPUMASK_SETALL(a)  qdf_cpumask_setall(&a.cpus_affine)
+#define CPUMASK_CLEAR(a) qdf_cpumask_clear(&a.cpus_affine)
+#else
+#define CPUMASK_SETALL(a) /* no-op*/
+#define CPUMASK_CLEAR(a) /* no-op*/
+#endif
 void wlan_hdd_set_pm_qos_request(struct hdd_context *hdd_ctx,
 				 bool pm_qos_request)
 {
 	if (pm_qos_request) {
 		hdd_ctx->pm_qos_request = true;
 		if (!hdd_ctx->hbw_requested) {
-			cpumask_setall(&hdd_ctx->pm_qos_req.cpus_affine);
+			CPUMASK_SETALL(hdd_ctx->pm_qos_req);
 			pm_qos_update_request(&hdd_ctx->pm_qos_req,
 					      DISABLE_KRAIT_IDLE_PS_VAL);
 			hdd_ctx->hbw_requested = true;
 		}
 	} else {
 		if (hdd_ctx->hbw_requested) {
-			cpumask_clear(&hdd_ctx->pm_qos_req.cpus_affine);
+			CPUMASK_CLEAR(hdd_ctx->pm_qos_req);
 			pm_qos_update_request(&hdd_ctx->pm_qos_req,
 					      PM_QOS_DEFAULT_VALUE);
 			hdd_ctx->hbw_requested = false;
