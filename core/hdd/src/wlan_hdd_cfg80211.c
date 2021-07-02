@@ -19562,9 +19562,13 @@ static int wlan_hdd_cfg80211_set_privacy(struct hdd_adapter *adapter,
 			}
 
 			if ((eCSR_SECURITY_WEP_KEYSIZE_MAX_BYTES >=
-			    req->key_len) && (CSR_MAX_NUM_KEY > req->key_idx))
+			    req->key_len) && (CSR_MAX_NUM_KEY > req->key_idx)) {
 				wlan_hdd_cfg80211_store_wep_key(adapter,
 								vdev, req);
+				wlan_crypto_set_default_key_idx(vdev,
+								req->key_idx,
+								false);
+			}
 		}
 	}
 release_vdev_ref:
