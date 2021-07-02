@@ -43,6 +43,7 @@
 #include "lim_send_messages.h"
 #include "lim_process_fils.h"
 #include "wlan_mlme_api.h"
+#include <wlan_crypto_global_api.h>
 
 /**
  * is_auth_valid
@@ -912,7 +913,8 @@ static void lim_process_auth_frame_type2(struct mac_context *mac_ctx,
 			return;
 		}
 
-		key_id = mac_ctx->mlme_cfg->wep_params.wep_default_key_id;
+		key_id = wlan_crypto_get_default_key_idx(pe_session->vdev,
+							 false);
 		val = SIR_MAC_KEY_LENGTH;
 		if (LIM_IS_AP_ROLE(pe_session)) {
 			qdf_status = lim_get_wep_key_sap(pe_session,
