@@ -203,6 +203,7 @@
 #include "wlan_hdd_bootup_marker.h"
 #include "wlan_hdd_bus_bandwidth.h"
 #include <linux/bitfield.h>
+#include <wlan_hdd_son.h>
 
 #ifdef MODULE
 #define WLAN_MODULE_NAME  module_name(THIS_MODULE)
@@ -402,6 +403,17 @@ struct sock *cesium_nl_srv_sock;
 #ifdef FEATURE_WLAN_AUTO_SHUTDOWN
 static void wlan_hdd_auto_shutdown_cb(void);
 #endif
+
+bool hdd_adapter_is_ap(struct hdd_adapter *adapter)
+{
+	if (!adapter) {
+		hdd_err("null adapter");
+		return false;
+	}
+
+	return adapter->device_mode == QDF_SAP_MODE ||
+		adapter->device_mode == QDF_P2P_GO_MODE;
+}
 
 QDF_STATUS hdd_common_roam_callback(struct wlan_objmgr_psoc *psoc,
 				     uint8_t session_id,
@@ -4145,6 +4157,8 @@ int hdd_wlan_start_modules(struct hdd_context *hdd_ctx, bool reinit)
 		 * register HDD callbacks with UMAC's NAN componenet.
 		 */
 		hdd_nan_register_callbacks(hdd_ctx);
+
+		hdd_son_register_callbacks(hdd_ctx);
 
 		wlan_hdd_register_btc_chain_mode_handler(hdd_ctx->psoc);
 
@@ -15846,12 +15860,6 @@ static inline bool hdd_adapter_is_sta(struct hdd_adapter *adapter)
 {
 	return adapter->device_mode == QDF_STA_MODE ||
 		adapter->device_mode == QDF_P2P_CLIENT_MODE;
-}
-
-static inline bool hdd_adapter_is_ap(struct hdd_adapter *adapter)
-{
-	return adapter->device_mode == QDF_SAP_MODE ||
-		adapter->device_mode == QDF_P2P_GO_MODE;
 }
 
 bool hdd_is_any_adapter_connected(struct hdd_context *hdd_ctx)

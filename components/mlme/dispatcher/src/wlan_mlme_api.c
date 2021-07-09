@@ -4764,3 +4764,18 @@ bool wlan_mlme_is_sta_mon_conc_supported(struct wlan_objmgr_psoc *psoc)
 
 	return false;
 }
+
+enum phy_ch_width mlme_get_vht_ch_width(void)
+{
+	enum phy_ch_width bandwidth = CH_WIDTH_INVALID;
+	uint32_t fw_ch_wd = wma_get_vht_ch_width();
+
+	if (fw_ch_wd == WNI_CFG_VHT_CHANNEL_WIDTH_80_PLUS_80MHZ)
+		bandwidth = CH_WIDTH_80P80MHZ;
+	else if (fw_ch_wd == WNI_CFG_VHT_CHANNEL_WIDTH_160MHZ)
+		bandwidth = CH_WIDTH_160MHZ;
+	else
+		bandwidth = CH_WIDTH_80MHZ;
+
+	return bandwidth;
+}
