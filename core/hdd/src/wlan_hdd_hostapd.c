@@ -98,6 +98,7 @@
 #include "wlan_if_mgr_ucfg_api.h"
 #include "wlan_if_mgr_public_struct.h"
 #include "wlan_hdd_bootup_marker.h"
+#include "wlan_hdd_son.h"
 
 #define ACS_SCAN_EXPIRY_TIMEOUT_S 4
 
@@ -2158,6 +2159,7 @@ QDF_STATUS hdd_hostapd_sap_event_cb(struct sap_event *sap_event,
 		} else {
 			hdd_debug("Sent CAC end (interrupted) to user space");
 		}
+		hdd_son_deliver_cac_status_event(adapter, true);
 		break;
 	case eSAP_DFS_CAC_END:
 		wlan_hdd_send_svc_nlink_msg(hdd_ctx->radio_index,
@@ -2175,6 +2177,7 @@ QDF_STATUS hdd_hostapd_sap_event_cb(struct sap_event *sap_event,
 		} else {
 			hdd_debug("Sent CAC end to user space");
 		}
+		hdd_son_deliver_cac_status_event(adapter, false);
 		break;
 	case eSAP_DFS_RADAR_DETECT:
 	{
@@ -2201,6 +2204,7 @@ QDF_STATUS hdd_hostapd_sap_event_cb(struct sap_event *sap_event,
 		} else {
 			hdd_debug("Sent radar detected to user space");
 		}
+		hdd_son_deliver_cac_status_event(adapter, true);
 		break;
 	}
 	case eSAP_DFS_RADAR_DETECT_DURING_PRE_CAC:
@@ -2213,6 +2217,7 @@ QDF_STATUS hdd_hostapd_sap_event_cb(struct sap_event *sap_event,
 				wlan_hdd_sap_pre_cac_failure,
 				(void *)adapter);
 		qdf_sched_work(0, &hdd_ctx->sap_pre_cac_work);
+		hdd_son_deliver_cac_status_event(adapter, true);
 		break;
 	case eSAP_DFS_PRE_CAC_END:
 		hdd_debug("pre cac end notification received:%d",
@@ -2427,6 +2432,10 @@ QDF_STATUS hdd_hostapd_sap_event_cb(struct sap_event *sap_event,
 		}
 
 		hdd_green_ap_add_sta(hdd_ctx);
+		hdd_son_deliver_assoc_disassoc_event(adapter,
+						     event->staMac,
+						     event->status,
+						     ALD_ASSOC_EVENT);
 		break;
 
 	case eSAP_STA_DISASSOC_EVENT:
@@ -2572,7 +2581,10 @@ QDF_STATUS hdd_hostapd_sap_event_cb(struct sap_event *sap_event,
 			hdd_bus_bw_compute_reset_prev_txrx_stats(adapter);
 			hdd_bus_bw_compute_timer_try_stop(hdd_ctx);
 		}
-
+		hdd_son_deliver_assoc_disassoc_event(adapter,
+						     disassoc_comp->staMac,
+						     disassoc_comp->reason_code,
+						     ALD_DISASSOC_EVENT);
 		hdd_green_ap_del_sta(hdd_ctx);
 		break;
 
@@ -2686,6 +2698,7 @@ QDF_STATUS hdd_hostapd_sap_event_cb(struct sap_event *sap_event,
 		return hdd_handle_acs_scan_event(sap_event, adapter);
 
 	case eSAP_ACS_CHANNEL_SELECTED:
+		hdd_son_deliver_acs_complete_event(adapter);
 		ap_ctx->sap_config.acs_cfg.pri_ch_freq =
 			sap_event->sapevt.sap_ch_selected.pri_ch_freq;
 		ap_ctx->sap_config.acs_cfg.ht_sec_ch_freq =

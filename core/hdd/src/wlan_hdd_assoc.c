@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -86,6 +87,8 @@
 
 #include "wlan_hdd_bootup_marker.h"
 #include "wlan_roam_debug.h"
+
+#include "wlan_hdd_son.h"
 
 /* These are needed to recognize WPA and RSN suite types */
 #define HDD_WPA_OUI_SIZE 4
@@ -2042,6 +2045,8 @@ QDF_STATUS hdd_change_peer_state(struct hdd_adapter *adapter,
 		    (wlan_mlme_get_wds_mode(hdd_ctx->psoc) ==
 		    WLAN_WDS_MODE_REPEATER))
 			hdd_config_wds_repeater_mode(adapter, peer_mac);
+
+		hdd_son_deliver_peer_authorize_event(adapter, peer_mac);
 	}
 	return QDF_STATUS_SUCCESS;
 }
