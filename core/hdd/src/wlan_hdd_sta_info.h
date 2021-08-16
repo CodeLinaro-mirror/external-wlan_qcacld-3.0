@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2019-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -108,6 +108,7 @@ enum dhcp_nego_status {
  * @STA_INFO_CLEAR_CACHED_STA_INFO:     Clear the cached sta info
  * @STA_INFO_ATTACH_DETACH:             Station info attach/detach
  * @STA_INFO_SHOW:     Station info show
+ * @STA_INFO_SON_GET_DATRATE_INFO: gets datarate info for a SON node
  *
  */
 /*
@@ -145,7 +146,7 @@ typedef enum {
 	STA_INFO_CLEAR_CACHED_STA_INFO = 27,
 	STA_INFO_ATTACH_DETACH = 28,
 	STA_INFO_SHOW = 29,
-
+	STA_INFO_SON_GET_DATRATE_INFO = 32,
 	STA_INFO_ID_MAX,
 } wlan_sta_info_dbgid;
 
