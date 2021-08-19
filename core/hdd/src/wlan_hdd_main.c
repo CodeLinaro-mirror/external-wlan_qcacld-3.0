@@ -204,6 +204,7 @@
 #include "wlan_hdd_bus_bandwidth.h"
 #include <linux/bitfield.h>
 #include <wlan_hdd_son.h>
+#include <son_ucfg_api.h>
 
 #ifdef MODULE
 #define WLAN_MODULE_NAME  module_name(THIS_MODULE)
@@ -5621,6 +5622,7 @@ int hdd_vdev_destroy(struct hdd_adapter *adapter)
 					  QDF_VDEV_DELETE_RESPONSE_TIMED_OUT);
 	}
 
+	ucfg_son_disable_cbs(vdev);
 	hdd_nofl_debug("vdev %d destroyed successfully", vdev_id);
 
 send_status:
