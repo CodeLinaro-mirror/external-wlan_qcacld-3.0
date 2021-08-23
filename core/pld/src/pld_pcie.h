@@ -480,7 +480,6 @@ static inline void pld_pcie_allow_l1(struct device *dev)
 	cnss_pci_allow_l1(dev);
 }
 
-#ifdef PCIE_GEN_SWITCH
 /**
  * pld_pcie_set_gen_speed() - Wrapper for platform API to set PCIE gen speed
  * @dev: device
@@ -494,12 +493,6 @@ static inline int pld_pcie_set_gen_speed(struct device *dev, u8 pcie_gen_speed)
 {
 	return cnss_set_pcie_gen_speed(dev, pcie_gen_speed);
 }
-#else
-static inline int pld_pcie_set_gen_speed(struct device *dev, u8 pcie_gen_speed)
-{
-	return 0;
-}
-#endif
 
 static inline void pld_pcie_link_down(struct device *dev)
 {
