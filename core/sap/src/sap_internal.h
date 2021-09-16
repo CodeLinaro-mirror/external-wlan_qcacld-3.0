@@ -230,6 +230,7 @@ struct sap_context {
 	bool is_chan_change_inprogress;
 	qdf_list_t owe_pending_assoc_ind_list;
 	uint32_t freq_before_ch_switch;
+	qdf_freq_t candidate_freq;
 };
 
 /*----------------------------------------------------------------------------
