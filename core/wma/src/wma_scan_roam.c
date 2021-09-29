@@ -2133,10 +2133,11 @@ QDF_STATUS wma_process_roaming_config(tp_wma_handle wma_handle,
 		 * and WMI_ROAM_REASON_SUITABLE_AP event was received earlier,
 		 * now it is time to call it heartbeat failure.
 		 */
-		if ((roam_req->reason == REASON_PREAUTH_FAILED_FOR_ALL)
+		if ((roam_req->reason == REASON_PREAUTH_FAILED_FOR_ALL ||
+		    roam_req->reason == REASON_NO_CAND_FOUND_OR_NOT_ROAMING_NOW)
 		    && wma_handle->suitable_ap_hb_failure) {
-			WMA_LOGE("%s: Sending heartbeat failure after preauth failures",
-				__func__);
+			WMA_LOGE("%s: Sending heartbeat failure, reason %d",
+				__func__, roam_req->reason);
 			wma_beacon_miss_handler(wma_handle,
 				roam_req->sessionId,
 				wma_handle->suitable_ap_hb_failure_rssi);
