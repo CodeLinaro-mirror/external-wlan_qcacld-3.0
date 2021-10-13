@@ -6822,6 +6822,7 @@ int wma_rx_service_ready_ext_event(void *handle, uint8_t *event,
 		wlan_res_cfg->pktcapture_support = true;
 	else
 		wlan_res_cfg->pktcapture_support = false;
+	wlan_res_cfg->max_peer_ext_stats = WMA_SON_MAX_PEER_EXT_STATS;
 
 	wma_debug("num_vdevs: %u", wlan_res_cfg->num_vdevs);
 
