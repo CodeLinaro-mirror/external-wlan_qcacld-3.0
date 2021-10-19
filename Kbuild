@@ -439,6 +439,10 @@ ifeq ($(CONFIG_FEATURE_BUS_BANDWIDTH_MGR),y)
 HDD_OBJS += $(HDD_SRC_DIR)/wlan_hdd_bus_bandwidth.o
 endif
 
+ifeq ($(CONFIG_FEATURE_WDS),y)
+HDD_OBJS += $(HDD_SRC_DIR)/wlan_hdd_wds.o
+endif
+
 ###### OSIF_SYNC ########
 SYNC_DIR := os_if/sync
 SYNC_INC_DIR := $(SYNC_DIR)/inc
@@ -1664,6 +1668,11 @@ endif
 ifeq ($(CONFIG_FEATURE_GPIO_CFG), y)
 WMI_OBJS += $(WMI_OBJ_DIR)/wmi_unified_gpio_api.o
 WMI_OBJS += $(WMI_OBJ_DIR)/wmi_unified_gpio_tlv.o
+endif
+
+ifeq ($(CONFIG_FEATURE_WDS),y)
+WMI_OBJS += $(WMI_OBJ_DIR)/wmi_unified_wds_api.o
+WMI_OBJS += $(WMI_OBJ_DIR)/wmi_unified_wds_tlv.o
 endif
 
 ########### FWLOG ###########
@@ -3827,6 +3836,8 @@ cppflags-$(CONFIG_WLAN_MAC_ADDR_UPDATE_DISABLE) += -DWLAN_MAC_ADDR_UPDATE_DISABL
 cppflags-$(CONFIG_FEATURE_WDS) += -DFEATURE_WDS
 cppflags-$(CONFIG_FEATURE_MEC) += -DFEATURE_MEC
 cppflags-$(CONFIG_FEATURE_MCL_REPEATER) += -DFEATURE_MCL_REPEATER
+cppflags-$(CONFIG_WDS_CONV_TARGET_IF_OPS_ENABLE) += -DWDS_CONV_TARGET_IF_OPS_ENABLE
+cppflags-$(CONFIG_BYPASS_WDS_OL_OPS) += -DBYPASS_OL_OPS
 
 ifeq ($(CONFIG_MULTI_CARD), y)
 ccflags-y += -DMULTI_CARD
