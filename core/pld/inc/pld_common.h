@@ -42,6 +42,11 @@
 #include <net/cnss_prealloc.h>
 #endif
 
+#ifdef MULTI_CARD
+#include <net/cnss2.h>
+#include <net/multi_card.h>
+#endif
+
 /**
  * enum pld_bus_type - bus type
  * @PLD_BUS_TYPE_NONE: invalid bus type, only return in error cases
@@ -491,6 +496,21 @@ int pld_get_audio_wlan_timestamp(struct device *dev,
  * Return: 0 for success
  *         Non zero failure code for errors
  */
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_SET_WLAN_UNSAFE_CHANNEL(suffix) \
+static inline int pld_set_wlan_unsafe_channel(struct device *dev, \
+					      u16 *unsafe_ch_list, \
+					      u16 ch_count) \
+{ \
+	return cnss_utils_set_wlan_unsafe_channel_##suffix(dev, \
+							   unsafe_ch_list, \
+							   ch_count); \
+}
+
+#define PLD_SET_WLAN_UNSAFE_CHANNEL_DEFINE(pcie_ssid) PLD_SET_WLAN_UNSAFE_CHANNEL(pcie_ssid)
+
+PLD_SET_WLAN_UNSAFE_CHANNEL_DEFINE(PCIE_SSID)
+#else
 static inline int pld_set_wlan_unsafe_channel(struct device *dev,
 					      u16 *unsafe_ch_list,
 					      u16 ch_count)
@@ -498,6 +518,7 @@ static inline int pld_set_wlan_unsafe_channel(struct device *dev,
 	return cnss_utils_set_wlan_unsafe_channel(dev, unsafe_ch_list,
 						  ch_count);
 }
+#endif
 /**
  * pld_get_wlan_unsafe_channel() - Get unsafe channel
  * @dev: device
@@ -510,6 +531,21 @@ static inline int pld_set_wlan_unsafe_channel(struct device *dev,
  * Return: 0 for success
  *         Non zero failure code for errors
  */
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_GET_WLAN_UNSAFE_CHANNEL(suffix) \
+static inline int pld_get_wlan_unsafe_channel(struct device *dev, \
+					      u16 *unsafe_ch_list, \
+					      u16 *ch_count, u16 buf_len) \
+{ \
+	return cnss_utils_get_wlan_unsafe_channel_##suffix(dev, \
+							   unsafe_ch_list, \
+							   ch_count, buf_len); \
+}
+
+#define PLD_GET_WLAN_UNSAFE_CHANNEL_DEFINE(pcie_ssid) PLD_GET_WLAN_UNSAFE_CHANNEL(pcie_ssid)
+
+PLD_GET_WLAN_UNSAFE_CHANNEL_DEFINE(PCIE_SSID)
+#else
 static inline int pld_get_wlan_unsafe_channel(struct device *dev,
 					      u16 *unsafe_ch_list,
 					      u16 *ch_count, u16 buf_len)
@@ -517,6 +553,7 @@ static inline int pld_get_wlan_unsafe_channel(struct device *dev,
 	return cnss_utils_get_wlan_unsafe_channel(dev, unsafe_ch_list,
 						  ch_count, buf_len);
 }
+#endif
 /**
  * pld_wlan_set_dfs_nol() - Set DFS info
  * @dev: device
@@ -526,11 +563,24 @@ static inline int pld_get_wlan_unsafe_channel(struct device *dev,
  * Return: 0 for success
  *         Non zero failure code for errors
  */
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_WLAN_SET_DFS_NOL(suffix) \
+static inline int pld_wlan_set_dfs_nol(struct device *dev, void *info, \
+				       u16 info_len) \
+{ \
+	return cnss_utils_wlan_set_dfs_nol_##suffix(dev, info, info_len); \
+}
+
+#define PLD_WLAN_SET_DFS_NOL_DEFINE(pcie_ssid) PLD_WLAN_SET_DFS_NOL(pcie_ssid)
+
+PLD_WLAN_SET_DFS_NOL_DEFINE(PCIE_SSID)
+#else
 static inline int pld_wlan_set_dfs_nol(struct device *dev, void *info,
 				       u16 info_len)
 {
 	return cnss_utils_wlan_set_dfs_nol(dev, info, info_len);
 }
+#endif
 /**
  * pld_wlan_get_dfs_nol() - Get DFS info
  * @dev: device
@@ -542,11 +592,24 @@ static inline int pld_wlan_set_dfs_nol(struct device *dev, void *info,
  * Return: 0 for success
  *         Non zero failure code for errors
  */
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_WLAN_GET_DFS_NOL(suffix) \
+static inline int pld_wlan_get_dfs_nol(struct device *dev, \
+				       void *info, u16 info_len) \
+{ \
+	return cnss_utils_wlan_get_dfs_nol_##suffix(dev, info, info_len); \
+}
+
+#define PLD_WLAN_GET_DFS_NOL_DEFINE(pcie_ssid) PLD_WLAN_GET_DFS_NOL(pcie_ssid)
+
+PLD_WLAN_GET_DFS_NOL_DEFINE(PCIE_SSID)
+#else
 static inline int pld_wlan_get_dfs_nol(struct device *dev,
 				       void *info, u16 info_len)
 {
 	return cnss_utils_wlan_get_dfs_nol(dev, info, info_len);
 }
+#endif
 /**
  * pld_get_wlan_mac_address() - API to query MAC address from Platform
  * Driver
@@ -558,11 +621,24 @@ static inline int pld_wlan_get_dfs_nol(struct device *dev,
  *
  * Return: Pointer to the list of MAC address
  */
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_GET_WLAN_MAC_ADDRESS(suffix) \
+static inline uint8_t *pld_get_wlan_mac_address(struct device *dev, \
+						uint32_t *num) \
+{ \
+	return cnss_utils_get_wlan_mac_address_##suffix(dev, num); \
+}
+
+#define PLD_GET_WLAN_MAC_ADDRESS_DEFINE(pcie_ssid) PLD_GET_WLAN_MAC_ADDRESS(pcie_ssid)
+
+PLD_GET_WLAN_MAC_ADDRESS_DEFINE(PCIE_SSID)
+#else
 static inline uint8_t *pld_get_wlan_mac_address(struct device *dev,
 						uint32_t *num)
 {
 	return cnss_utils_get_wlan_mac_address(dev, num);
 }
+#endif
 
 /**
  * pld_get_wlan_derived_mac_address() - API to query derived MAC address
@@ -575,11 +651,24 @@ static inline uint8_t *pld_get_wlan_mac_address(struct device *dev,
  *
  * Return: Pointer to the list of MAC address
  */
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_GET_WLAN_DERIVED_MAC_ADDRESS(suffix) \
+static inline uint8_t *pld_get_wlan_derived_mac_address(struct device *dev, \
+							uint32_t *num) \
+{ \
+	return cnss_utils_get_wlan_derived_mac_address_##suffix(dev, num); \
+}
+
+#define PLD_GET_WLAN_DERIVED_MAC_ADDRESS_DEFINE(pcie_ssid) PLD_GET_WLAN_DERIVED_MAC_ADDRESS(pcie_ssid)
+
+PLD_GET_WLAN_DERIVED_MAC_ADDRESS_DEFINE(PCIE_SSID)
+#else
 static inline uint8_t *pld_get_wlan_derived_mac_address(struct device *dev,
 							uint32_t *num)
 {
 	return cnss_utils_get_wlan_derived_mac_address(dev, num);
 }
+#endif
 
 /**
  * pld_increment_driver_load_cnt() - Maintain driver load count
@@ -590,10 +679,22 @@ static inline uint8_t *pld_get_wlan_derived_mac_address(struct device *dev,
  *
  * Return: void
  */
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_INCREMENT_DRIVER_LOAD_CNT(suffix) \
+static inline void pld_increment_driver_load_cnt(struct device *dev) \
+{ \
+	cnss_utils_increment_driver_load_cnt_##suffix(dev); \
+}
+
+#define PLD_INCREMENT_DRIVER_LOAD_CNT_DEFINE(pcie_ssid) PLD_INCREMENT_DRIVER_LOAD_CNT(pcie_ssid)
+
+PLD_INCREMENT_DRIVER_LOAD_CNT_DEFINE(PCIE_SSID)
+#else
 static inline void pld_increment_driver_load_cnt(struct device *dev)
 {
 	cnss_utils_increment_driver_load_cnt(dev);
 }
+#endif
 /**
  * pld_get_driver_load_cnt() - get driver load count
  * @dev: device
@@ -602,10 +703,22 @@ static inline void pld_increment_driver_load_cnt(struct device *dev)
  *
  * Return: driver load count
  */
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_GET_DRIVER_LOAD_CNT(suffix) \
+static inline int pld_get_driver_load_cnt(struct device *dev) \
+{ \
+	return cnss_utils_get_driver_load_cnt_##suffix(dev); \
+}
+
+#define PLD_GET_DRIVER_LOAD_CNT_DEFINE(pcie_ssid) PLD_GET_DRIVER_LOAD_CNT(pcie_ssid)
+
+PLD_GET_DRIVER_LOAD_CNT_DEFINE(PCIE_SSID)
+#else
 static inline int pld_get_driver_load_cnt(struct device *dev)
 {
 	return cnss_utils_get_driver_load_cnt(dev);
 }
+#endif
 #else
 static inline int pld_set_wlan_unsafe_channel(struct device *dev,
 					      u16 *unsafe_ch_list,

@@ -3795,6 +3795,13 @@ cppflags-$(CONFIG_FEATURE_WDS) += -DFEATURE_WDS
 cppflags-$(CONFIG_FEATURE_MEC) += -DFEATURE_MEC
 cppflags-$(CONFIG_FEATURE_MCL_REPEATER) += -DFEATURE_MCL_REPEATER
 
+ifeq ($(CONFIG_MULTI_CARD), y)
+ccflags-y += -DMULTI_CARD
+ifdef CONFIG_PCIE_SSID
+ccflags-y += -DPCIE_SSID=$(CONFIG_PCIE_SSID)
+endif
+endif
+
 KBUILD_CPPFLAGS += $(cppflags-y)
 
 # Currently, for versions of gcc which support it, the kernel Makefile

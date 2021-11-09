@@ -25,6 +25,10 @@
 #include <linux/pci.h>
 #include "pld_internal.h"
 
+#ifdef MULTI_CARD
+#include <net/multi_card.h>
+#endif
+
 #ifdef DYNAMIC_SINGLE_CHIP
 #define PREFIX DYNAMIC_SINGLE_CHIP "/"
 #else
@@ -78,10 +82,22 @@ int pld_pcie_wlan_disable(struct device *dev, enum pld_driver_mode mode);
 #endif
 
 #if defined(CONFIG_PLD_PCIE_CNSS)
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_SET_FW_LOG_MODE(suffix) \
+static inline int pld_pcie_set_fw_log_mode(struct device *dev, u8 fw_log_mode) \
+{ \
+	return cnss_set_fw_log_mode_##suffix(dev, fw_log_mode); \
+}
+
+#define PLD_PCIE_SET_FW_LOG_MODE_DEFINE(pcie_ssid) PLD_PCIE_SET_FW_LOG_MODE(pcie_ssid)
+
+PLD_PCIE_SET_FW_LOG_MODE_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_set_fw_log_mode(struct device *dev, u8 fw_log_mode)
 {
 	return cnss_set_fw_log_mode(dev, fw_log_mode);
 }
+#endif
 
 static inline void pld_pcie_intr_notify_q6(struct device *dev)
 {
@@ -122,10 +138,22 @@ static inline void *pld_pcie_get_fw_ptr(struct device *dev)
 #endif
 
 #ifdef CONFIG_PLD_PCIE_CNSS
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_WLAN_PM_CONTROL(suffix) \
+static inline int pld_pcie_wlan_pm_control(struct device *dev, bool vote) \
+{ \
+	return cnss_wlan_pm_control_##suffix(dev, vote); \
+}
+
+#define PLD_PCIE_WLAN_PM_CONTROL_DEFINE(pcie_ssid) PLD_PCIE_WLAN_PM_CONTROL(pcie_ssid)
+
+PLD_PCIE_WLAN_PM_CONTROL_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_wlan_pm_control(struct device *dev, bool vote)
 {
 	return cnss_wlan_pm_control(dev, vote);
 }
+#endif
 #else
 static inline int pld_pcie_wlan_pm_control(struct device *dev, bool vote)
 {
@@ -414,21 +442,71 @@ void pld_pcie_schedule_recovery_work(struct device *dev,
 				     enum pld_recovery_reason reason);
 void pld_pcie_device_self_recovery(struct device *dev,
 				   enum pld_recovery_reason reason);
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_COLLECT_RDDM(suffix) \
+static inline int pld_pcie_collect_rddm(struct device *dev) \
+{ \
+	return cnss_force_collect_rddm_##suffix(dev); \
+}
+
+#define PLD_PCIE_COLLECT_RDDM_DEFINE(pcie_ssid) PLD_PCIE_COLLECT_RDDM(pcie_ssid)
+
+PLD_PCIE_COLLECT_RDDM_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_collect_rddm(struct device *dev)
 {
 	return cnss_force_collect_rddm(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_QMI_SEND_GET(suffix) \
+static inline int pld_pcie_qmi_send_get(struct device *dev) \
+{ \
+	return cnss_qmi_send_get_##suffix(dev); \
+}
+
+#define PLD_PCIE_QMI_SEND_GET_DEFINE(pcie_ssid) PLD_PCIE_QMI_SEND_GET(pcie_ssid)
+
+PLD_PCIE_QMI_SEND_GET_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_qmi_send_get(struct device *dev)
 {
 	return cnss_qmi_send_get(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_QMI_SEND_PUT(suffix) \
+static inline int pld_pcie_qmi_send_put(struct device *dev) \
+{ \
+	return cnss_qmi_send_put_##suffix(dev); \
+}
+
+#define PLD_PCIE_QMI_SEND_PUT_DEFINE(pcie_ssid) PLD_PCIE_QMI_SEND_PUT(pcie_ssid)
+
+PLD_PCIE_QMI_SEND_PUT_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_qmi_send_put(struct device *dev)
 {
 	return cnss_qmi_send_put(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_QMI_SEND(suffix) \
+static inline int \
+pld_pcie_qmi_send(struct device *dev, int type, void *cmd, \
+		  int cmd_len, void *cb_ctx, \
+		  int (*cb)(void *ctx, void *event, int event_len)) \
+{ \
+	return cnss_qmi_send_##suffix(dev, type, cmd, cmd_len, cb_ctx, cb); \
+}
+
+#define PLD_PCIE_QMI_SEND_DEFINE(pcie_ssid) PLD_PCIE_QMI_SEND(pcie_ssid)
+
+PLD_PCIE_QMI_SEND_DEFINE(PCIE_SSID)
+#else
 static inline int
 pld_pcie_qmi_send(struct device *dev, int type, void *cmd,
 		  int cmd_len, void *cb_ctx,
@@ -436,6 +514,7 @@ pld_pcie_qmi_send(struct device *dev, int type, void *cmd,
 {
 	return cnss_qmi_send(dev, type, cmd, cmd_len, cb_ctx, cb);
 }
+#endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
 static inline void *pld_pcie_smmu_get_domain(struct device *dev)
@@ -443,18 +522,44 @@ static inline void *pld_pcie_smmu_get_domain(struct device *dev)
 	return cnss_smmu_get_domain(dev);
 }
 #else
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_SMMU_GET_MAPPING(suffix) \
+static inline void *pld_pcie_smmu_get_mapping(struct device *dev) \
+{ \
+	return cnss_smmu_get_mapping_##suffix(dev); \
+}
+
+#define PLD_PCIE_SMMU_GET_MAPPING_DEFINE(pcie_ssid) PLD_PCIE_SMMU_GET_MAPPING(pcie_ssid)
+
+PLD_PCIE_SMMU_GET_MAPPING_DEFINE(PCIE_SSID)
+#else
 static inline void *pld_pcie_smmu_get_mapping(struct device *dev)
 {
 	return cnss_smmu_get_mapping(dev);
 }
 #endif
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_SMMU_MAP(suffix) \
+static inline int \
+pld_pcie_smmu_map(struct device *dev, \
+		  phys_addr_t paddr, uint32_t *iova_addr, size_t size) \
+{ \
+	return cnss_smmu_map_##suffix(dev, paddr, iova_addr, size); \
+}
+
+#define PLD_PCIE_SMMU_MAP_DEFINE(pcie_ssid) PLD_PCIE_SMMU_MAP(pcie_ssid)
+
+PLD_PCIE_SMMU_MAP_DEFINE(PCIE_SSID)
+#else
 static inline int
 pld_pcie_smmu_map(struct device *dev,
 		  phys_addr_t paddr, uint32_t *iova_addr, size_t size)
 {
 	return cnss_smmu_map(dev, paddr, iova_addr, size);
 }
+#endif
 
 #ifdef CONFIG_SMMU_S1_UNMAP
 static inline int
@@ -470,15 +575,39 @@ pld_pcie_smmu_unmap(struct device *dev, uint32_t iova_addr, size_t size)
 }
 #endif /* CONFIG_SMMU_S1_UNMAP */
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_PREVENT_L1(suffix) \
+static inline int pld_pcie_prevent_l1(struct device *dev) \
+{ \
+	return cnss_pci_prevent_l1_##suffix(dev); \
+}
+
+#define PLD_PCIE_PREVENT_L1_DEFINE(pcie_ssid) PLD_PCIE_PREVENT_L1(pcie_ssid)
+
+PLD_PCIE_PREVENT_L1_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_prevent_l1(struct device *dev)
 {
 	return cnss_pci_prevent_l1(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_ALLOW_L1(suffix) \
+static inline void pld_pcie_allow_l1(struct device *dev) \
+{ \
+	cnss_pci_allow_l1_##suffix(dev); \
+}
+
+#define PLD_PCIE_ALLOW_L1_DEFINE(pcie_ssid) PLD_PCIE_ALLOW_L1(pcie_ssid)
+
+PLD_PCIE_ALLOW_L1_DEFINE(PCIE_SSID)
+#else
 static inline void pld_pcie_allow_l1(struct device *dev)
 {
 	cnss_pci_allow_l1(dev);
 }
+#endif
 
 #ifdef PCIE_GEN_SWITCH
 /**
@@ -501,10 +630,22 @@ static inline int pld_pcie_set_gen_speed(struct device *dev, u8 pcie_gen_speed)
 }
 #endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_LINK_DOWN(suffix) \
+static inline void pld_pcie_link_down(struct device *dev) \
+{ \
+	cnss_pci_link_down_##suffix(dev); \
+}
+
+#define PLD_PCIE_LINK_DOWN_DEFINE(pcie_ssid) PLD_PCIE_LINK_DOWN(pcie_ssid)
+
+PLD_PCIE_LINK_DOWN_DEFINE(PCIE_SSID)
+#else
 static inline void pld_pcie_link_down(struct device *dev)
 {
 	cnss_pci_link_down(dev);
 }
+#endif
 
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)) && \
 		(LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0)))
@@ -521,134 +662,435 @@ static inline int pld_pcie_get_reg_dump(struct device *dev, uint8_t *buf,
 }
 #endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_IS_FW_DOWN(suffix) \
+static inline int pld_pcie_is_fw_down(struct device *dev) \
+{ \
+	return cnss_pci_is_device_down_##suffix(dev); \
+}
+
+#define PLD_PCIE_IS_FW_DOWN_DEFINE(pcie_ssid) PLD_PCIE_IS_FW_DOWN(pcie_ssid)
+
+PLD_PCIE_IS_FW_DOWN_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_is_fw_down(struct device *dev)
 {
 	return cnss_pci_is_device_down(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_ATHDIAG_READ(suffix) \
+static inline int pld_pcie_athdiag_read(struct device *dev, uint32_t offset, \
+					uint32_t memtype, uint32_t datalen, \
+					uint8_t *output) \
+{ \
+	return cnss_athdiag_read_##suffix(dev, offset, memtype, datalen, output); \
+}
+
+#define PLD_PCIE_ATHDIAG_READ_DEFINE(pcie_ssid) PLD_PCIE_ATHDIAG_READ(pcie_ssid)
+
+PLD_PCIE_ATHDIAG_READ_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_athdiag_read(struct device *dev, uint32_t offset,
 					uint32_t memtype, uint32_t datalen,
 					uint8_t *output)
 {
 	return cnss_athdiag_read(dev, offset, memtype, datalen, output);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_ATHDIAG_WRITE(suffix) \
+static inline int pld_pcie_athdiag_write(struct device *dev, uint32_t offset, \
+					 uint32_t memtype, uint32_t datalen, \
+					 uint8_t *input) \
+{ \
+	return cnss_athdiag_write_##suffix(dev, offset, memtype, datalen, input); \
+}
+
+#define PLD_PCIE_ATHDIAG_WRITE_DEFINE(pcie_ssid) PLD_PCIE_ATHDIAG_WRITE(pcie_ssid)
+
+PLD_PCIE_ATHDIAG_WRITE_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_athdiag_write(struct device *dev, uint32_t offset,
 					 uint32_t memtype, uint32_t datalen,
 					 uint8_t *input)
 {
 	return cnss_athdiag_write(dev, offset, memtype, datalen, input);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_GET_VIRT_RAMDUMP_MEM(suffix) \
+static inline void *pld_pcie_get_virt_ramdump_mem(struct device *dev, \
+						  unsigned long *size) \
+{ \
+	return cnss_get_virt_ramdump_mem_##suffix(dev, size); \
+}
+
+#define PLD_PCIE_GET_VIRT_RAMDUMP_MEM_DEFINE(pcie_ssid) PLD_PCIE_GET_VIRT_RAMDUMP_MEM(pcie_ssid)
+
+PLD_PCIE_GET_VIRT_RAMDUMP_MEM_DEFINE(PCIE_SSID)
+#else
 static inline void *pld_pcie_get_virt_ramdump_mem(struct device *dev,
 						  unsigned long *size)
 {
 	return cnss_get_virt_ramdump_mem(dev, size);
 }
+#endif
 
 static inline void pld_pcie_release_virt_ramdump_mem(void *address)
 {
 }
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_DEVICE_CRASHED(suffix) \
+static inline void pld_pcie_device_crashed(struct device *dev) \
+{ \
+	cnss_device_crashed_##suffix(dev); \
+}
+
+#define PLD_PCIE_DEVICE_CRASHED_DEFINE(pcie_ssid) PLD_PCIE_DEVICE_CRASHED(pcie_ssid)
+
+PLD_PCIE_DEVICE_CRASHED_DEFINE(PCIE_SSID)
+#else
 static inline void pld_pcie_device_crashed(struct device *dev)
 {
 	cnss_device_crashed(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_REQUEST_PM_QOS(suffix) \
+static inline void pld_pcie_request_pm_qos(struct device *dev, u32 qos_val) \
+{ \
+	cnss_request_pm_qos_##suffix(dev, qos_val); \
+}
+
+#define PLD_PCIE_REQUEST_PM_QOS_DEFINE(pcie_ssid) PLD_PCIE_REQUEST_PM_QOS(pcie_ssid)
+
+PLD_PCIE_REQUEST_PM_QOS_DEFINE(PCIE_SSID)
+#else
 static inline void pld_pcie_request_pm_qos(struct device *dev, u32 qos_val)
 {
 	cnss_request_pm_qos(dev, qos_val);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_REMOVE_PM_QOS(suffix) \
+static inline void pld_pcie_remove_pm_qos(struct device *dev) \
+{ \
+	cnss_remove_pm_qos_##suffix(dev); \
+}
+
+#define PLD_PCIE_REMOVE_PM_QOS_DEFINE(pcie_ssid) PLD_PCIE_REMOVE_PM_QOS(pcie_ssid)
+
+PLD_PCIE_REMOVE_PM_QOS_DEFINE(PCIE_SSID)
+#else
 static inline void pld_pcie_remove_pm_qos(struct device *dev)
 {
 	cnss_remove_pm_qos(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_REQUEST_BUS_BANDWIDTH(suffix) \
+static inline int pld_pcie_request_bus_bandwidth(struct device *dev, \
+						 int bandwidth) \
+{ \
+	return cnss_request_bus_bandwidth_##suffix(dev, bandwidth); \
+}
+
+#define PLD_PCIE_REQUEST_BUS_BANDWIDTH_DEFINE(pcie_ssid) PLD_PCIE_REQUEST_BUS_BANDWIDTH(pcie_ssid)
+
+PLD_PCIE_REQUEST_BUS_BANDWIDTH_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_request_bus_bandwidth(struct device *dev,
 						 int bandwidth)
 {
 	return cnss_request_bus_bandwidth(dev, bandwidth);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_AUTO_SUSPEND(suffix) \
+static inline int pld_pcie_auto_suspend(struct device *dev) \
+{ \
+	return cnss_auto_suspend_##suffix(dev); \
+}
+
+#define PLD_PCIE_AUTO_SUSPEND_DEFINE(pcie_ssid) PLD_PCIE_AUTO_SUSPEND(pcie_ssid)
+
+PLD_PCIE_AUTO_SUSPEND_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_auto_suspend(struct device *dev)
 {
 	return cnss_auto_suspend(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_AUTO_RESUME(suffix) \
+static inline int pld_pcie_auto_resume(struct device *dev) \
+{ \
+	return cnss_auto_resume_##suffix(dev); \
+}
+
+#define PLD_PCIE_AUTO_RESUME_DEFINE(pcie_ssid) PLD_PCIE_AUTO_RESUME(pcie_ssid)
+
+PLD_PCIE_AUTO_RESUME_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_auto_resume(struct device *dev)
 {
 	return cnss_auto_resume(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_FORCE_WAKE_REQUEST(suffix) \
+static inline int pld_pcie_force_wake_request(struct device *dev) \
+{ \
+	return cnss_pci_force_wake_request_##suffix(dev); \
+}
+
+#define PLD_PCIE_FORCE_WAKE_REQUEST_DEFINE(pcie_ssid) PLD_PCIE_FORCE_WAKE_REQUEST(pcie_ssid)
+
+PLD_PCIE_FORCE_WAKE_REQUEST_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_force_wake_request(struct device *dev)
 {
 	return cnss_pci_force_wake_request(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_FORCE_WAKE_REQUEST_SYNC(suffix) \
+static inline int pld_pcie_force_wake_request_sync(struct device *dev, \
+						   int timeout_us) \
+{ \
+	return cnss_pci_force_wake_request_##suffix(dev); \
+}
+
+#define PLD_PCIE_FORCE_WAKE_REQUEST_SYNC_DEFINE(pcie_ssid)  PLD_PCIE_FORCE_WAKE_REQUEST_SYNC(pcie_ssid)
+
+PLD_PCIE_FORCE_WAKE_REQUEST_SYNC_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_force_wake_request_sync(struct device *dev,
 						   int timeout_us)
 {
 	return cnss_pci_force_wake_request(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_IS_DEVICE_AWAKE(suffix) \
+static inline int pld_pcie_is_device_awake(struct device *dev) \
+{ \
+	return cnss_pci_is_device_awake_##suffix(dev); \
+}
+
+#define PLD_PCIE_IS_DEVICE_AWAKE_DEFINE(pcie_ssid) PLD_PCIE_IS_DEVICE_AWAKE(pcie_ssid)
+
+PLD_PCIE_IS_DEVICE_AWAKE_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_is_device_awake(struct device *dev)
 {
 	return cnss_pci_is_device_awake(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_FORCE_WAKE_RELEASE(suffix) \
+static inline int pld_pcie_force_wake_release(struct device *dev) \
+{ \
+	return cnss_pci_force_wake_release_##suffix(dev); \
+}
+
+#define PLD_PCIE_FORCE_WAKE_RELEASE_DEFINE(pcie_ssid) PLD_PCIE_FORCE_WAKE_RELEASE(pcie_ssid)
+
+PLD_PCIE_FORCE_WAKE_RELEASE_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_force_wake_release(struct device *dev)
 {
 	return cnss_pci_force_wake_release(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_LOCK_PM_SEM(suffix) \
+static inline void pld_pcie_lock_pm_sem(struct device *dev) \
+{ \
+	cnss_lock_pm_sem_##suffix(dev); \
+}
+
+#define PLD_PCIE_LOCK_PM_SEM_DEFINE(pcie_ssid) PLD_PCIE_LOCK_PM_SEM(pcie_ssid)
+
+PLD_PCIE_LOCK_PM_SEM_DEFINE(PCIE_SSID)
+#else
 static inline void pld_pcie_lock_pm_sem(struct device *dev)
 {
 	cnss_lock_pm_sem(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_RELEASE_PM_SEM(suffix) \
+static inline void pld_pcie_release_pm_sem(struct device *dev) \
+{ \
+	cnss_release_pm_sem_##suffix(dev); \
+}
+
+#define PLD_PCIE_RELEASE_PM_SEM_DEFINE(pcie_ssid) PLD_PCIE_RELEASE_PM_SEM(pcie_ssid)
+
+PLD_PCIE_RELEASE_PM_SEM_DEFINE(PCIE_SSID)
+#else
 static inline void pld_pcie_release_pm_sem(struct device *dev)
 {
 	cnss_release_pm_sem(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_LOCK_REG_WINDOW(suffix) \
+static inline void pld_pcie_lock_reg_window(struct device *dev, \
+					    unsigned long *flags) \
+{ \
+	cnss_pci_lock_reg_window_##suffix(dev, flags); \
+}
+
+#define PLD_PCIE_LOCK_REG_WINDOW_DEFINE(pcie_ssid) PLD_PCIE_LOCK_REG_WINDOW(pcie_ssid)
+
+PLD_PCIE_LOCK_REG_WINDOW_DEFINE(PCIE_SSID)
+#else
 static inline void pld_pcie_lock_reg_window(struct device *dev,
 					    unsigned long *flags)
 {
 	cnss_pci_lock_reg_window(dev, flags);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_UNLOCK_REG_WINDOW(suffix) \
+static inline void pld_pcie_unlock_reg_window(struct device *dev, \
+					      unsigned long *flags) \
+{ \
+	cnss_pci_unlock_reg_window_##suffix(dev, flags); \
+}
+
+#define PLD_PCIE_UNLOCK_REG_WINDOW_DEFINE(pcie_ssid) PLD_PCIE_UNLOCK_REG_WINDOW(pcie_ssid)
+
+PLD_PCIE_UNLOCK_REG_WINDOW_DEFINE(PCIE_SSID)
+#else
 static inline void pld_pcie_unlock_reg_window(struct device *dev,
 					      unsigned long *flags)
 {
 	cnss_pci_unlock_reg_window(dev, flags);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_POWER_ON(suffix) \
+static inline int pld_pcie_power_on(struct device *dev) \
+{ \
+	return cnss_power_up_##suffix(dev); \
+}
+
+#define PLD_PCIE_POWER_ON_DEFINE(pcie_ssid) PLD_PCIE_POWER_ON(pcie_ssid)
+
+PLD_PCIE_POWER_ON_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_power_on(struct device *dev)
 {
 	return cnss_power_up(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_POWER_OFF(suffix) \
+static inline int pld_pcie_power_off(struct device *dev) \
+{ \
+	return cnss_power_down_##suffix(dev); \
+}
+
+#define PLD_PCIE_POWER_OFF_DEFINE(pcie_ssid) PLD_PCIE_POWER_OFF(pcie_ssid)
+
+PLD_PCIE_POWER_OFF_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_power_off(struct device *dev)
 {
 	return cnss_power_down(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_IDLE_RESTART(suffix) \
+static inline int pld_pcie_idle_restart(struct device *dev) \
+{ \
+	return cnss_idle_restart_##suffix(dev); \
+}
+
+#define PLD_PCIE_IDLE_RESTART_DEFINE(pcie_ssid) PLD_PCIE_IDLE_RESTART(pcie_ssid)
+
+PLD_PCIE_IDLE_RESTART_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_idle_restart(struct device *dev)
 {
 	return cnss_idle_restart(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_IDLE_SHUTDOWN(suffix) \
+static inline int pld_pcie_idle_shutdown(struct device *dev) \
+{ \
+	return cnss_idle_shutdown_##suffix(dev); \
+}
+
+#define PLD_PCIE_IDLE_SHUTDOWN_DEFINE(pcie_ssid) PLD_PCIE_IDLE_SHUTDOWN(pcie_ssid)
+
+PLD_PCIE_IDLE_SHUTDOWN_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_idle_shutdown(struct device *dev)
 {
 	return cnss_idle_shutdown(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_FORCE_ASSERT_TARGET(suffix) \
+static inline int pld_pcie_force_assert_target(struct device *dev) \
+{ \
+	return cnss_force_fw_assert_##suffix(dev); \
+}
+
+#define PLD_PCIE_FORCE_ASSERT_TARGET_DEFINE(pcie_ssid) PLD_PCIE_FORCE_ASSERT_TARGET(pcie_ssid)
+
+PLD_PCIE_FORCE_ASSERT_TARGET_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_force_assert_target(struct device *dev)
 {
 	return cnss_force_fw_assert(dev);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_GET_USER_MSI_ASSIGNMENT(suffix) \
+static inline int pld_pcie_get_user_msi_assignment(struct device *dev, \
+						   char *user_name, \
+						   int *num_vectors, \
+						   uint32_t *user_base_data, \
+						   uint32_t *base_vector) \
+{ \
+	return cnss_get_user_msi_assignment_##suffix(dev, user_name, num_vectors, \
+						     user_base_data, base_vector); \
+}
+
+#define PLD_PCIE_GET_USER_MSI_ASSIGNMENT_DEFINE(pcie_ssid) PLD_PCIE_GET_USER_MSI_ASSIGNMENT(pcie_ssid)
+
+PLD_PCIE_GET_USER_MSI_ASSIGNMENT_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_get_user_msi_assignment(struct device *dev,
 						   char *user_name,
 						   int *num_vectors,
@@ -658,23 +1100,62 @@ static inline int pld_pcie_get_user_msi_assignment(struct device *dev,
 	return cnss_get_user_msi_assignment(dev, user_name, num_vectors,
 					    user_base_data, base_vector);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_GET_MSI_IRQ(suffix) \
+static inline int pld_pcie_get_msi_irq(struct device *dev, unsigned int vector) \
+{ \
+	return cnss_get_msi_irq_##suffix(dev, vector); \
+}
+
+#define PLD_PCIE_GET_MSI_IRQ_DEFINE(pcie_ssid) PLD_PCIE_GET_MSI_IRQ(pcie_ssid)
+
+PLD_PCIE_GET_MSI_IRQ_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_get_msi_irq(struct device *dev, unsigned int vector)
 {
 	return cnss_get_msi_irq(dev, vector);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_GET_MSI_ADDRESS(suffix) \
+static inline void pld_pcie_get_msi_address(struct device *dev, \
+					    uint32_t *msi_addr_low, \
+					    uint32_t *msi_addr_high) \
+{ \
+	cnss_get_msi_address_##suffix(dev, msi_addr_low, msi_addr_high); \
+}
+
+#define PLD_PCIE_GET_MSI_ADDRESS_DEFINE(pcie_ssid) PLD_PCIE_GET_MSI_ADDRESS(pcie_ssid)
+
+PLD_PCIE_GET_MSI_ADDRESS_DEFINE(PCIE_SSID)
+#else
 static inline void pld_pcie_get_msi_address(struct device *dev,
 					    uint32_t *msi_addr_low,
 					    uint32_t *msi_addr_high)
 {
 	cnss_get_msi_address(dev, msi_addr_low, msi_addr_high);
 }
+#endif
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_IS_DRV_CONNECTED(suffix) \
+static inline int pld_pcie_is_drv_connected(struct device *dev) \
+{ \
+	return cnss_pci_is_drv_connected_##suffix(dev); \
+}
+
+#define PLD_PCIE_IS_DRV_CONNECTED_DEFINE(pcie_ssid) PLD_PCIE_IS_DRV_CONNECTED(pcie_ssid)
+
+PLD_PCIE_IS_DRV_CONNECTED_DEFINE(PCIE_SSID)
+#else
 static inline int pld_pcie_is_drv_connected(struct device *dev)
 {
 	return cnss_pci_is_drv_connected(dev);
 }
+#endif
 
 static inline bool pld_pcie_platform_driver_support(void)
 {

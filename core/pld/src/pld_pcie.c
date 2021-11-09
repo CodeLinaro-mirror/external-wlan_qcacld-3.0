@@ -647,20 +647,44 @@ struct cnss_wlan_driver pld_pcie_ops = {
  *
  * Return: int
  */
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_REGISTER_DRIVER(suffix) \
+int pld_pcie_register_driver(void) \
+{ \
+	return cnss_wlan_register_driver_##suffix(&pld_pcie_ops); \
+}
+
+#define PLD_PCIE_REGISTER_DRIVER_DEFINE(pcie_ssid) PLD_PCIE_REGISTER_DRIVER(pcie_ssid)
+
+PLD_PCIE_REGISTER_DRIVER_DEFINE(PCIE_SSID)
+#else
 int pld_pcie_register_driver(void)
 {
 	return cnss_wlan_register_driver(&pld_pcie_ops);
 }
+#endif
 
 /**
  * pld_pcie_unregister_driver() - Unregister PCIE device callback functions
  *
  * Return: void
  */
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_UNREGISTER_DRIVER(suffix) \
+void pld_pcie_unregister_driver(void) \
+{ \
+	cnss_wlan_unregister_driver_##suffix(&pld_pcie_ops); \
+}
+
+#define PLD_PCIE_UNREGISTER_DRIVER_DEFINE(pcie_ssid) PLD_PCIE_UNREGISTER_DRIVER(pcie_ssid)
+
+PLD_PCIE_UNREGISTER_DRIVER_DEFINE(PCIE_SSID)
+#else
 void pld_pcie_unregister_driver(void)
 {
 	cnss_wlan_unregister_driver(&pld_pcie_ops);
 }
+#endif
 #else
 #ifdef CONFIG_PM
 static const struct dev_pm_ops pld_pm_ops = {
@@ -711,6 +735,31 @@ int pld_pcie_get_ce_id(struct device *dev, int irq)
 }
 
 #ifdef CONFIG_PLD_PCIE_CNSS
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define CNSS_WLAN_ENABLE_WRAPPER(suffix) \
+static int \
+cnss_wlan_enable_wrapper(struct device *dev, \
+			 struct cnss_wlan_enable_cfg *config, \
+			 enum cnss_driver_mode mode, \
+			 const char *host_version) \
+{ \
+	return cnss_wlan_enable_##suffix(dev, config, mode, host_version); \
+}
+
+#define CNSS_WLAN_ENABLE_WRAPPER_DEFINE(pcie_ssid) CNSS_WLAN_ENABLE_WRAPPER(pcie_ssid)
+
+CNSS_WLAN_ENABLE_WRAPPER_DEFINE(PCIE_SSID)
+#else
+static int
+cnss_wlan_enable_wrapper(struct device *dev,
+			 struct cnss_wlan_enable_cfg *config,
+			 enum cnss_driver_mode mode,
+			 const char *host_version)
+{
+	return cnss_wlan_enable(dev, config, mode, host_version);
+}
+#endif
+
 /**
  * pld_pcie_wlan_enable() - Enable WLAN
  * @dev: device
@@ -761,7 +810,7 @@ int pld_pcie_wlan_enable(struct device *dev, struct pld_wlan_enable_cfg *config,
 		cnss_mode = CNSS_MISSION;
 		break;
 	}
-	return cnss_wlan_enable(dev, &cfg, cnss_mode, host_version);
+	return cnss_wlan_enable_wrapper(dev, &cfg, cnss_mode, host_version);
 }
 
 /**
@@ -774,10 +823,49 @@ int pld_pcie_wlan_enable(struct device *dev, struct pld_wlan_enable_cfg *config,
  * Return: 0 for success
  *         Non zero failure code for errors
  */
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_WLAN_DISABLE(suffix) \
+int pld_pcie_wlan_disable(struct device *dev, enum pld_driver_mode mode) \
+{ \
+	return cnss_wlan_disable_##suffix(dev, CNSS_OFF); \
+}
+
+#define PLD_PCIE_WLAN_DISABLE_DEFINE(pcie_ssid) PLD_PCIE_WLAN_DISABLE(pcie_ssid)
+
+PLD_PCIE_WLAN_DISABLE_DEFINE(PCIE_SSID)
+#else
 int pld_pcie_wlan_disable(struct device *dev, enum pld_driver_mode mode)
 {
 	return cnss_wlan_disable(dev, CNSS_OFF);
 }
+#endif
+
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define CNSS_GET_FW_FILES_FOR_TARGET_WRAPPER(suffix) \
+static int \
+cnss_get_fw_files_for_target_wrapper(struct device *dev, \
+				     struct cnss_fw_files *pfw_files, \
+				     u32 target_type, u32 target_version) \
+{ \
+	return cnss_get_fw_files_for_target_##suffix(dev, \
+						     pfw_files, \
+						     target_type, target_version); \
+}
+
+#define CNSS_GET_FW_FILES_FOR_TARGET_WRAPPER_DEFINE(pcie_ssid) CNSS_GET_FW_FILES_FOR_TARGET_WRAPPER(pcie_ssid)
+
+CNSS_GET_FW_FILES_FOR_TARGET_WRAPPER_DEFINE(PCIE_SSID)
+#else
+static int
+cnss_get_fw_files_for_target_wrapper(struct device *dev,
+				     struct cnss_fw_files *pfw_files,
+				     u32 target_type, u32 target_version)
+{
+	return cnss_get_fw_files_for_target(dev,
+					    pfw_files,
+					    target_type, target_version);
+}
+#endif
 
 /**
  * pld_pcie_get_fw_files_for_target() - Get FW file names
@@ -803,8 +891,8 @@ int pld_pcie_get_fw_files_for_target(struct device *dev,
 
 	memset(pfw_files, 0, sizeof(*pfw_files));
 
-	ret = cnss_get_fw_files_for_target(dev, &cnss_fw_files,
-					   target_type, target_version);
+	ret = cnss_get_fw_files_for_target_wrapper(dev, &cnss_fw_files,
+						   target_type, target_version);
 	if (ret)
 		return ret;
 
@@ -826,6 +914,27 @@ int pld_pcie_get_fw_files_for_target(struct device *dev,
 	return 0;
 }
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define CNSS_GET_PLATFORM_CAP_WRAPPER(suffix) \
+static int \
+cnss_get_platform_cap_wrapper(struct device *dev, \
+			      struct cnss_platform_cap *cap) \
+{ \
+	return cnss_get_platform_cap_##suffix(dev, cap); \
+}
+
+#define CNSS_GET_PLATFORM_CAP_WRAPPER_DEFINE(pcie_ssid) CNSS_GET_PLATFORM_CAP_WRAPPER(pcie_ssid)
+
+CNSS_GET_PLATFORM_CAP_WRAPPER_DEFINE(PCIE_SSID)
+#else
+static int
+cnss_get_platform_cap_wrapper(struct device *dev,
+			      struct cnss_platform_cap *cap)
+{
+	return cnss_get_platform_cap(dev, cap);
+}
+#endif
+
 /**
  * pld_pcie_get_platform_cap() - Get platform capabilities
  * @dev: device
@@ -844,13 +953,32 @@ int pld_pcie_get_platform_cap(struct device *dev, struct pld_platform_cap *cap)
 	if (!cap)
 		return -ENODEV;
 
-	ret = cnss_get_platform_cap(dev, &cnss_cap);
+	ret = cnss_get_platform_cap_wrapper(dev, &cnss_cap);
 	if (ret)
 		return ret;
 
 	memcpy(cap, &cnss_cap, sizeof(*cap));
 	return 0;
 }
+
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define CNSS_GET_SOC_INFO_WRAPPER(suffix) \
+static int \
+cnss_get_soc_info_wrapper(struct device *dev, struct cnss_soc_info *info) \
+{ \
+	return cnss_get_soc_info_##suffix(dev, info); \
+}
+
+#define CNSS_GET_SOC_INFO_WRAPPER_DEFINE(pcie_ssid) CNSS_GET_SOC_INFO_WRAPPER(pcie_ssid)
+
+CNSS_GET_SOC_INFO_WRAPPER_DEFINE(PCIE_SSID)
+#else
+static int
+cnss_get_soc_info_wrapper(struct device *dev, struct cnss_soc_info *info)
+{
+	return cnss_get_soc_info(dev, info);
+}
+#endif
 
 /**
  * pld_pcie_get_soc_info() - Get SOC information
@@ -870,7 +998,7 @@ int pld_pcie_get_soc_info(struct device *dev, struct pld_soc_info *info)
 	if (!info)
 		return -ENODEV;
 
-	ret = cnss_get_soc_info(dev, &cnss_info);
+	ret = cnss_get_soc_info_wrapper(dev, &cnss_info);
 	if (ret)
 		return ret;
 
@@ -895,6 +1023,27 @@ int pld_pcie_get_soc_info(struct device *dev, struct pld_soc_info *info)
 	return 0;
 }
 
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define CNSS_SCHEDULE_RECOVERY_WRAPPER(suffix) \
+static void \
+cnss_schedule_recovery_wrapper(struct device *dev, \
+			       enum cnss_recovery_reason reason) \
+{ \
+	cnss_schedule_recovery_##suffix(dev, reason); \
+}
+
+#define CNSS_SCHEDULE_RECOVERY_WRAPPER_DEFINE(pcie_ssid) CNSS_SCHEDULE_RECOVERY_WRAPPER(pcie_ssid)
+
+CNSS_SCHEDULE_RECOVERY_WRAPPER_DEFINE(PCIE_SSID)
+#else
+static void
+cnss_schedule_recovery_wrapper(struct device *dev,
+			       enum cnss_recovery_reason reason)
+{
+	cnss_schedule_recovery(dev, reason);
+}
+#endif
+
 /**
  * pld_pcie_schedule_recovery_work() - schedule recovery work
  * @dev: device
@@ -915,8 +1064,29 @@ void pld_pcie_schedule_recovery_work(struct device *dev,
 		cnss_reason = CNSS_REASON_DEFAULT;
 		break;
 	}
-	cnss_schedule_recovery(dev, cnss_reason);
+	cnss_schedule_recovery_wrapper(dev, cnss_reason);
 }
+
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define CNSS_SELF_RECOVERY_WRAPPER(suffix) \
+static int \
+cnss_self_recovery_wrapper(struct device *dev, \
+			   enum cnss_recovery_reason reason) \
+{ \
+	return cnss_self_recovery_##suffix(dev, reason); \
+}
+
+#define CNSS_SELF_RECOVERY_WRAPPER_DEFINE(pcie_ssid) CNSS_SELF_RECOVERY_WRAPPER(pcie_ssid)
+
+CNSS_SELF_RECOVERY_WRAPPER_DEFINE(PCIE_SSID)
+#else
+static int
+cnss_self_recovery_wrapper(struct device *dev,
+			   enum cnss_recovery_reason reason)
+{
+	return cnss_self_recovery(dev, reason);
+}
+#endif
 
 /**
  * pld_pcie_device_self_recovery() - device self recovery
@@ -938,7 +1108,7 @@ void pld_pcie_device_self_recovery(struct device *dev,
 		cnss_reason = CNSS_REASON_DEFAULT;
 		break;
 	}
-	cnss_self_recovery(dev, cnss_reason);
+	cnss_self_recovery_wrapper(dev, cnss_reason);
 }
 #endif
 #endif
