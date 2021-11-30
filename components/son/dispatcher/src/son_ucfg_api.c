@@ -22,7 +22,6 @@
 #include <son_ucfg_api.h>
 #include <wlan_mlme_main.h>
 #include <init_deinit_lmac.h>
-#include <son_api.h>
 
 qdf_freq_t
 ucfg_son_get_operation_chan_freq_vdev_id(struct wlan_objmgr_pdev *pdev,
@@ -76,4 +75,18 @@ QDF_STATUS ucfg_son_set_peer_kickout_allow(struct wlan_objmgr_vdev *vdev,
 					   bool kickout_allow)
 {
 	return wlan_son_peer_set_kickout_allow(vdev, peer, kickout_allow);
+}
+
+QDF_STATUS ucfg_son_register_deliver_opmode_cb(struct wlan_objmgr_psoc *psoc,
+					       mlme_deliver_cb cb)
+{
+	return wlan_son_register_mlme_deliver_cb(psoc, cb,
+					SON_MLME_DELIVER_CB_TYPE_OPMODE);
+}
+
+QDF_STATUS ucfg_son_register_deliver_smps_cb(struct wlan_objmgr_psoc *psoc,
+					     mlme_deliver_cb cb)
+{
+	return wlan_son_register_mlme_deliver_cb(psoc, cb,
+					SON_MLME_DELIVER_CB_TYPE_SMPS);
 }
