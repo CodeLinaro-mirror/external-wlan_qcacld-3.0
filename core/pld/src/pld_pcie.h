@@ -517,10 +517,22 @@ pld_pcie_qmi_send(struct device *dev, int type, void *cmd,
 #endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
+#if defined(MULTI_CARD) && defined(PCIE_SSID)
+#define PLD_PCIE_SMMU_GET_DOMAIN(suffix) \
+static inline void *pld_pcie_smmu_get_domain(struct device *dev) \
+{ \
+	return cnss_smmu_get_domain_##suffix(dev); \
+}
+
+#define PLD_PCIE_SMMU_GET_DOMAIN_DEFINE(pcie_ssid) PLD_PCIE_SMMU_GET_DOMAIN(pcie_ssid)
+
+PLD_PCIE_SMMU_GET_DOMAIN_DEFINE(PCIE_SSID)
+#else
 static inline void *pld_pcie_smmu_get_domain(struct device *dev)
 {
 	return cnss_smmu_get_domain(dev);
 }
+#endif
 #else
 #if defined(MULTI_CARD) && defined(PCIE_SSID)
 #define PLD_PCIE_SMMU_GET_MAPPING(suffix) \
