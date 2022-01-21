@@ -9911,6 +9911,7 @@ QDF_STATUS csr_fill_filter_from_vdev_crypto(struct mac_context *mac_ctx,
 {
 	struct wlan_objmgr_vdev *vdev;
 	struct rso_config *rso_cfg;
+	uint16_t self_rsn_cap;
 
 	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(mac_ctx->psoc, vdev_id,
 						    WLAN_LEGACY_SME_ID);
@@ -9925,6 +9926,11 @@ QDF_STATUS csr_fill_filter_from_vdev_crypto(struct mac_context *mac_ctx,
 			rso_cfg->rsn_cap |= WLAN_CRYPTO_RSN_CAP_MFP_REQUIRED;
 		if (profile->MFPCapable)
 			rso_cfg->rsn_cap |= WLAN_CRYPTO_RSN_CAP_MFP_ENABLED;
+		self_rsn_cap = wlan_crypto_get_param(vdev,
+						     WLAN_CRYPTO_PARAM_RSN_CAP);
+		sme_info("rsn_cap %x %x", rso_cfg->rsn_cap, self_rsn_cap);
+		if (self_rsn_cap & WLAN_CRYPTO_RSN_CAP_OCV_SUPPORTED)
+			rso_cfg->rsn_cap |= WLAN_CRYPTO_RSN_CAP_OCV_SUPPORTED;
 	}
 
 	wlan_cm_fill_crypto_filter_from_vdev(vdev, filter);

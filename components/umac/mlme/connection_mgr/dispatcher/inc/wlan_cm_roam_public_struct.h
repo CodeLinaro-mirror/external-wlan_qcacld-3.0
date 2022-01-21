@@ -254,7 +254,7 @@ struct wlan_chan_list {
  * @roam_scan_freq_lst: roam freq list
  */
 struct rso_config {
-	uint8_t rsn_cap;
+	uint16_t rsn_cap;
 	bool disable_hi_rssi;
 	bool roam_control_enable;
 	uint8_t rescan_rssi_delta;
