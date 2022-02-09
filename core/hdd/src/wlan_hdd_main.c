@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -8768,6 +8769,25 @@ static inline void hdd_pm_qos_update_cpu_mask(cpumask_t *mask,
 	}
 }
 
+#ifdef CONFIG_SMP
+/**
+ * hdd_update_pm_qos_affine_cores() - Update PM_qos request for AFFINE_CORES
+ * @hdd_ctx: handle to hdd context
+ *
+ * Return: none
+ */
+static inline void hdd_update_pm_qos_affine_cores(struct hdd_context *hdd_ctx)
+{
+	hdd_ctx->pm_qos_req.type = PM_QOS_REQ_AFFINE_CORES;
+	qdf_cpumask_clear(&hdd_ctx->pm_qos_req.cpus_affine);
+	hdd_pm_qos_update_cpu_mask(&hdd_ctx->pm_qos_req.cpus_affine, false);
+}
+#else
+static inline void hdd_update_pm_qos_affine_cores(struct hdd_context *hdd_ctx)
+{
+}
+#endif
+
 /**
  * hdd_pm_qos_update_request() - API to request for pm_qos
  * @hdd_ctx: handle to hdd context
@@ -8775,6 +8795,49 @@ static inline void hdd_pm_qos_update_cpu_mask(cpumask_t *mask,
  *
  * Return: none
  */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0))
+#ifdef FEATURE_RUNTIME_PM
+static inline void hdd_pm_qos_update_request(struct hdd_context *hdd_ctx,
+					     cpumask_t *pm_qos_cpu_mask)
+{
+	cpumask_copy(&hdd_ctx->pm_qos_req.cpus_affine, pm_qos_cpu_mask);
+
+	/* Latency value to be read from INI */
+	if (cpumask_empty(pm_qos_cpu_mask) &&
+	    hdd_ctx->config->runtime_pm == hdd_runtime_pm_dynamic)
+		cpu_latency_qos_update_request(&hdd_ctx->pm_qos_req,
+					       PM_QOS_DEFAULT_VALUE);
+	else
+		cpu_latency_qos_update_request(&hdd_ctx->pm_qos_req, 1);
+}
+#else
+static inline void hdd_pm_qos_update_request(struct hdd_context *hdd_ctx,
+					     cpumask_t *pm_qos_cpu_mask)
+{
+	cpumask_copy(&hdd_ctx->pm_qos_req.cpus_affine, pm_qos_cpu_mask);
+
+	/* Latency value to be read from INI */
+	if (cpumask_empty(pm_qos_cpu_mask))
+		cpu_latency_qos_update_request(&hdd_ctx->pm_qos_req,
+					       PM_QOS_DEFAULT_VALUE);
+	else
+		cpu_latency_qos_update_request(&hdd_ctx->pm_qos_req, 1);
+}
+#endif /* FEATURE_RUNTIME_PM */
+
+static inline void hdd_pm_qos_add_request(struct hdd_context *hdd_ctx)
+{
+	hdd_update_pm_qos_affine_cores(hdd_ctx);
+	cpu_latency_qos_add_request(&hdd_ctx->pm_qos_req, PM_QOS_DEFAULT_VALUE);
+	hdd_info("Set cpu_mask %*pb for affine_cores",
+		 cpumask_pr_args(&hdd_ctx->pm_qos_req.cpus_affine));
+}
+
+static inline void hdd_pm_qos_remove_request(struct hdd_context *hdd_ctx)
+{
+	cpu_latency_qos_remove_request(&hdd_ctx->pm_qos_req);
+}
+#else /* (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)) */
 #ifdef FEATURE_RUNTIME_PM
 static inline void hdd_pm_qos_update_request(struct hdd_context *hdd_ctx,
 					     cpumask_t *pm_qos_cpu_mask)
@@ -8802,26 +8865,8 @@ static inline void hdd_pm_qos_update_request(struct hdd_context *hdd_ctx,
 	else
 		pm_qos_update_request(&hdd_ctx->pm_qos_req, 1);
 }
-#endif
+#endif /* FEATURE_RUNTIME_PM */
 
-#ifdef CONFIG_SMP
-/**
- * hdd_update_pm_qos_affine_cores() - Update PM_qos request for AFFINE_CORES
- * @hdd_ctx: handle to hdd context
- *
- * Return: none
- */
-static inline void hdd_update_pm_qos_affine_cores(struct hdd_context *hdd_ctx)
-{
-	hdd_ctx->pm_qos_req.type = PM_QOS_REQ_AFFINE_CORES;
-	qdf_cpumask_clear(&hdd_ctx->pm_qos_req.cpus_affine);
-	hdd_pm_qos_update_cpu_mask(&hdd_ctx->pm_qos_req.cpus_affine, false);
-}
-#else
-static inline void hdd_update_pm_qos_affine_cores(struct hdd_context *hdd_ctx)
-{
-}
-#endif
 static inline void hdd_pm_qos_add_request(struct hdd_context *hdd_ctx)
 {
 	hdd_update_pm_qos_affine_cores(hdd_ctx);
@@ -8835,6 +8880,7 @@ static inline void hdd_pm_qos_remove_request(struct hdd_context *hdd_ctx)
 {
 	pm_qos_remove_request(&hdd_ctx->pm_qos_req);
 }
+#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)) */
 #else
 #define PLD_REMOVE_PM_QOS(x) pld_remove_pm_qos(x)
 #define PLD_REQUEST_PM_QOS(x, y) pld_request_pm_qos(x, y)
