@@ -83,7 +83,11 @@ struct hdd_context;
 #define SME_QOS_UAPSD_CFG_VO_CHANGED_MASK     0xF8
 
 netdev_tx_t hdd_hard_start_xmit(struct sk_buff *skb, struct net_device *dev);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0))
+void hdd_tx_timeout(struct net_device *dev, unsigned int txqueue);
+#else
 void hdd_tx_timeout(struct net_device *dev);
+#endif
 
 QDF_STATUS hdd_init_tx_rx(struct hdd_adapter *adapter);
 QDF_STATUS hdd_deinit_tx_rx(struct hdd_adapter *adapter);

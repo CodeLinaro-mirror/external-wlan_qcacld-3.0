@@ -64,7 +64,11 @@ QDF_STATUS hdd_softap_ipa_start_xmit(qdf_nbuf_t nbuf, qdf_netdev_t dev);
  *
  * Return: None
  */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0))
+void hdd_softap_tx_timeout(struct net_device *dev, unsigned int txqueue);
+#else
 void hdd_softap_tx_timeout(struct net_device *dev);
+#endif
 
 /**
  * hdd_softap_init_tx_rx() - Initialize Tx/Rx module
