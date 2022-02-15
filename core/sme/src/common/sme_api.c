@@ -6001,6 +6001,28 @@ void sme_update_session_assoc_ie(mac_handle_t mac_handle,
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
 	struct rso_config *rso_cfg;
 	struct wlan_objmgr_vdev *vdev;
+	struct csr_roam_session *session = CSR_GET_SESSION(mac, vdev_id);
+
+	if (!session) {
+		sme_err("Session: %d not found", vdev_id);
+		return;
+	}
+
+	if (session->pCurRoamProfile && assoc_ie->len > 0) {
+		qdf_mem_free(session->pCurRoamProfile->pAddIEAssoc);
+		session->pCurRoamProfile->nAddIEAssocLength = 0;
+		session->pCurRoamProfile->pAddIEAssoc =
+			qdf_mem_malloc(assoc_ie->len);
+		if (!session->pCurRoamProfile->pAddIEAssoc) {
+			sme_warn("Allocate mem fail for AddIEAssoc!");
+			return;
+		}
+		session->pCurRoamProfile->nAddIEAssocLength =
+			assoc_ie->len;
+		qdf_mem_copy(session->pCurRoamProfile->pAddIEAssoc,
+			     assoc_ie->ptr,
+			     assoc_ie->len);
+	}
 
 	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(mac->psoc, vdev_id,
 						    WLAN_MLME_CM_ID);

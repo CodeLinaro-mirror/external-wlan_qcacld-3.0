@@ -34,7 +34,7 @@
 #define MAX_FTIE_SIZE             384   /* Max size limited to 384, on acct. of IW custom events */
 
 /* Time to dwell on preauth channel during roaming, in milliseconds */
-#define LIM_FT_PREAUTH_SCAN_TIME 50
+#define LIM_FT_PREAUTH_SCAN_TIME 150
 
 /*--------------------------------------------------------------------------
    Type declarations

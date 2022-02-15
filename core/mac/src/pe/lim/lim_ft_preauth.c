@@ -227,17 +227,21 @@ void lim_perform_ft_pre_auth(struct mac_context *mac, QDF_STATUS status,
 	tSirMacAuthFrameBody authFrame;
 	unsigned int session_id;
 	enum csr_akm_type auth_type;
+	struct qdf_mac_addr roam_bssid;
+	tpSirFTPreAuthReq pre_auth_req;
 
 	if (!pe_session) {
 		pe_err("pe_session is NULL");
 		return;
 	}
+	pre_auth_req = pe_session->ftPEContext.pFTPreAuthReq;
 	session_id = pe_session->smeSessionId;
 	auth_type =
 		mac->roam.roamSession[session_id].connectedProfile.AuthType;
-
+	pe_debug("auth_type %d, is11Rconnection %d", auth_type,
+		 pe_session->is11Rconnection);
 	if (pe_session->is11Rconnection &&
-	    pe_session->ftPEContext.pFTPreAuthReq) {
+	    pre_auth_req) {
 		/* Only 11r assoc has FT IEs */
 		if ((auth_type != eCSR_AUTH_TYPE_OPEN_SYSTEM) &&
 			(pe_session->ftPEContext.pFTPreAuthReq->ft_ies_length
@@ -255,6 +259,14 @@ void lim_perform_ft_pre_auth(struct mac_context *mac, QDF_STATUS status,
 	/* Nothing to be done if the session is not in STA mode */
 	if (!LIM_IS_STA_ROLE(pe_session)) {
 		pe_err("pe_session is not in STA mode");
+		return;
+	}
+	if (auth_type == eCSR_AUTH_TYPE_SAE && pre_auth_req) {
+		qdf_mem_copy((void *)roam_bssid.bytes,
+			     (void *)pre_auth_req->preAuthbssId,
+			     QDF_MAC_ADDR_SIZE);
+		csr_process_roam_auth_sae_callback(mac, pe_session->vdev_id,
+						   roam_bssid);
 		return;
 	}
 	pe_debug("Entered wait auth2 state for FT (old session %pK)",
@@ -292,9 +304,9 @@ void lim_perform_ft_pre_auth(struct mac_context *mac, QDF_STATUS status,
 	lim_diag_event_report(mac, WLAN_PE_DIAG_ROAM_AUTH_START_EVENT,
 			mac->lim.pe_session, QDF_STATUS_SUCCESS, QDF_STATUS_SUCCESS);
 #endif
-	if (pe_session->ftPEContext.pFTPreAuthReq)
+	if (pre_auth_req)
 		lim_send_auth_mgmt_frame(mac, &authFrame,
-			 pe_session->ftPEContext.pFTPreAuthReq->preAuthbssId,
+			 pre_auth_req->preAuthbssId,
 			 LIM_NO_WEP_IN_FC, pe_session);
 
 	return;

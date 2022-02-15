@@ -1724,6 +1724,7 @@ QDF_STATUS lim_process_auth_frame_no_session(struct mac_context *mac,
 	QDF_STATUS ret_status = QDF_STATUS_E_FAILURE;
 	int i;
 	bool sae_auth_frame;
+	uint16_t auth_transaction_num;
 
 	pHdr = WMA_GET_RX_MAC_HEADER(pBd);
 	pBody = WMA_GET_RX_MPDU_DATA(pBd);
@@ -1738,10 +1739,6 @@ QDF_STATUS lim_process_auth_frame_no_session(struct mac_context *mac,
 		return QDF_STATUS_E_FAILURE;
 	}
 
-	sae_auth_frame = lim_process_sae_preauth_frame(mac, pBd);
-	if (sae_auth_frame)
-		return QDF_STATUS_SUCCESS;
-
 	/* Auth frame has come on a new BSS, however, we need to find the session
 	 * from where the auth-req was sent to the new AP
 	 */
@@ -1752,8 +1749,6 @@ QDF_STATUS lim_process_auth_frame_no_session(struct mac_context *mac,
 		    true) {
 			/* Found the session */
 			pe_session = &mac->lim.gpSession[i];
-			mac->lim.gpSession[i].ftPEContext.ftPreAuthSession =
-				false;
 		}
 	}
 
@@ -1768,6 +1763,21 @@ QDF_STATUS lim_process_auth_frame_no_session(struct mac_context *mac,
 		return QDF_STATUS_E_FAILURE;
 	}
 
+	sae_auth_frame = lim_process_sae_preauth_frame(mac, pBd);
+	if (sae_auth_frame) {
+		auth_transaction_num = *(uint16_t *)(pBody + 2);
+		if (auth_transaction_num == SIR_MAC_AUTH_FRAME_2) {
+			/* Send the Auth response to SME */
+			lim_handle_ft_pre_auth_rsp(mac,
+						   QDF_STATUS_SUCCESS,
+						   pBody,
+						   frameLen,
+						   pe_session);
+			pe_session->ftPEContext.ftPreAuthSession = false;
+		}
+		return QDF_STATUS_SUCCESS;
+	}
+	pe_session->ftPEContext.ftPreAuthSession = false;
 	lim_print_mac_addr(mac, pHdr->bssId, LOGD);
 	lim_print_mac_addr(mac,
 			   pe_session->ftPEContext.pFTPreAuthReq->preAuthbssId,

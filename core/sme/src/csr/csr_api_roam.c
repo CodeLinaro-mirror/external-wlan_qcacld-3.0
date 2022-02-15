@@ -6866,6 +6866,10 @@ QDF_STATUS csr_roam_copy_connected_profile(struct mac_context *mac,
 	tCsrRoamConnectedProfile *pSrcProfile =
 		&mac->roam.roamSession[sessionId].connectedProfile;
 	struct cm_roam_values_copy cfg;
+#ifndef FEATURE_CM_ENABLE
+	struct csr_roam_profile * pcsr_roam_profile =
+		mac->roam.roamSession[sessionId].pCurRoamProfile;
+#endif
 
 	qdf_mem_zero(pDstProfile, sizeof(struct csr_roam_profile));
 
@@ -6916,6 +6920,16 @@ QDF_STATUS csr_roam_copy_connected_profile(struct mac_context *mac,
 				   MOBILITY_DOMAIN, &cfg);
 	pDstProfile->mdid.mobility_domain = cfg.uint_value;
 	pDstProfile->mdid.mdie_present = cfg.bool_value;
+#ifndef FEATURE_CM_ENABLE
+#ifdef WLAN_FEATURE_11W
+	if (pcsr_roam_profile) {
+		pDstProfile->MFPEnabled = pcsr_roam_profile->MFPEnabled;
+		pDstProfile->MFPRequired = pcsr_roam_profile->MFPRequired;
+		pDstProfile->MFPCapable = pcsr_roam_profile->MFPCapable;
+	}
+#endif
+#endif
+
 end:
 	if (!QDF_IS_STATUS_SUCCESS(status)) {
 		csr_release_profile(mac, pDstProfile);
@@ -9955,6 +9969,30 @@ static QDF_STATUS csr_fill_crypto_params(struct mac_context *mac_ctx,
 						vdev_id);
 }
 
+#ifdef WLAN_FEATURE_11W
+
+/**
+ * csr_update_pmf_cap_from_profile: Updates PMF cap
+ * @profile: Source profile
+ * @filter: scan filter
+ *
+ * Return: None
+ */
+static void csr_update_pmf_cap_from_profile(struct csr_roam_profile *profile,
+					    struct scan_filter *filter)
+{
+	if (profile->MFPCapable || profile->MFPEnabled)
+		filter->pmf_cap = WLAN_PMF_CAPABLE;
+	if (profile->MFPRequired)
+		filter->pmf_cap = WLAN_PMF_REQUIRED;
+}
+#else
+static inline
+void csr_update_pmf_cap_from_profile(struct csr_roam_profile *profile,
+				     struct scan_filter *filter)
+{}
+#endif
+
 QDF_STATUS
 csr_roam_get_scan_filter_from_profile(struct mac_context *mac_ctx,
 				      struct csr_roam_profile *profile,
@@ -10043,6 +10081,7 @@ csr_roam_get_scan_filter_from_profile(struct mac_context *mac_ctx,
 	qdf_mem_copy(filter->bssid_hint.bytes, profile->bssid_hint.bytes,
 		     QDF_MAC_ADDR_SIZE);
 
+	csr_update_pmf_cap_from_profile(profile, filter);
 	csr_update_fils_scan_filter(filter, profile);
 
 	filter->enable_adaptive_11r =
@@ -15969,25 +16008,28 @@ wlan_cm_roam_cmd_allowed(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
 	}
 
 	fw_akm_bitmap = mac_ctx->mlme_cfg->lfr.fw_akm_bitmap;
-	/* Roaming is not supported currently for OWE akm */
-	if (roam_profile_akm == eCSR_AUTH_TYPE_OWE &&
-	    !CSR_IS_FW_OWE_ROAM_SUPPORTED(fw_akm_bitmap)) {
-		sme_info("OWE Roaming not suppprted by fw");
-		return QDF_STATUS_E_NOSUPPORT;
-	}
 
-	/* Roaming is not supported for SAE authentication */
-	if (CSR_IS_AUTH_TYPE_SAE(roam_profile_akm) &&
-	    !CSR_IS_FW_SAE_ROAM_SUPPORTED(fw_akm_bitmap)) {
-		sme_info("Roaming not suppprted for SAE connection");
-		return QDF_STATUS_E_NOSUPPORT;
-	}
+	if (csr_is_roam_offload_enabled(mac_ctx) == true) {
+		/* Roaming is not supported currently for OWE akm */
+		if (roam_profile_akm == eCSR_AUTH_TYPE_OWE &&
+		    !CSR_IS_FW_OWE_ROAM_SUPPORTED(fw_akm_bitmap)) {
+			sme_info("OWE Roaming not suppprted by fw");
+			return QDF_STATUS_E_NOSUPPORT;
+		}
 
-	if ((roam_profile_akm == eCSR_AUTH_TYPE_SUITEB_EAP_SHA256 ||
-	     roam_profile_akm == eCSR_AUTH_TYPE_SUITEB_EAP_SHA384) &&
-	     !CSR_IS_FW_SUITEB_ROAM_SUPPORTED(fw_akm_bitmap)) {
-		sme_info("Roaming not supported for SUITEB connection");
-		return QDF_STATUS_E_NOSUPPORT;
+		/* Roaming is not supported for SAE authentication */
+		if (CSR_IS_AUTH_TYPE_SAE(roam_profile_akm) &&
+		    !CSR_IS_FW_SAE_ROAM_SUPPORTED(fw_akm_bitmap)) {
+			sme_info("Roaming not suppprted for SAE connection");
+			return QDF_STATUS_E_NOSUPPORT;
+		}
+
+		if ((roam_profile_akm == eCSR_AUTH_TYPE_SUITEB_EAP_SHA256 ||
+		     roam_profile_akm == eCSR_AUTH_TYPE_SUITEB_EAP_SHA384) &&
+		     !CSR_IS_FW_SUITEB_ROAM_SUPPORTED(fw_akm_bitmap)) {
+			sme_info("Roaming not supported for SUITEB connection");
+			return QDF_STATUS_E_NOSUPPORT;
+		}
 	}
 
 	/*
@@ -17599,6 +17641,66 @@ void csr_update_fils_erp_seq_num(struct csr_roam_profile *roam_profile,
 #endif
 #endif
 
+#ifdef WLAN_FEATURE_SAE
+/**
+ * csr_process_roam_auth_sae_callback() - API to trigger the
+ * WPA3 pre-auth event for candidate AP received from firmware.
+ * @mac_ctx: Global mac context pointer
+ * @vdev_id: vdev id
+ * @roam_bssid: Candidate BSSID to roam
+ *
+ * This function calls the hdd_sme_roam_callback with reason
+ * eCSR_ROAM_SAE_COMPUTE to trigger SAE auth to supplicant.
+ */
+QDF_STATUS
+csr_process_roam_auth_sae_callback(struct mac_context *mac_ctx,
+				   uint8_t vdev_id,
+				   struct qdf_mac_addr roam_bssid)
+{
+	struct csr_roam_info *roam_info;
+	struct sir_sae_info sae_info;
+	struct csr_roam_session *session = CSR_GET_SESSION(mac_ctx, vdev_id);
+
+	if (!session) {
+		sme_err("WPA3 Preauth event with invalid session id:%d",
+			vdev_id);
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	roam_info = qdf_mem_malloc(sizeof(*roam_info));
+	if (!roam_info)
+		return QDF_STATUS_E_FAILURE;
+
+	sae_info.msg_len = sizeof(sae_info);
+	sae_info.vdev_id = vdev_id;
+
+	wlan_mlme_get_ssid_vdev_id(mac_ctx->pdev, vdev_id,
+				   sae_info.ssid.ssId,
+				   &sae_info.ssid.length);
+
+	qdf_mem_copy(sae_info.peer_mac_addr.bytes,
+		     roam_bssid.bytes, QDF_MAC_ADDR_SIZE);
+
+	roam_info->sae_info = &sae_info;
+
+	csr_roam_call_callback(mac_ctx, vdev_id, roam_info, 0,
+			       eCSR_ROAM_SAE_COMPUTE, eCSR_ROAM_RESULT_NONE);
+
+	qdf_mem_free(roam_info);
+
+	return QDF_STATUS_SUCCESS;
+}
+#else
+QDF_STATUS
+csr_process_roam_auth_sae_callback(struct mac_context *mac_ctx,
+				   uint8_t vdev_id,
+				   struct qdf_mac_addr roam_bssid)
+{
+	return QDF_STATUS_E_NOSUPPORT;
+}
+#endif
+
+
 #ifdef WLAN_FEATURE_ROAM_OFFLOAD
 #ifndef FEATURE_CM_ENABLE
 QDF_STATUS csr_fast_reassoc(mac_handle_t mac_handle,
@@ -18554,65 +18656,6 @@ csr_roam_synch_callback(struct mac_context *mac_ctx,
 
 	return status;
 }
-
-#ifdef WLAN_FEATURE_SAE
-/**
- * csr_process_roam_auth_sae_callback() - API to trigger the
- * WPA3 pre-auth event for candidate AP received from firmware.
- * @mac_ctx: Global mac context pointer
- * @vdev_id: vdev id
- * @roam_bssid: Candidate BSSID to roam
- *
- * This function calls the hdd_sme_roam_callback with reason
- * eCSR_ROAM_SAE_COMPUTE to trigger SAE auth to supplicant.
- */
-static QDF_STATUS
-csr_process_roam_auth_sae_callback(struct mac_context *mac_ctx,
-				   uint8_t vdev_id,
-				   struct qdf_mac_addr roam_bssid)
-{
-	struct csr_roam_info *roam_info;
-	struct sir_sae_info sae_info;
-	struct csr_roam_session *session = CSR_GET_SESSION(mac_ctx, vdev_id);
-
-	if (!session) {
-		sme_err("WPA3 Preauth event with invalid session id:%d",
-			vdev_id);
-		return QDF_STATUS_E_FAILURE;
-	}
-
-	roam_info = qdf_mem_malloc(sizeof(*roam_info));
-	if (!roam_info)
-		return QDF_STATUS_E_FAILURE;
-
-	sae_info.msg_len = sizeof(sae_info);
-	sae_info.vdev_id = vdev_id;
-
-	sae_info.ssid.length = session->connectedProfile.SSID.length;
-	qdf_mem_copy(sae_info.ssid.ssId, session->connectedProfile.SSID.ssId,
-		     sae_info.ssid.length);
-
-	qdf_mem_copy(sae_info.peer_mac_addr.bytes,
-		     roam_bssid.bytes, QDF_MAC_ADDR_SIZE);
-
-	roam_info->sae_info = &sae_info;
-
-	csr_roam_call_callback(mac_ctx, vdev_id, roam_info, 0,
-			       eCSR_ROAM_SAE_COMPUTE, eCSR_ROAM_RESULT_NONE);
-
-	qdf_mem_free(roam_info);
-
-	return QDF_STATUS_SUCCESS;
-}
-#else
-static inline QDF_STATUS
-csr_process_roam_auth_sae_callback(struct mac_context *mac_ctx,
-				   uint8_t vdev_id,
-				   struct qdf_mac_addr roam_bssid)
-{
-	return QDF_STATUS_E_NOSUPPORT;
-}
-#endif
 
 QDF_STATUS
 csr_roam_auth_offload_callback(struct mac_context *mac_ctx,
