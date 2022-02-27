@@ -476,6 +476,23 @@ lim_send_peer_create_resp_mlo(struct wlan_objmgr_vdev *vdev,
 }
 #endif /* WLAN_FEATURE_11BE_MLO */
 
+QDF_STATUS
+lim_continue_bss_peer_create(struct cm_peer_create_req *req)
+{
+	uint8_t *peer_mld_addr = NULL;
+	bool is_assoc_peer = false;
+	QDF_STATUS status;
+
+	if (!req)
+		return QDF_STATUS_E_INVAL;
+
+	lim_get_mld_info_sta(req, &peer_mld_addr, &is_assoc_peer);
+	status = wma_add_bss_peer_sta(req->vdev_id, req->peer_mac.bytes, true,
+				      peer_mld_addr, is_assoc_peer);
+
+	return status;
+}
+
 #if defined(WIFI_POS_CONVERGED) && defined(WLAN_FEATURE_RTT_11AZ_SUPPORT)
 void
 lim_pasn_peer_del_all_resp_vdev_delete_resume(struct mac_context *mac,
