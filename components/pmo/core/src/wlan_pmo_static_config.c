@@ -410,6 +410,10 @@ pmo_register_action_frame_patterns(struct wlan_objmgr_vdev *vdev,
 	cmd.vdev_id = pmo_vdev_get_id(vdev);
 	cmd.operation = pmo_action_wakeup_set;
 
+#ifdef CUSTOMIZED_WOW
+	for (i = 0; i < PMO_SUPPORTED_ACTION_CATE_ELE_LIST; i++)
+		cmd.action_category_map[i] = 0;
+#else
 	if (suspend_type == QDF_SYSTEM_SUSPEND)
 		cmd.action_category_map[i++] =
 			SYSTEM_SUSPEND_ALLOWED_ACTION_FRAMES_BITMAP0;
@@ -440,6 +444,7 @@ pmo_register_action_frame_patterns(struct wlan_objmgr_vdev *vdev,
 			cmd.action_per_category[PMO_MAC_ACTION_SPECTRUM_MGMT]);
 	pmo_debug("Public action id drop bitmap: 0x%x",
 			cmd.action_per_category[PMO_MAC_ACTION_PUBLIC_USAGE]);
+#endif
 
 	/*  config action frame patterns */
 	status = pmo_tgt_send_action_frame_pattern_req(vdev, &cmd);
