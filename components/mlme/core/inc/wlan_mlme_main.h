@@ -53,6 +53,12 @@
 #define mlme_legacy_info(params...) QDF_TRACE_INFO(QDF_MODULE_ID_MLME, params)
 #define mlme_legacy_debug(params...) QDF_TRACE_DEBUG(QDF_MODULE_ID_MLME, params)
 
+#define mlme_legacy_nofl_fatal(params...) QDF_TRACE_FATAL_NO_FL(QDF_MODULE_ID_MLME, params)
+#define mlme_legacy_nofl_err(params...) QDF_TRACE_ERROR_NO_FL(QDF_MODULE_ID_MLME, params)
+#define mlme_legacy_nofl_warn(params...) QDF_TRACE_WARN_NO_FL(QDF_MODULE_ID_MLME, params)
+#define mlme_legacy_nofl_info(params...) QDF_TRACE_INFO_NO_FL(QDF_MODULE_ID_MLME, params)
+#define mlme_legacy_nofl_debug(params...) QDF_TRACE_DEBUG_NO_FL(QDF_MODULE_ID_MLME, params)
+
 enum size_of_len_field {
 	ONE_BYTE = 1,
 	TWO_BYTE = 2
