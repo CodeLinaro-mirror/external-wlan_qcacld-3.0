@@ -1230,6 +1230,8 @@ CONFIG_RX_HASH_DEBUG := y
 #Enable connection manager
 CONFIG_CM_ENABLE := n
 
+CONFIG_BYPASS_WDS_OL_OPS := y
+
 #Enable VDEV OPS wakelock feature
 CONFIG_FEATURE_VDEV_OPS_WAKELOCK := y
 
