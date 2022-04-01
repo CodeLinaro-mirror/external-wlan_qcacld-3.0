@@ -797,6 +797,11 @@ struct wireless_dev *__wlan_hdd_add_virtual_intf(struct wiphy *wiphy,
 					   &create_params);
 	} else {
 		uint8_t *device_address;
+		if (strnstr(name, "aware_data", 10) &&
+			   mode == QDF_STA_MODE) {
+			hdd_debug("add interface %s", name);
+			return hdd_add_ndi_intf(hdd_ctx, name);
+		}
 
 		device_address = wlan_hdd_get_intf_addr(hdd_ctx, mode);
 		if (!device_address)
