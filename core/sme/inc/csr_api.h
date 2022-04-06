@@ -924,6 +924,7 @@ struct csr_roam_info {
 	enum sir_sme_phy_mode mode;
 	uint8_t max_supp_idx;
 	uint8_t max_ext_idx;
+	uint8_t max_real_mcs_idx;
 	uint8_t max_mcs_idx;
 	uint8_t rx_mcs_map;
 	uint8_t tx_mcs_map;
@@ -976,6 +977,7 @@ typedef struct sSirSmeAssocIndToUpperLayerCnf {
 	uint8_t max_supp_idx;
 	uint8_t max_ext_idx;
 	uint8_t max_mcs_idx;
+	uint8_t max_real_mcs_idx;
 	uint8_t rx_mcs_map;
 	uint8_t tx_mcs_map;
 	/* Extended capabilities of STA */

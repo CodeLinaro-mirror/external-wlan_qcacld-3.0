@@ -325,6 +325,7 @@ struct mlme_connect_info {
  * @he_sta_obsspd: he_sta_obsspd
  * @rso_cfg: per vdev RSO config to be sent to FW
  * @connect_info: mlme connect information
+ * @max_mcs_index: Max supported mcs index of vdev
  */
 struct mlme_legacy_priv {
 	bool chan_switch_in_progress;
@@ -360,6 +361,9 @@ struct mlme_legacy_priv {
 	struct rso_config rso_cfg;
 #endif
 	struct mlme_connect_info connect_info;
+#ifdef WLAN_FEATURE_SON
+	uint8_t max_mcs_index;
+#endif
 };
 
 /**
