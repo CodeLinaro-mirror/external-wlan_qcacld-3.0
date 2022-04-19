@@ -780,6 +780,26 @@ void wma_objmgr_set_peer_mlme_phymode(tp_wma_handle wma, uint8_t *mac_addr,
 
 uint32_t wma_convert_crypto_akm_to_wmi_akm(uint32_t keymgmt);
 
+/**
+ * wma_objmgr_set_peer_mlme_nss() - set nss to peer object
+ * @wma:      wma handle
+ * @mac_addr: mac addr of peer
+ * @nss:  nss value to set
+ *
+ * Return: None
+ */
+void wma_objmgr_set_peer_mlme_nss(tp_wma_handle wma, uint8_t *mac_addr,
+				  uint8_t nss);
+
+/**
+ * wma_objmgr_get_peer_mlme_nss() - set nss to peer object
+ * @wma:      wma handle
+ * @mac_addr: mac addr of peer
+ *
+ * Return: Peer NSS
+ */
+uint8_t wma_objmgr_get_peer_mlme_nss(tp_wma_handle wma, uint8_t *mac_addr);
+
 QDF_STATUS wma_send_peer_assoc(tp_wma_handle wma,
 					   tSirNwType nw_type,
 					   tpAddStaParams params);
