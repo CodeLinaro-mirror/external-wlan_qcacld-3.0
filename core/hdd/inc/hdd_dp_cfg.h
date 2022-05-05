@@ -1520,6 +1520,33 @@
 #define CFG_DP_HL_BUNDLE
 #endif
 
+#ifdef WLAN_ONE_MSI_VECTOR
+/*
+ * <ini>
+ * irq_disabled_max_duration_ms - irq disabled max duration time in one msi
+ *
+ * @Min: 1ms
+ * @Max: 1000ms
+ * @Default: 100ms
+ *
+ * Usage: Internal
+ *
+ * </ini>
+ */
+#define CFG_DP_IRQ_DISABLED_MAX_DURATION_MS \
+	CFG_INI_UINT("irq_disabled_max_duration_ms", \
+	1, \
+	1000, \
+	100, \
+	CFG_VALUE_OR_DEFAULT, \
+	"one msi irq disabled max duration ms")
+
+#define CFG_DP_ONE_MSI \
+	CFG(CFG_DP_IRQ_DISABLED_MAX_DURATION_MS)
+#else
+#define CFG_DP_ONE_MSI
+#endif
+
 #define CFG_HDD_DP_ALL \
 	CFG(CFG_DP_NAPI_CE_CPU_MASK) \
 	CFG(CFG_DP_RX_THREAD_CPU_MASK) \
@@ -1546,5 +1573,6 @@
 	CFG_HDD_DP_LEGACY_TX_FLOW \
 	CFG_DP_ENABLE_NUD_TRACKING_ALL \
 	CFG_DP_CONFIG_DP_TRACE_ALL \
-	CFG_DP_HL_BUNDLE
+	CFG_DP_HL_BUNDLE \
+	CFG_DP_ONE_MSI
 #endif

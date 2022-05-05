@@ -17783,6 +17783,12 @@ static void hdd_update_hif_config(struct hdd_context *hdd_ctx)
 				cfg_get(hdd_ctx->psoc,
 					CFG_DP_RX_SOFTIRQ_MAX_YIELD_TIME_NS);
 
+#ifdef WLAN_ONE_MSI_VECTOR
+	cfg.irq_disabled_max_duration_ms =
+				cfg_get(hdd_ctx->psoc,
+					CFG_DP_IRQ_DISABLED_MAX_DURATION_MS);
+#endif
+
 	hif_init_ini_config(scn, &cfg);
 
 	if (prevent_link_down)
