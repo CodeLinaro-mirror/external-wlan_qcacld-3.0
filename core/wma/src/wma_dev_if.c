@@ -4816,6 +4816,7 @@ void wma_add_sta(tp_wma_handle wma, tpAddStaParams add_sta)
 {
 	uint8_t oper_mode = BSS_OPERATIONAL_MODE_STA;
 	void *htc_handle;
+	uint8_t vdev_id = add_sta->smesessionId;
 
 	htc_handle = lmac_get_htc_hdl(wma->psoc);
 	if (!htc_handle) {
@@ -4823,13 +4824,13 @@ void wma_add_sta(tp_wma_handle wma, tpAddStaParams add_sta)
 		return;
 	}
 
-	wma_debug("Vdev %d BSSID "QDF_MAC_ADDR_FMT, add_sta->smesessionId,
+	wma_debug("Vdev %d BSSID "QDF_MAC_ADDR_FMT, vdev_id,
 		  QDF_MAC_ADDR_REF(add_sta->bssId));
 
-	if (wma_is_vdev_in_ap_mode(wma, add_sta->smesessionId))
+	if (wma_is_vdev_in_ap_mode(wma, vdev_id))
 		oper_mode = BSS_OPERATIONAL_MODE_AP;
 
-	if (WMA_IS_VDEV_IN_NDI_MODE(wma->interfaces, add_sta->smesessionId))
+	if (WMA_IS_VDEV_IN_NDI_MODE(wma->interfaces, vdev_id))
 		oper_mode = BSS_OPERATIONAL_MODE_NDI;
 	switch (oper_mode) {
 	case BSS_OPERATIONAL_MODE_STA:
@@ -4844,8 +4845,13 @@ void wma_add_sta(tp_wma_handle wma, tpAddStaParams add_sta)
 		break;
 	}
 
+	/*
+	 * not use add_sta after this to avoid use after free
+	 * as it maybe freed.
+	 */
+
 	/* handle wow for sap with 1 or more peer in same way */
-	if (wma_is_vdev_in_sap_mode(wma, add_sta->smesessionId)) {
+	if (wma_is_vdev_in_sap_mode(wma, vdev_id)) {
 		bool is_bus_suspend_allowed_in_sap_mode =
 			ucfg_pmo_get_sap_mode_bus_suspend(wma->psoc);
 		wma_info("sap mode: disable runtime pm and bus suspend: %d",
@@ -4858,7 +4864,7 @@ void wma_add_sta(tp_wma_handle wma, tpAddStaParams add_sta)
 	}
 
 	/* handle wow for p2pgo with 1 or more peer in same way */
-	if (wma_is_vdev_in_go_mode(wma, add_sta->smesessionId)) {
+	if (wma_is_vdev_in_go_mode(wma, vdev_id)) {
 		bool is_bus_suspend_allowed_in_go_mode =
 			ucfg_pmo_get_go_mode_bus_suspend(wma->psoc);
 		wma_info("p2pgo mode: disable runtime pm and bus suspend: %d",
