@@ -2978,8 +2978,7 @@ void csr_init_occupied_channels_list(struct mac_context *mac_ctx,
 	qdf_list_node_t *next_lst = NULL;
 	struct scan_cache_node *cur_node = NULL;
 	struct scan_filter *filter;
-	tpCsrNeighborRoamControlInfo neighbor_roam_info =
-		&mac_ctx->roam.neighborRoamInfo[sessionId];
+	tpCsrNeighborRoamControlInfo neighbor_roam_info;
 	tCsrRoamConnectedProfile *profile = NULL;
 	uint8_t ch;
 
@@ -2988,6 +2987,7 @@ void csr_init_occupied_channels_list(struct mac_context *mac_ctx,
 		sme_debug("Invalid session");
 		return;
 	}
+	neighbor_roam_info = &mac_ctx->roam.neighborRoamInfo[sessionId];
 	if (neighbor_roam_info->cfgParams.channelInfo.numOfChannels) {
 		/*
 		 * Ini file contains neighbor scan channel list, hence NO need
