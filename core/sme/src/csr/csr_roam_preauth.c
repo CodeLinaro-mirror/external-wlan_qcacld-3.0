@@ -203,6 +203,7 @@ QDF_STATUS csr_neighbor_roam_preauth_rsp_handler(struct mac_context *mac_ctx,
 						 uint8_t session_id,
 						 QDF_STATUS lim_status)
 {
+	struct csr_roam_session *session = CSR_GET_SESSION(mac_ctx, session_id);
 	tpCsrNeighborRoamControlInfo neighbor_roam_info;
 	QDF_STATUS status = QDF_STATUS_SUCCESS;
 	QDF_STATUS preauth_processed = QDF_STATUS_SUCCESS;
