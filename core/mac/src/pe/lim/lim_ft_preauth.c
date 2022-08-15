@@ -227,7 +227,6 @@ void lim_perform_ft_pre_auth(struct mac_context *mac, QDF_STATUS status,
 	tSirMacAuthFrameBody authFrame;
 	unsigned int session_id;
 	enum csr_akm_type auth_type;
-	struct qdf_mac_addr roam_bssid;
 	tpSirFTPreAuthReq pre_auth_req;
 
 	if (!pe_session) {
@@ -262,11 +261,8 @@ void lim_perform_ft_pre_auth(struct mac_context *mac, QDF_STATUS status,
 		return;
 	}
 	if (auth_type == eCSR_AUTH_TYPE_SAE && pre_auth_req) {
-		qdf_mem_copy((void *)roam_bssid.bytes,
-			     (void *)pre_auth_req->preAuthbssId,
-			     QDF_MAC_ADDR_SIZE);
-		csr_process_roam_auth_sae_callback(mac, pe_session->vdev_id,
-						   roam_bssid);
+		lim_trigger_auth_req_sae(mac, pe_session,
+					 (struct qdf_mac_addr *)pre_auth_req->preAuthbssId);
 		return;
 	}
 	pe_debug("Entered wait auth2 state for FT (old session %pK)",
@@ -730,8 +726,8 @@ QDF_STATUS lim_send_preauth_scan_offload(struct mac_context *mac_ctx,
 	req->scan_req.chan_list.chan[0].freq =
 			ft_preauth_req->pre_auth_channel_freq;
 
-	req->scan_req.dwell_time_active = LIM_FT_PREAUTH_SCAN_TIME;
-	req->scan_req.dwell_time_passive = LIM_FT_PREAUTH_SCAN_TIME;
+	req->scan_req.dwell_time_active = LIM_FT_PREAUTH_ACTIVE_SCAN_TIME;
+	req->scan_req.dwell_time_passive = LIM_FT_PREAUTH_PASSIVE_SCAN_TIME;
 
 	status = ucfg_scan_start(req);
 	if (status != QDF_STATUS_SUCCESS)

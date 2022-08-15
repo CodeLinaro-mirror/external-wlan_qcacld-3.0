@@ -2194,4 +2194,10 @@ uint8_t lim_get_ht_max_mcs_idx(tDot11fIEHTCaps *ht_cap);
  * Return: max rate index from tSirMacRateSet
  */
 uint8_t lim_get_max_rate_idx(tSirMacRateSet *rateset);
+
+#ifdef WLAN_FEATURE_SAE
+QDF_STATUS lim_trigger_auth_req_sae(struct mac_context *mac_ctx,
+				    struct pe_session *session,
+				    struct qdf_mac_addr *peer_bssid);
+#endif /* WLAN_FEATURE_SAE */
 #endif /* __LIM_UTILS_H */
