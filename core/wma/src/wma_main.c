@@ -2895,6 +2895,7 @@ QDF_STATUS wma_open(struct wlan_objmgr_psoc *psoc,
 {
 	tp_wma_handle wma_handle;
 	HTC_HANDLE htc_handle;
+	struct hif_opaque_softc *hif_handle;
 	qdf_device_t qdf_dev;
 	void *wmi_handle;
 	QDF_STATUS qdf_status;
@@ -2926,6 +2927,12 @@ QDF_STATUS wma_open(struct wlan_objmgr_psoc *psoc,
 
 	if (!htc_handle) {
 		wma_err("Invalid HTC handle");
+		return QDF_STATUS_E_INVAL;
+	}
+
+	hif_handle = cds_get_context(QDF_MODULE_ID_HIF);
+	if (!hif_handle) {
+		wma_err("Invalid HIF handle");
 		return QDF_STATUS_E_INVAL;
 	}
 
@@ -3029,6 +3036,7 @@ QDF_STATUS wma_open(struct wlan_objmgr_psoc *psoc,
 	wma_handle->qdf_dev = qdf_dev;
 	wma_handle->enable_tx_compl_tsf64 =
 			cds_cfg->enable_tx_compl_tsf64;
+	target_psoc_set_hif_hdl(tgt_psoc_info, hif_handle);
 
 	/* Register Converged Event handlers */
 	init_deinit_register_tgt_psoc_ev_handlers(psoc);

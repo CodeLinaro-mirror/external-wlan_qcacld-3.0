@@ -70,6 +70,7 @@
 #include "wlan_scan_api.h"
 #include <wlan_crypto_global_api.h>
 #include "cdp_txrx_host_stats.h"
+#include "wlan_fwol_tgt_api.h"
 
 /**
  * WMA_SET_VDEV_IE_SOURCE_HOST - Flag to identify the source of VDEV SET IE
@@ -310,6 +311,8 @@ int wma_vdev_tsf_handler(void *handle, uint8_t *data, uint32_t data_len)
 	WMI_VDEV_TSF_REPORT_EVENTID_param_tlvs *param_buf;
 	wmi_vdev_tsf_report_event_fixed_param *tsf_event;
 	struct stsf *ptsf;
+	struct wlan_objmgr_vdev *vdev;
+	tp_wma_handle wma = (tp_wma_handle)handle;
 
 	if (!data) {
 		wma_err("invalid pointer");
@@ -335,6 +338,21 @@ int wma_vdev_tsf_handler(void *handle, uint8_t *data, uint32_t data_len)
 	wma_nofl_debug("g_tsf: %d %d; soc_timer: %d %d",
 		       ptsf->global_tsf_low, ptsf->global_tsf_high,
 			   ptsf->soc_timer_low, ptsf->soc_timer_high);
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(wma->psoc,
+						    tsf_event->vdev_id,
+						    WLAN_LEGACY_WMA_ID);
+	if (!vdev) {
+		wma_err("vdev not found for vdev %d", tsf_event->vdev_id);
+		return -EINVAL;
+	}
+	tgt_fwol_update_vdev_obj_tsf_info(vdev, tsf_event->tsf_id,
+					  tsf_event->tsf_id_valid,
+					  tsf_event->mac_id,
+					  tsf_event->mac_id_valid);
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_LEGACY_WMA_ID);
+
+
 	tsf_msg.type = eWNI_SME_TSF_EVENT;
 	tsf_msg.bodyptr = ptsf;
 	tsf_msg.bodyval = 0;
