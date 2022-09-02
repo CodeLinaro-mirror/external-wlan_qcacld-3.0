@@ -279,6 +279,7 @@ out:
 }
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
+#if 0
 /**
  * pld_bus_event_type_convert() - Convert enum cnss_bus_event_type
  *		to enum pld_bus_event
@@ -304,7 +305,7 @@ enum pld_bus_event pld_bus_event_type_convert(enum cnss_bus_event_type etype)
 
 	return pld_etype;
 }
-
+#endif
 /**
  * pld_pcie_update_event() - update wlan driver status callback function
  * @pdev: PCIE device
@@ -337,6 +338,7 @@ static int pld_pcie_update_event(struct pci_dev *pdev,
 		data.hang_data.hang_event_data_len =
 					hang_event->hang_event_data_len;
 		break;
+#if 0
 	case CNSS_BUS_EVENT:
 	{
 		struct cnss_bus_event *bus_evt = uevent_data->data;
@@ -352,6 +354,7 @@ static int pld_pcie_update_event(struct pci_dev *pdev,
 		data.bus_data.event_data = bus_evt->event_data;
 		break;
 	}
+#endif
 	default:
 		return 0;
 	}
@@ -943,7 +946,7 @@ int pld_pcie_get_platform_cap(struct device *dev, struct pld_platform_cap *cap)
  */
 int pld_pcie_get_soc_info(struct device *dev, struct pld_soc_info *info)
 {
-	int ret = 0, i;
+	int ret = 0;
 	struct cnss_soc_info cnss_info = {0};
 
 	if (!info)
@@ -970,11 +973,12 @@ int pld_pcie_get_soc_info(struct device *dev, struct pld_soc_info *info)
 		cnss_info.device_version.major_version;
 	info->device_version.minor_version =
 		cnss_info.device_version.minor_version;
+#if 0
 	for (i = 0; i < PLD_MAX_DEV_MEM_NUM; i++) {
 		info->dev_mem_info[i].start = cnss_info.dev_mem_info[i].start;
 		info->dev_mem_info[i].size = cnss_info.dev_mem_info[i].size;
 	}
-
+#endif
 	return 0;
 }
 

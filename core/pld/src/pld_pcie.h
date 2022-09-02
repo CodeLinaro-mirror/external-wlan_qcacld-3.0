@@ -538,7 +538,7 @@ static inline void pld_pcie_link_down(struct device *dev)
 static inline int pld_pcie_get_reg_dump(struct device *dev, uint8_t *buf,
 					uint32_t len)
 {
-	return cnss_pci_get_reg_dump(dev, buf, len);
+	return 0;
 }
 #else
 static inline int pld_pcie_get_reg_dump(struct device *dev, uint8_t *buf,
@@ -616,7 +616,7 @@ static inline int pld_pcie_force_wake_request(struct device *dev)
 static inline int pld_pcie_force_wake_request_sync(struct device *dev,
 						   int timeout_us)
 {
-	return cnss_pci_force_wake_request_sync(dev, timeout_us);
+	return cnss_pci_force_wake_request(dev);
 }
 
 static inline int pld_pcie_is_device_awake(struct device *dev)
