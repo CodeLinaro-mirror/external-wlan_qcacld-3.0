@@ -507,7 +507,6 @@ static inline void  lim_process_sae_auth_frame(struct mac_context *mac_ctx,
 {}
 #endif
 
-#ifdef WLAN_FEATURE_RTT_11AZ_SUPPORT
 /**
  * lim_process_pasn_auth_frame()- Process PASN authentication frame
  * @mac_ctx: MAC context
@@ -539,15 +538,6 @@ lim_process_pasn_auth_frame(struct mac_context *mac_ctx,
 
 	return QDF_STATUS_SUCCESS;
 }
-#else
-static inline QDF_STATUS
-lim_process_pasn_auth_frame(struct mac_context *mac_ctx,
-			    uint8_t vdev_id,
-			    uint8_t *rx_pkt_info)
-{
-	return QDF_STATUS_SUCCESS;
-}
-#endif
 
 static void lim_process_auth_frame_type1(struct mac_context *mac_ctx,
 		tpSirMacMgmtHdr mac_hdr,
