@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -33,6 +34,10 @@
 #include "wlan_fwol_public_structs.h"
 #include "wlan_fw_offload_main.h"
 #include "target_if_fwol.h"
+#ifdef WLAN_FEATURE_TSF_BY_REG
+#include "hif.h"
+#include "hal_api.h"
+#endif
 
 #ifdef WLAN_FEATURE_ELNA
 /**
@@ -392,10 +397,82 @@ target_if_fwol_unregister_event_handler(struct wlan_objmgr_psoc *psoc,
 	return QDF_STATUS_SUCCESS;
 }
 
+#ifdef WLAN_FEATURE_TSF_BY_REG
+/**
+ * target_if_fwol_get_hal_soc() - Get hal_soc from psoc
+ * @psoc: pointer to PSOC object
+ *
+ * Return: pointer to hal_soc
+ */
+static void *
+target_if_fwol_get_hal_soc(struct wlan_objmgr_psoc *psoc)
+{
+	struct hif_opaque_softc *hif_ctx;
+	struct target_psoc_info *tgt_psoc_info;
+
+	if (!psoc) {
+		target_if_err("failed get hal_soc, psoc is null");
+		return NULL;
+	}
+
+	tgt_psoc_info = wlan_psoc_get_tgt_if_handle(psoc);
+	if (!tgt_psoc_info) {
+		target_if_err("failed get hal_soc, target_psoc_info is null");
+		return NULL;
+	}
+
+	hif_ctx = target_psoc_get_hif_hdl(tgt_psoc_info);
+	if (!hif_ctx) {
+		target_if_err("failed get hal_soc, hif_ctx is null");
+		return NULL;
+	}
+
+	return hif_get_hal_handle(hif_ctx);
+}
+
+/**
+ * target_if_fwol_get_tsf64_reg_val() - Get tsf value from mac's tsf register
+ * @psoc: pointer to PSOC object
+ * @mac_id: mac identifier
+ * @tsf_id: tsf identifier
+ * @value: pointer to tsf 64bit value
+ *
+ * Return: QDF_STATUS_SUCCESS on success
+ */
+static QDF_STATUS
+target_if_fwol_get_tsf64_reg_val(struct wlan_objmgr_psoc *psoc,
+				 uint32_t mac_id, uint32_t tsf_id,
+				 uint64_t *value)
+{
+	void *hal_soc;
+
+	hal_soc = target_if_fwol_get_hal_soc(psoc);
+	if (!hal_soc) {
+		target_if_err("hal_soc is null");
+		return -QDF_STATUS_E_INVAL;
+	}
+
+	*value = hal_read_reg_tsf64(hal_soc, mac_id, tsf_id);
+	return QDF_STATUS_SUCCESS;
+}
+
+static void
+target_if_fwol_register_tsf64_reg_tx_ops(struct wlan_fwol_tx_ops *tx_ops)
+{
+	tx_ops->get_tsf64_reg_val = target_if_fwol_get_tsf64_reg_val;
+}
+#else
+static void
+target_if_fwol_register_tsf64_reg_tx_ops(struct wlan_fwol_tx_ops *tx_ops)
+{
+}
+#endif /* WLAN_FEATURE_TSF_BY_REG */
+
 QDF_STATUS target_if_fwol_register_tx_ops(struct wlan_fwol_tx_ops *tx_ops)
 {
 	target_if_fwol_register_elna_tx_ops(tx_ops);
 	target_if_fwol_register_dscp_up_tx_ops(tx_ops);
+	target_if_fwol_register_tsf64_reg_tx_ops(tx_ops);
 
 	tx_ops->reg_evt_handler = target_if_fwol_register_event_handler;
 	tx_ops->unreg_evt_handler = target_if_fwol_unregister_event_handler;

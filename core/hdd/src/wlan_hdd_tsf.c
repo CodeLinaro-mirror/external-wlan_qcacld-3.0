@@ -145,6 +145,24 @@ static bool hdd_tsf_is_initialized(struct hdd_adapter *adapter)
 	return true;
 }
 
+#if defined(WLAN_FEATURE_TSF_BY_REG)
+static bool hdd_is_get_tsf_by_reg_enable(struct hdd_context *hdd_ctx)
+{
+	bool tsf_by_reg_en;
+
+	if (hdd_ctx && QDF_IS_STATUS_SUCCESS(
+	    ucfg_fwol_get_tsf_by_reg_enable(hdd_ctx->psoc, &tsf_by_reg_en)))
+		return tsf_by_reg_en;
+
+	return false;
+}
+#elif defined(WLAN_FEATURE_TSF_PLUS)
+static bool hdd_is_get_tsf_by_reg_enable(struct hdd_context *hdd_ctx)
+{
+	return false;
+}
+#endif
+
 #if (defined(WLAN_FEATURE_TSF_PLUS_NOIRQ) && \
 	defined(WLAN_FEATURE_TSF_PLUS)) || \
 	defined(WLAN_FEATURE_TSF_PLUS_EXT_GPIO_SYNC) || \
@@ -1177,6 +1195,7 @@ static ssize_t __hdd_wlan_tsf_show(struct device *dev,
 	struct hdd_context *hdd_ctx;
 	uint64_t tsf_sync_qtime, host_time, reg_qtime, qtime, target_time;
 	ssize_t size;
+	QDF_STATUS status;
 
 	struct net_device *net_dev = container_of(dev, struct net_device, dev);
 
@@ -1199,34 +1218,53 @@ static ssize_t __hdd_wlan_tsf_show(struct device *dev,
 	if (!hdd_ctx)
 		return scnprintf(buf, PAGE_SIZE, "Invalid HDD context\n");
 
-	tsf_sync_qtime = adapter->last_tsf_sync_soc_time;
-	do_div(tsf_sync_qtime, NSEC_PER_USEC);
-
-	reg_qtime = qdf_get_log_timestamp();
-	host_time = hdd_get_monotonic_host_time(hdd_ctx);
-
-	qtime = qdf_log_timestamp_to_usecs(reg_qtime);
-	do_div(host_time, NSEC_PER_USEC);
-	hdd_get_tsftime_from_qtime(adapter, qtime, tsf_sync_qtime,
-				   &target_time);
-
-	if (adapter->device_mode == QDF_STA_MODE ||
-	    adapter->device_mode == QDF_P2P_CLIENT_MODE) {
-		size = scnprintf(buf, PAGE_SIZE,
-				 "%s%llu %llu %pM %llu %llu %llu\n",
-				 buf, adapter->last_target_time,
-				 tsf_sync_qtime,
-				 hdd_sta_ctx->conn_info.bssid.bytes,
-				 qtime, host_time, target_time);
+	if (hdd_is_get_tsf_by_reg_enable(hdd_ctx)) {
+		hdd_debug("gGetTsfByRegister enable\n");
+		status = ucfg_fwol_get_tsf64_reg_val(hdd_ctx->psoc,
+						     adapter->vdev_id,
+						     &target_time);
+		if (QDF_IS_STATUS_SUCCESS(status)) {
+			host_time = hdd_get_monotonic_host_time(hdd_ctx);
+			tsf_sync_qtime = adapter->last_tsf_sync_soc_time;
+			reg_qtime = qdf_get_log_timestamp();
+			qtime = qdf_log_timestamp_to_usecs(reg_qtime);
+		}
 	} else {
-		size = scnprintf(buf, PAGE_SIZE,
-				 "%s%llu %llu %pM %llu %llu %llu\n",
-				 buf, adapter->last_target_time,
-				 tsf_sync_qtime,
-				 adapter->mac_addr.bytes,
-				 qtime, host_time, target_time);
+		hdd_debug("gGetTsfByRegister disable\n");
+		tsf_sync_qtime = adapter->last_tsf_sync_soc_time;
+		do_div(tsf_sync_qtime, NSEC_PER_USEC);
+
+		reg_qtime = qdf_get_log_timestamp();
+		host_time = hdd_get_monotonic_host_time(hdd_ctx);
+
+		qtime = qdf_log_timestamp_to_usecs(reg_qtime);
+		do_div(host_time, NSEC_PER_USEC);
+		hdd_get_tsftime_from_qtime(adapter, qtime, tsf_sync_qtime,
+					   &target_time);
+		status = QDF_STATUS_SUCCESS;
 	}
 
+	if (QDF_IS_STATUS_SUCCESS(status)) {
+		if (adapter->device_mode == QDF_STA_MODE ||
+		    adapter->device_mode == QDF_P2P_CLIENT_MODE)
+			size = scnprintf(buf, PAGE_SIZE,
+					 "%s%llu %llu " QDF_FULL_MAC_FMT
+					 " %llu %llu %llu\n",
+					 buf, adapter->last_target_time,
+					 tsf_sync_qtime,
+					 QDF_FULL_MAC_REF(hdd_sta_ctx->conn_info.bssid.bytes),
+					 qtime, host_time, target_time);
+		else
+			size = scnprintf(buf, PAGE_SIZE,
+					 "%s%llu %llu " QDF_FULL_MAC_FMT
+					 " %llu %llu %llu\n",
+					 buf, adapter->last_target_time,
+					 tsf_sync_qtime,
+					 QDF_FULL_MAC_REF(adapter->mac_addr.bytes),
+					 qtime, host_time, target_time);
+	} else {
+		size = scnprintf(buf, PAGE_SIZE, "Invalid timestamp\n");
+	}
 	return size;
 }
 
@@ -1339,6 +1377,7 @@ static ssize_t __hdd_wlan_tsf_show(struct device *dev,
 	struct hdd_context *hdd_ctx;
 	ssize_t size;
 	uint64_t host_time, target_time;
+	QDF_STATUS status;
 
 	struct net_device *net_dev = container_of(dev, struct net_device, dev);
 
@@ -1360,24 +1399,37 @@ static ssize_t __hdd_wlan_tsf_show(struct device *dev,
 	if (!hdd_ctx)
 		return scnprintf(buf, PAGE_SIZE, "Invalid HDD context\n");
 
-	host_time = hdd_get_monotonic_host_time(hdd_ctx);
-
-	if (hdd_get_targettime_from_hosttime(adapter, host_time,
-					     &target_time)) {
-		size = scnprintf(buf, PAGE_SIZE, "Invalid timestamp\n");
+	if (hdd_is_get_tsf_by_reg_enable(hdd_ctx)) {
+		hdd_debug("gGetTsfByRegister enable\n");
+		status = ucfg_fwol_get_tsf64_reg_val(hdd_ctx->psoc,
+						     adapter->vdev_id,
+						     &target_time);
+		if (QDF_IS_STATUS_SUCCESS(status))
+			host_time = hdd_get_monotonic_host_time(hdd_ctx);
 	} else {
-		if (adapter->device_mode == QDF_STA_MODE ||
-		    adapter->device_mode == QDF_P2P_CLIENT_MODE) {
-			size = scnprintf(buf, PAGE_SIZE, "%s%llu %llu %pM\n",
-					 buf, target_time, host_time,
-					 hdd_sta_ctx->conn_info.bssid.bytes);
-		} else {
-			size = scnprintf(buf, PAGE_SIZE, "%s%llu %llu %pM\n",
-					 buf, target_time, host_time,
-					 adapter->mac_addr.bytes);
-		}
+		hdd_debug("gGetTsfByRegister disable\n");
+		host_time = hdd_get_monotonic_host_time(hdd_ctx);
+		if (hdd_get_targettime_from_hosttime(adapter, host_time,
+						     &target_time))
+			status = QDF_STATUS_E_FAILURE;
+		else
+			status = QDF_STATUS_SUCCESS;
 	}
 
+	if (QDF_IS_STATUS_SUCCESS(status)) {
+		if (adapter->device_mode == QDF_STA_MODE ||
+		    adapter->device_mode == QDF_P2P_CLIENT_MODE) {
+			size = scnprintf(buf, PAGE_SIZE, "%s%llu %llu" QDF_FULL_MAC_FMT "\n",
+					 buf, target_time, host_time,
+					 QDF_FULL_MAC_REF(hdd_sta_ctx->conn_info.bssid.bytes));
+		} else {
+			size = scnprintf(buf, PAGE_SIZE, "%s%llu %llu" QDF_FULL_MAC_FMT "\n",
+					 buf, target_time, host_time,
+					 QDF_FULL_MAC_REF(adapter->mac_addr.bytes));
+		}
+	} else {
+		size = scnprintf(buf, PAGE_SIZE, "Invalid timestamp\n");
+	}
 	return size;
 }
 
@@ -1549,7 +1601,7 @@ enum hdd_tsf_op_result hdd_netbuf_timestamp(qdf_nbuf_t netbuf,
 		int32_t ret = hdd_get_soctime_from_tsf64time(adapter,
 				tsf64_time, &soc_time);
 		if (!ret) {
-			hwtstamps.hwtstamp = soc_time;
+			hwtstamps.hwtstamp = ns_to_ktime(soc_time);
 			*skb_hwtstamps(netbuf) = hwtstamps;
 			netbuf->tstamp = ktime_set(0, 0);
 			return HDD_TSF_OP_SUCC;

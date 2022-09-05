@@ -537,6 +537,31 @@
 #define __CFG_SET_TSF_SYNC_HOST_GPIO_PIN
 #endif
 
+#ifdef WLAN_FEATURE_TSF_BY_REG
+/* <ini>
+ * gGetTsfByRegister: Enable get tsf by register
+ * @Min: 0
+ * @Max: 1
+ * @Default: 0
+ *
+ * Enable/disable get tsf by register.
+ *
+ * Related: None
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_GET_TSF_BY_REGISTER CFG_INI_BOOL( \
+		"gGetTsfByRegister", \
+		0, \
+		"Enable get tsf by register")
+
+#define __CFG_GET_TSF_BY_REGISTER CFG(CFG_GET_TSF_BY_REGISTER)
+#else
+#define __CFG_GET_TSF_BY_REGISTER
+#endif /* WLAN_FEATURE_TSF_BY_REG */
+
 #if defined(WLAN_FEATURE_TSF) && defined(WLAN_FEATURE_TSF_PLUS)
 /* <ini>
  * gtsf_ptp_options: TSF Plus feature options
@@ -876,6 +901,7 @@
 	CFG(CFG_SET_TSF_GPIO_PIN) \
 	__CFG_SET_TSF_IRQ_HOST_GPIO_PIN \
 	__CFG_SET_TSF_SYNC_HOST_GPIO_PIN \
+	__CFG_GET_TSF_BY_REGISTER \
 	__CFG_SET_TSF_PTP_OPT \
 	CFG(CFG_LPRX) \
 	__CFG_IS_SAE_ENABLED \

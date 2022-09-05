@@ -90,6 +90,7 @@ struct thermal_throttle_info {
  * @reg_evt_handler: register event handler
  * @unreg_evt_handler: unregister event handler
  * @send_dscp_up_map_to_fw: send dscp-to-up map values to FW
+ * @get_tsf64_reg_val: get tsf value from mac's tsf register
  */
 struct wlan_fwol_tx_ops {
 #ifdef WLAN_FEATURE_ELNA
@@ -106,6 +107,11 @@ struct wlan_fwol_tx_ops {
 	QDF_STATUS (*send_dscp_up_map_to_fw)(
 			struct wlan_objmgr_psoc *psoc,
 			uint32_t *dscp_to_up_map);
+#endif
+#ifdef WLAN_FEATURE_TSF_BY_REG
+	QDF_STATUS (*get_tsf64_reg_val)(struct wlan_objmgr_psoc *psoc,
+					uint32_t mac_id, uint32_t tsf_id,
+					uint64_t *value);
 #endif
 };
 

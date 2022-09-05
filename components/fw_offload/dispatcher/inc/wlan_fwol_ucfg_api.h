@@ -454,6 +454,39 @@ QDF_STATUS ucfg_fwol_get_dhcp_max_num_clients(struct wlan_objmgr_psoc *psoc,
  */
 QDF_STATUS ucfg_fwol_get_tsf_ptp_options(struct wlan_objmgr_psoc *psoc,
 					 uint32_t *tsf_ptp_options);
+
+#ifdef WLAN_FEATURE_TSF_BY_REG
+/**
+ * ucfg_fwol_get_tsf_by_reg_enable() - get tsf by register enable/disable
+ * @psoc: pointer to the psoc object
+ * @tsf_by_reg_enable: pointer to tsf by register enable
+ *
+ * Return: QDF Status
+ */
+QDF_STATUS
+ucfg_fwol_get_tsf_by_reg_enable(struct wlan_objmgr_psoc *psoc,
+				bool *tsf_by_reg_enable);
+
+/**
+ * ucfg_fwol_get_tsf64_reg_val() - get tsf value from mac's tsf register
+ * @psoc: pointer to the psoc object
+ * @vdev_id: vdev id
+ * @value: pointer to tsf 64bit values for return to caller
+ *
+ * Return: QDF Status
+ */
+QDF_STATUS
+ucfg_fwol_get_tsf64_reg_val(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+			    uint64_t *value);
+#else
+static inline QDF_STATUS
+ucfg_fwol_get_tsf64_reg_val(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+			    uint64_t *value)
+{
+	return QDF_STATUS_SUCCESS;
+}
+#endif
+
 /**
  * ucfg_fwol_get_lprx_enable() - Get LPRx feature enable status
  * @psoc: pointer to the psoc object

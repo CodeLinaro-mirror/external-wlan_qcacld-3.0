@@ -121,6 +121,72 @@ static QDF_STATUS fwol_psoc_object_destroyed_notification(
 	return status;
 }
 
+/**
+ * fwol_vdev_obj_created_notification(): fwol vdev create handler
+ * @vdev: vdev object
+ * @arg_list: argument list
+ *
+ * Return QDF_STATUS status in case of success else return error
+ */
+static QDF_STATUS
+fwol_vdev_obj_created_notification(struct wlan_objmgr_vdev *vdev,
+				   void *arg_list)
+{
+	struct wlan_fwol_vdev_obj *fwol_vdev_obj;
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+
+	fwol_vdev_obj = qdf_mem_malloc(sizeof(*fwol_vdev_obj));
+	if (!fwol_vdev_obj) {
+		fwol_err("Failed to allocate memory");
+		return QDF_STATUS_E_NOMEM;
+	}
+
+	/* attach fwol private data to vdev */
+	status = wlan_objmgr_vdev_component_obj_attach(vdev,
+						       WLAN_UMAC_COMP_FWOL,
+						       fwol_vdev_obj,
+						       QDF_STATUS_SUCCESS);
+
+	if (QDF_IS_STATUS_ERROR(status)) {
+		fwol_err("Failed to attach vdev fwol component");
+		qdf_mem_free(fwol_vdev_obj);
+	}
+
+	return status;
+}
+
+/**
+ * fwol_vdev_obj_destroyed_notification(): fwol vdev destroy handler
+ * @vdev: vdev object
+ * @arg_list: argument list
+ *
+ * Return QDF_STATUS status in case of success else return error
+ */
+static QDF_STATUS
+fwol_vdev_obj_destroyed_notification(struct wlan_objmgr_vdev *vdev,
+				     void *arg_list)
+{
+	void *fwol_vdev_obj;
+	QDF_STATUS status;
+
+	fwol_vdev_obj = fwol_get_vdev_obj(vdev);
+
+	if (!fwol_vdev_obj) {
+		fwol_err("Failed to detach fwol in vdev ctx");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	status = wlan_objmgr_vdev_component_obj_detach(vdev,
+						       WLAN_UMAC_COMP_FWOL,
+						       fwol_vdev_obj);
+
+	if (QDF_IS_STATUS_ERROR(status))
+		fwol_err("Failed to detach vdev fwol component");
+
+	qdf_mem_free(fwol_vdev_obj);
+	return status;
+}
+
 QDF_STATUS ucfg_fwol_init(void)
 {
 	QDF_STATUS status;
@@ -139,19 +205,66 @@ QDF_STATUS ucfg_fwol_init(void)
 			fwol_psoc_object_destroyed_notification,
 			NULL);
 	if (QDF_IS_STATUS_ERROR(status)) {
-		fwol_err("unable to register psoc create handle");
-		wlan_objmgr_unregister_psoc_create_handler(
-			WLAN_UMAC_COMP_FWOL,
-			fwol_psoc_object_created_notification,
-			NULL);
+		fwol_err("unable to register psoc destroy handle");
+		goto fail_destroy_psoc;
 	}
 
+	status = wlan_objmgr_register_vdev_create_handler(
+			WLAN_UMAC_COMP_FWOL,
+			fwol_vdev_obj_created_notification,
+			NULL);
+	if (QDF_IS_STATUS_ERROR(status)) {
+		fwol_err("unable to register vdev create handler");
+		goto fail_create_vdev;
+	}
+
+	status = wlan_objmgr_register_vdev_destroy_handler(
+			WLAN_UMAC_COMP_FWOL,
+			fwol_vdev_obj_destroyed_notification,
+			NULL);
+	if (QDF_IS_STATUS_ERROR(status)) {
+		fwol_err("unable to register vdev destroy handler");
+		goto fail_destroy_vdev;
+	}
+	return QDF_STATUS_SUCCESS;
+
+fail_destroy_vdev:
+	wlan_objmgr_unregister_vdev_create_handler(
+		WLAN_UMAC_COMP_FWOL,
+		fwol_vdev_obj_created_notification,
+		NULL);
+
+fail_create_vdev:
+	wlan_objmgr_unregister_psoc_destroy_handler(
+		WLAN_UMAC_COMP_FWOL,
+		fwol_psoc_object_destroyed_notification,
+		NULL);
+
+fail_destroy_psoc:
+	wlan_objmgr_unregister_psoc_create_handler(
+		WLAN_UMAC_COMP_FWOL,
+		fwol_psoc_object_created_notification,
+		NULL);
 	return status;
 }
 
 void ucfg_fwol_deinit(void)
 {
 	QDF_STATUS status;
+
+	status = wlan_objmgr_unregister_vdev_destroy_handler(
+			WLAN_UMAC_COMP_FWOL,
+			fwol_vdev_obj_destroyed_notification,
+			NULL);
+	if (QDF_IS_STATUS_ERROR(status))
+		fwol_err("unable to unregister vdev destroy handle");
+
+	status = wlan_objmgr_unregister_vdev_create_handler(
+			WLAN_UMAC_COMP_FWOL,
+			fwol_vdev_obj_created_notification,
+			NULL);
+	if (QDF_IS_STATUS_ERROR(status))
+		fwol_err("unable to unregister vdev create handle");
 
 	status = wlan_objmgr_unregister_psoc_destroy_handler(
 			WLAN_UMAC_COMP_FWOL,
@@ -741,6 +854,63 @@ QDF_STATUS ucfg_fwol_get_tsf_ptp_options(struct wlan_objmgr_psoc *psoc,
 }
 
 #endif
+
+#ifdef WLAN_FEATURE_TSF_BY_REG
+QDF_STATUS
+ucfg_fwol_get_tsf_by_reg_enable(struct wlan_objmgr_psoc *psoc,
+				bool *tsf_by_reg_enable)
+{
+	struct wlan_fwol_psoc_obj *fwol_obj;
+
+	fwol_obj = fwol_get_psoc_obj(psoc);
+	if (!fwol_obj) {
+		fwol_err("Failed to get FWOL obj");
+		*tsf_by_reg_enable = cfg_default(CFG_GET_TSF_BY_REGISTER);
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	*tsf_by_reg_enable = fwol_obj->cfg.tsf_by_reg_enable;
+	return QDF_STATUS_SUCCESS;
+}
+
+QDF_STATUS
+ucfg_fwol_get_tsf64_reg_val(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+			    uint64_t *value)
+{
+	struct wlan_objmgr_vdev *vdev;
+	struct wlan_fwol_vdev_obj *fwol_vdev;
+	struct wlan_fwol_tsf *tsf_info;
+	QDF_STATUS status;
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id,
+						    WLAN_FWOL_SB_ID);
+	if (!vdev) {
+		fwol_err("get vdev failed for vdev_id: %d", vdev_id);
+		return QDF_STATUS_E_INVAL;
+	}
+
+	fwol_vdev = fwol_get_vdev_obj(vdev);
+	if (!fwol_vdev) {
+		fwol_err("failed to get fwol_vdev from vdev_id: %d", vdev_id);
+		status = QDF_STATUS_E_INVAL;
+		goto done;
+	}
+
+	tsf_info = &fwol_vdev->tsf_info;
+	if (!tsf_info->mac_id_valid || !tsf_info->tsf_id_valid) {
+		fwol_err("mac_id/tsf_id invalid");
+		status = QDF_STATUS_E_INVAL;
+		goto done;
+	}
+
+	status = tgt_fwol_get_tsf64_reg_val(psoc, tsf_info->mac_id,
+					    tsf_info->tsf_id, value);
+
+done:
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_FWOL_SB_ID);
+	return status;
+}
+#endif /* WLAN_FEATURE_TSF_BY_REG */
 
 QDF_STATUS ucfg_fwol_get_lprx_enable(struct wlan_objmgr_psoc *psoc,
 				     bool *lprx_enable)

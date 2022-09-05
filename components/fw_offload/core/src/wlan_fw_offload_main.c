@@ -30,6 +30,12 @@ struct wlan_fwol_psoc_obj *fwol_get_psoc_obj(struct wlan_objmgr_psoc *psoc)
 						     WLAN_UMAC_COMP_FWOL);
 }
 
+struct wlan_fwol_vdev_obj *fwol_get_vdev_obj(struct wlan_objmgr_vdev *vdev)
+{
+	return wlan_objmgr_vdev_get_comp_private_obj(vdev,
+						     WLAN_UMAC_COMP_FWOL);
+}
+
 /**
  * fwol_mpta_helper_config_get: Populate btc_mpta_helper_enable from cfg
  * @psoc: The global psoc handler
@@ -423,6 +429,50 @@ static void ucfg_fwol_fetch_tsf_gpio_pin(struct wlan_objmgr_psoc *psoc,
 }
 #endif
 
+#ifdef WLAN_FEATURE_TSF_BY_REG
+QDF_STATUS
+fwol_update_tsf_info(struct wlan_objmgr_vdev *vdev,
+		     struct wlan_fwol_tsf *fwol_tsf)
+{
+	struct wlan_fwol_vdev_obj *fwol_vdev;
+
+	if (!vdev) {
+		fwol_err("vdev is NULL");
+		return QDF_STATUS_E_NULL_VALUE;
+	}
+
+	fwol_vdev = fwol_get_vdev_obj(vdev);
+	if (!fwol_vdev) {
+		fwol_err("failed to get wlan_fwol_vdev_obj");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	qdf_mem_copy(&fwol_vdev->tsf_info, fwol_tsf,
+		     sizeof(struct wlan_fwol_tsf));
+	return QDF_STATUS_SUCCESS;
+}
+
+/**
+ * ucfg_fwol_init_tsf_by_reg_cfg: Populate the tsf_by_reg_enable from cfg
+ * @psoc: The global psoc handler
+ * @fwol_cfg: The cfg structure
+ *
+ * Return: none
+ */
+static void
+fwol_init_tsf_by_reg_cfg(struct wlan_objmgr_psoc *psoc,
+			 struct wlan_fwol_cfg *fwol_cfg)
+{
+	fwol_cfg->tsf_by_reg_enable = cfg_get(psoc, CFG_GET_TSF_BY_REGISTER);
+}
+#else
+static void
+fwol_init_tsf_by_reg_cfg(struct wlan_objmgr_psoc *psoc,
+			 struct wlan_fwol_cfg *fwol_cfg)
+{
+}
+#endif
+
 /**
  * ucfg_fwol_init_tsf_ptp_options: Populate the tsf_ptp_options from cfg
  * @psoc: The global psoc handler
@@ -585,6 +635,7 @@ QDF_STATUS fwol_cfg_on_psoc_enable(struct wlan_objmgr_psoc *psoc)
 			      &enable_fw_wow_mod_log_level_num);
 	fwol_cfg->enable_fw_mod_wow_log_level_num =
 				(uint8_t)enable_fw_wow_mod_log_level_num;
+	fwol_init_tsf_by_reg_cfg(psoc, fwol_cfg);
 	ucfg_fwol_init_tsf_ptp_options(psoc, fwol_cfg);
 	ucfg_fwol_init_sae_cfg(psoc, fwol_cfg);
 	fwol_cfg->lprx_enable = cfg_get(psoc, CFG_LPRX);

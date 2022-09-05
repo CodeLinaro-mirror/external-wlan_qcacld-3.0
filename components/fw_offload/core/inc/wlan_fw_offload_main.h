@@ -202,6 +202,7 @@ struct wlan_fwol_neighbor_report_cfg {
  * @enable_fw_mod_wow_log_level_num: enable fw wow module log level num
  * @sap_xlna_bypass: bypass SAP xLNA
  * @is_rate_limit_enabled: Enable/disable RA rate limited
+ * @tsf_by_reg_enable: Get TSF from register enable/disable
  * @tsf_gpio_pin: TSF GPIO Pin config
  * @tsf_irq_host_gpio_pin: TSF GPIO Pin config
  * @tsf_sync_host_gpio_pin: TSF Sync GPIO Pin config
@@ -244,6 +245,9 @@ struct wlan_fwol_cfg {
 	bool sap_xlna_bypass;
 #ifdef FEATURE_WLAN_RA_FILTERING
 	bool is_rate_limit_enabled;
+#endif
+#ifdef WLAN_FEATURE_TSF_BY_REG
+	bool tsf_by_reg_enable;
 #endif
 #ifdef WLAN_FEATURE_TSF
 	uint32_t tsf_gpio_pin;
@@ -303,6 +307,28 @@ struct wlan_fwol_psoc_obj {
 };
 
 /**
+ * struct wlan_fwol_tsf - FW offload struct to store tsf info
+ * @tsf_id: tsf id
+ * @tsf_id_valid: indicate if tsf_id is valid or not
+ * @mac_id: mac identifier
+ * @mac_id_valid: indicate if mac_id is valid or not
+ */
+struct wlan_fwol_tsf {
+	uint32_t tsf_id;
+	bool tsf_id_valid;
+	uint32_t mac_id;
+	bool mac_id_valid;
+};
+
+/**
+ * struct wlan_fwol_vdev_obj - FW offload private object of vdev
+ * @tsf_info: tsf info report by fw
+ */
+struct wlan_fwol_vdev_obj {
+	struct wlan_fwol_tsf tsf_info;
+};
+
+/**
  * struct wlan_fwol_rx_event - event from south bound
  * @psoc: psoc handle
  * @event_id: event ID
@@ -335,6 +361,14 @@ struct wlan_fwol_psoc_obj *fwol_get_psoc_obj(struct wlan_objmgr_psoc *psoc);
  * Return: QDF_STATUS
  */
 QDF_STATUS fwol_cfg_on_psoc_enable(struct wlan_objmgr_psoc *psoc);
+
+/**
+ * fwol_get_vdev_obj() - API to get fwol vdev object from wlan_objmgr_vdev
+ * @vdev: pointer to wlan_objmgr_vdev object
+ *
+ * Return: wlan_fwol_vdev_obj object
+ */
+struct wlan_fwol_vdev_obj *fwol_get_vdev_obj(struct wlan_objmgr_vdev *vdev);
 
 /*
  * fwol_cfg_on_psoc_disable() - Clear the CFG structure on psoc disable
@@ -447,5 +481,18 @@ fwol_set_sap_wds_config(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id)
 {
 	return QDF_STATUS_SUCCESS;
 }
+#endif
+
+#ifdef WLAN_FEATURE_TSF_BY_REG
+/**
+ * fwol_update_tsf_info() - API to update tsf info of fwol_vdev_obj
+ * @vdev: pointer to wlan_objmgr_vdev objects
+ * @fwol_tsf: pointer to tsf info
+ *
+ * Return: QDF Status
+ */
+QDF_STATUS
+fwol_update_tsf_info(struct wlan_objmgr_vdev *vdev,
+		     struct wlan_fwol_tsf *fwol_tsf);
 #endif
 #endif

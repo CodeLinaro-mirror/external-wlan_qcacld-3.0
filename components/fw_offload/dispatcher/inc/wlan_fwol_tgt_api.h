@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -70,4 +71,42 @@ QDF_STATUS tgt_fwol_pdev_param_send(struct wlan_objmgr_pdev *pdev,
 QDF_STATUS tgt_fwol_vdev_param_send(struct wlan_objmgr_psoc *psoc,
 				    struct vdev_set_params vdev_param);
 
+#ifdef WLAN_FEATURE_TSF_BY_REG
+/**
+ * tgt_fwol_update_vdev_obj_tsf_info() - update tsf info of fwol_vdev_obj
+ * @vdev: pointer to wlan_objmgr_vdev objects
+ * @ptsf: pointer to tsf info
+ *
+ * Return: QDF_STATUS_SUCCESS on success
+ */
+QDF_STATUS
+tgt_fwol_update_vdev_obj_tsf_info(struct wlan_objmgr_vdev *vdev,
+				  uint32_t tsf_id,
+				  uint32_t tsf_id_valid,
+				  uint32_t mac_id,
+				  uint32_t mac_id_valid);
+
+/**
+ * tgt_fwol_get_tsf64_reg_val() - get tsf value from mac's tsf register
+ * @psoc: psoc handle
+ * @mac_id: mac identifier
+ * @tsf_id: tsf identifier
+ * @value: pointer to tsf 64bit values for return to caller
+ *
+ * Return: QDF_STATUS_SUCCESS on success
+ */
+QDF_STATUS
+tgt_fwol_get_tsf64_reg_val(struct wlan_objmgr_psoc *psoc, uint32_t mac_id,
+			   uint32_t tsf_id, uint64_t *value);
+#else
+static inline QDF_STATUS
+tgt_fwol_update_vdev_obj_tsf_info(struct wlan_objmgr_vdev *vdev,
+				  uint32_t tsf_id,
+				  uint32_t tsf_id_valid,
+				  uint32_t mac_id,
+				  uint32_t mac_id_valid)
+{
+	return QDF_STATUS_SUCCESS;
+}
+#endif /* WLAN_FEATURE_TSF_BY_REG */
 #endif /* _WLAN_FWOL_TGT_API_H */

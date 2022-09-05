@@ -25,6 +25,10 @@ ifeq ($(CONFIG_CNSS_QCA6390), y)
 	CONFIG_DIRECT_BUF_RX_ENABLE := y
 	CONFIG_WMI_DBR_SUPPORT := y
 	CONFIG_MORE_TX_DESC := y
+        ifeq ($(CONFIG_WLAN_FEATURE_TSF_BY_REG), y)
+                CONFIG_WLAN_SYNC_TSF_PLUS := y
+                CONFIG_WLAN_SYNC_TSF_PLUS_NOIRQ := y
+        endif
 endif
 
 ifeq ($(CONFIG_CNSS_QCA6490), y)
@@ -49,6 +53,10 @@ ifeq ($(CONFIG_CNSS_QCA6490), y)
 	CONFIG_WLAN_TWT_SAP_PDEV_COUNT := y
 	CONFIG_DEVICE_FORCE_WAKE_ENABLE :=y
 	CONFIG_HIF_REG_WINDOW_SUPPORT :=y
+        ifeq ($(CONFIG_WLAN_FEATURE_TSF_BY_REG), y)
+                CONFIG_WLAN_SYNC_TSF_PLUS := y
+                CONFIG_WLAN_SYNC_TSF_PLUS_NOIRQ := y
+        endif
 endif
 
 ifeq ($(CONFIG_CNSS_QCA6750), y)

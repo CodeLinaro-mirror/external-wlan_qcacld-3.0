@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -247,3 +248,61 @@ QDF_STATUS tgt_fwol_vdev_param_send(struct wlan_objmgr_psoc *psoc,
 
 	return wmi_unified_vdev_set_param_send(wmi_handle, &vdev_param);
 }
+
+#ifdef WLAN_FEATURE_TSF_BY_REG
+QDF_STATUS
+tgt_fwol_update_vdev_obj_tsf_info(struct wlan_objmgr_vdev *vdev,
+				  uint32_t tsf_id,
+				  uint32_t tsf_id_valid,
+				  uint32_t mac_id,
+				  uint32_t mac_id_valid)
+{
+	struct wlan_fwol_tsf fwol_tsf;
+
+	fwol_tsf.tsf_id = tsf_id;
+	if (tsf_id_valid)
+		fwol_tsf.tsf_id_valid = true;
+	else
+		fwol_tsf.tsf_id_valid = false;
+
+	fwol_tsf.mac_id = mac_id;
+	if (mac_id_valid)
+		fwol_tsf.mac_id_valid = true;
+	else
+		fwol_tsf.mac_id_valid = false;
+
+	return fwol_update_tsf_info(vdev, &fwol_tsf);
+}
+
+QDF_STATUS
+tgt_fwol_get_tsf64_reg_val(struct wlan_objmgr_psoc *psoc, uint32_t mac_id,
+			   uint32_t tsf_id, uint64_t *value)
+{
+	struct wlan_fwol_psoc_obj *fwol_obj;
+	struct wlan_fwol_tx_ops *tx_ops;
+	QDF_STATUS status;
+
+	if (!psoc) {
+		fwol_err("NULL psoc handle");
+		return QDF_STATUS_E_INVAL;
+	}
+
+	fwol_obj = fwol_get_psoc_obj(psoc);
+	if (!fwol_obj) {
+		fwol_err("Failed to get FWOL Obj");
+		return QDF_STATUS_E_INVAL;
+	}
+
+	tx_ops = &fwol_obj->tx_ops;
+	if (tx_ops && tx_ops->get_tsf64_reg_val) {
+		status = tx_ops->get_tsf64_reg_val(psoc, mac_id, tsf_id,
+						   value);
+		fwol_debug("get_tsf64_reg_val, status:%d", status);
+	} else {
+		status = QDF_STATUS_E_FAILURE;
+		fwol_alert("no get_tsf64_reg_val");
+	}
+
+	return status;
+}
+#endif /* WLAN_FEATURE_TSF_BY_REG */

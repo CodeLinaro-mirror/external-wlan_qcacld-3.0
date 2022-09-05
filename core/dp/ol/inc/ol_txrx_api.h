@@ -54,6 +54,17 @@ enum ol_sec_type {
 #ifdef WLAN_FEATURE_TSF_PLUS
 typedef int (*tp_ol_timestamp_cb)(qdf_nbuf_t netbuf, uint64_t target_time);
 
+#ifdef WLAN_FEATURE_TSF_BY_REG
+static inline void
+ol_register_timestamp_callback(tp_ol_timestamp_cb ol_tx_timestamp_cb)
+{
+}
+
+static inline void
+ol_deregister_timestamp_callback(void)
+{
+}
+#else
 /**
  * ol_register_timestamp_callback() - set callbacks for timestamp tx msdu.
  * @ol_tx_timestamp_cb: callback function for time stamp tx msdu
@@ -74,5 +85,6 @@ void ol_register_timestamp_callback(tp_ol_timestamp_cb ol_tx_timestamp_cb);
  * Return: nothing
  */
 void ol_deregister_timestamp_callback(void);
+#endif /* WLAN_FEATURE_TSF_BY_REG */
 #endif
 #endif /* _OL_TXRX_API__H_ */
