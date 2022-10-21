@@ -1220,6 +1220,7 @@ struct hdd_context;
  * @delete_in_progress: Flag to indicate that the adapter delete is in
  *			progress, and any operation using rtnl lock inside
  *			the driver can be avoided/skipped.
+ * @is_virtual_iface: Indicates that netdev is called from virtual interface
  */
 struct hdd_adapter {
 	/* Magic cookie for adapter sanity verification.  Note that this
@@ -1533,6 +1534,16 @@ struct hdd_adapter {
 	/* Flag to indicate whether it is a pre cac adapter or not */
 	bool is_pre_cac_adapter;
 	bool delete_in_progress;
+	bool is_virtual_iface;
+};
+
+/**
+ * struct hdd_adapter_create_param - adapter create parameters
+ * @is_add_virtual_iface: is netdev create request from add virtual interface
+ */
+struct hdd_adapter_create_param {
+	uint32_t is_add_virtual_iface:1,
+		 unused:31;
 };
 
 #define WLAN_HDD_GET_STATION_CTX_PTR(adapter) (&(adapter)->session.station)
@@ -2571,9 +2582,11 @@ wlan_hdd_get_adapter_from_objmgr(struct wlan_objmgr_vdev *vdev);
 
 struct hdd_adapter *hdd_open_adapter(struct hdd_context *hdd_ctx,
 				     uint8_t session_type,
-				     const char *name, tSirMacAddr mac_addr,
+				     const char *iface_name,
+				     tSirMacAddr mac_addr,
 				     unsigned char name_assign_type,
-				     bool rtnl_held);
+				     bool rtnl_held,
+				     struct hdd_adapter_create_param *params);
 
 /**
  * hdd_close_adapter() - remove and free @adapter from the adapter list

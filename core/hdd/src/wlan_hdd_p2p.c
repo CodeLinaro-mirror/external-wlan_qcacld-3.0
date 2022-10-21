@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -697,6 +698,7 @@ struct wireless_dev *__wlan_hdd_add_virtual_intf(struct wiphy *wiphy,
 	QDF_STATUS status;
 	struct wlan_objmgr_vdev *vdev;
 	int ret;
+	struct hdd_adapter_create_param create_params = {0};
 
 	hdd_enter();
 
@@ -740,6 +742,7 @@ struct wireless_dev *__wlan_hdd_add_virtual_intf(struct wiphy *wiphy,
 		break;
 	}
 
+	create_params.is_add_virtual_iface = 1;
 	adapter = hdd_get_adapter(hdd_ctx, QDF_STA_MODE);
 	if (adapter && !wlan_hdd_validate_vdev_id(adapter->vdev_id)) {
 		vdev = hdd_objmgr_get_vdev_by_user(adapter, WLAN_OSIF_P2P_ID);
@@ -790,7 +793,8 @@ struct wireless_dev *__wlan_hdd_add_virtual_intf(struct wiphy *wiphy,
 		p2p_device_address.bytes[4] ^= 0x80;
 		adapter = hdd_open_adapter(hdd_ctx, mode, name,
 					   p2p_device_address.bytes,
-					   name_assign_type, true);
+					   name_assign_type, true,
+					   &create_params);
 	} else {
 		uint8_t *device_address;
 
@@ -800,7 +804,8 @@ struct wireless_dev *__wlan_hdd_add_virtual_intf(struct wiphy *wiphy,
 
 		adapter = hdd_open_adapter(hdd_ctx, mode, name,
 					   device_address,
-					   name_assign_type, true);
+					   name_assign_type, true,
+					   &create_params);
 		if (!adapter)
 			wlan_hdd_release_intf_addr(hdd_ctx, device_address);
 	}
@@ -980,6 +985,7 @@ int wlan_hdd_del_virtual_intf(struct wiphy *wiphy, struct wireless_dev *wdev)
 	osif_vdev_sync_unregister(wdev->netdev);
 	osif_vdev_sync_wait_for_ops(vdev_sync);
 
+	adapter->is_virtual_iface = true;
 	errno = __wlan_hdd_del_virtual_intf(wiphy, wdev);
 
 	osif_vdev_sync_trans_stop(vdev_sync);
