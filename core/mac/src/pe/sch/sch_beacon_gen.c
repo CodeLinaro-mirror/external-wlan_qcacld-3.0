@@ -213,6 +213,40 @@ static void sch_get_csa_ecsa_count_offset(uint8_t *ie, uint32_t ie_len,
 }
 
 /**
+ * sch_get_tim_size() - Get TIM ie size
+ * @max_aid: Max AID value
+ *
+ * Return: TIM ie size
+ */
+static uint16_t sch_get_tim_size(uint32_t max_aid)
+{
+	uint16_t tim_size;
+	uint8_t N2;
+
+	/**
+	 * The TIM ie format:
+	 * +----------+------+----------+-------------------------------------------------+
+	 * |Element ID|Length|DTIM Count|DTIM Period|Bitmap Control|Partial Virtual Bitmap|
+	 * +----------+------+----------+-----------+--------------+----------------------+
+	 *   1 Byte    1 Byte  1Byte       1 Byte        1 Byte          0~255 Byte
+	 *
+	 * According to 80211 Spec, The Partial Virtual Bitmap field consists of octets
+	 * numbered N1 to N2 of the traffic indication virtual bitmap, where N1 is the
+	 * largest even number such that bits numbered 1 to (N1 * 8) – 1 in the traffic
+	 * indication virtual bitmap are all 0, and N2 is the smallest number such that
+	 * bits numbered (N2 + 1) * 8 to 2007 in the traffic indication virtual bitmap
+	 * are all 0. In this case, the Bitmap Offset subfield value contains the number
+	 * N1/2, and the Length field is set to (N2 – N1) + 4. Always start with AID 1 as
+	 * minimum, N1 = (1 / 8) = 0. TIM size = length + 1Byte Element ID + 1Byte Length.
+	 * The expression is reduced to (N2 - 0) + 4 + 2 = N2 + 6;
+	 */
+	N2 = max_aid / 8;
+	tim_size = N2 + 6;
+
+	return tim_size;
+}
+
+/**
  * sch_set_fixed_beacon_fields() - sets the fixed params in beacon frame
  * @mac_ctx:       mac global context
  * @session:       pe session entry
@@ -248,6 +282,9 @@ sch_set_fixed_beacon_fields(struct mac_context *mac_ctx, struct pe_session *sess
 	tDot11fIEExtCap extracted_extcap;
 	bool extcap_present = true, addnie_present = false;
 	bool is_6ghz_chsw;
+	uint16_t tim_size;
+
+	tim_size = sch_get_tim_size(HAL_NUM_STA);
 
 	bcn_1 = qdf_mem_malloc(sizeof(tDot11fBeacon1));
 	if (!bcn_1)
@@ -640,11 +677,11 @@ sch_set_fixed_beacon_fields(struct mac_context *mac_ctx, struct pe_session *sess
 
 	if (csa_count_offset)
 		mac_ctx->sch.csa_count_offset =
-				session->schBeaconOffsetBegin + TIM_IE_SIZE +
+				session->schBeaconOffsetBegin + tim_size +
 				csa_count_offset;
 	if (ecsa_count_offset)
 		mac_ctx->sch.ecsa_count_offset =
-				session->schBeaconOffsetBegin + TIM_IE_SIZE +
+				session->schBeaconOffsetBegin + tim_size +
 				ecsa_count_offset;
 
 	pe_debug("csa_count_offset %d ecsa_count_offset %d",
@@ -658,7 +695,7 @@ sch_set_fixed_beacon_fields(struct mac_context *mac_ctx, struct pe_session *sess
 	 * Max size left to append additional IE.= (MAX beacon size - TIM IE -
 	 * beacon fix size (bcn_1 + header) - beacon variable size (bcn_1).
 	 */
-	bcn_size_left = SIR_MAX_BEACON_SIZE - TIM_IE_SIZE -
+	bcn_size_left = SIR_MAX_BEACON_SIZE - tim_size -
 				session->schBeaconOffsetBegin -
 				(uint16_t)n_bytes;
 	pe_debug("max_bcn_size_left %d and addn_ielen %d", bcn_size_left,
@@ -677,7 +714,7 @@ sch_set_fixed_beacon_fields(struct mac_context *mac_ctx, struct pe_session *sess
 	if (QDF_STATUS_SUCCESS == status)
 		/* Update the P2P Ie Offset */
 		mac_ctx->sch.p2p_ie_offset =
-			session->schBeaconOffsetBegin + TIM_IE_SIZE +
+			session->schBeaconOffsetBegin + tim_size +
 			extra_ie_offset + p2p_ie_offset;
 	else
 		mac_ctx->sch.p2p_ie_offset = 0;
