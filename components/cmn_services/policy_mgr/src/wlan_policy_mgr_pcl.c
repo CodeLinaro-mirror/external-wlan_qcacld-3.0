@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -68,6 +69,9 @@ policy_mgr_next_action_two_connection_table_type
 		*next_action_two_connection_2x2_2g_1x1_5g_table;
 policy_mgr_next_action_three_connection_table_type
 		*next_action_three_connection_2x2_2g_1x1_5g_table;
+policy_mgr_next_action_four_connection_table_type
+		*next_action_four_connection_table;
+
 
 QDF_STATUS policy_mgr_get_pcl_for_existing_conn(
 		struct wlan_objmgr_psoc *psoc,
@@ -1945,7 +1949,33 @@ enum policy_mgr_three_connection_mode
 				psoc, PM_NAN_DISC_MODE, list_nan_disc);
 	policy_mgr_debug("sap/ago %d, sta %d, ndi %d nan disc %d",
 			 count_sap, count_sta, count_ndi, count_nan_disc);
-	if (count_sap == 2 && count_sta == 1) {
+	if (count_sap == 3) {
+		if (WLAN_REG_IS_SAME_BAND_FREQS(
+			pm_conc_connection_list[list_sap[0]].freq,
+			pm_conc_connection_list[list_sap[1]].freq)) {
+			if (WLAN_REG_IS_24GHZ_CH_FREQ(
+				pm_conc_connection_list[list_sap[2]].freq))
+				index = PM_SAP_SAP_SCC_5_SAP_24_DBS;
+			else
+				index = PM_SAP_SAP_SCC_24_SAP_5_DBS;
+		} else if (WLAN_REG_IS_SAME_BAND_FREQS(
+			pm_conc_connection_list[list_sap[0]].freq,
+			pm_conc_connection_list[list_sap[2]].freq)) {
+			if (WLAN_REG_IS_24GHZ_CH_FREQ(
+				pm_conc_connection_list[list_sap[1]].freq))
+				index = PM_SAP_SAP_SCC_5_SAP_24_DBS;
+			else
+				index = PM_SAP_SAP_SCC_24_SAP_5_DBS;
+		} else if (WLAN_REG_IS_SAME_BAND_FREQS(
+			pm_conc_connection_list[list_sap[1]].freq,
+			pm_conc_connection_list[list_sap[2]].freq)) {
+			if (WLAN_REG_IS_24GHZ_CH_FREQ(
+				pm_conc_connection_list[list_sap[0]].freq))
+				index = PM_SAP_SAP_SCC_5_SAP_24_DBS;
+			else
+				index = PM_SAP_SAP_SCC_24_SAP_5_DBS;
+		}
+	} else if (count_sap == 2 && count_sta == 1) {
 		policy_mgr_debug(
 			"channel: sap0: %d, sap1: %d, sta0: %d",
 			pm_conc_connection_list[list_sap[0]].freq,
@@ -1979,6 +2009,34 @@ enum policy_mgr_three_connection_mode
 		     WLAN_REG_IS_5GHZ_CH_FREQ(
 			pm_conc_connection_list[list_sap[0]].freq)) {
 			index = PM_STA_SAP_SCC_5_SAP_24_DBS;
+		} else if (WLAN_REG_IS_24GHZ_CH_FREQ(
+			pm_conc_connection_list[list_sap[1]].freq) &&
+		     WLAN_REG_IS_5GHZ_CH_FREQ(
+			pm_conc_connection_list[list_sta[0]].freq) &&
+		     WLAN_REG_IS_24GHZ_CH_FREQ(
+			pm_conc_connection_list[list_sap[0]].freq)) {
+			index = PM_SAP_SAP_SCC_24_STA_5_DBS;
+		} else if (WLAN_REG_IS_5GHZ_CH_FREQ(
+			pm_conc_connection_list[list_sap[1]].freq) &&
+		     WLAN_REG_IS_24GHZ_CH_FREQ(
+			pm_conc_connection_list[list_sta[0]].freq) &&
+		     WLAN_REG_IS_5GHZ_CH_FREQ(
+			pm_conc_connection_list[list_sap[0]].freq)) {
+			index = PM_SAP_SAP_SCC_5_STA_24_DBS;
+		} else if (WLAN_REG_IS_24GHZ_CH_FREQ(
+			pm_conc_connection_list[list_sap[1]].freq) &&
+		     WLAN_REG_IS_24GHZ_CH_FREQ(
+			pm_conc_connection_list[list_sap[0]].freq) &&
+		     WLAN_REG_IS_24GHZ_CH_FREQ(
+			pm_conc_connection_list[list_sta[0]].freq)) {
+			index = PM_SAP_SAP_SCC_24_STA_24_SCC;
+		} else if (WLAN_REG_IS_5GHZ_CH_FREQ(
+			pm_conc_connection_list[list_sap[1]].freq) &&
+		     WLAN_REG_IS_5GHZ_CH_FREQ(
+			pm_conc_connection_list[list_sap[0]].freq) &&
+		     WLAN_REG_IS_5GHZ_CH_FREQ(
+			pm_conc_connection_list[list_sta[0]].freq)) {
+			index = PM_SAP_SAP_SCC_5_STA_5_SCC;
 		} else {
 			index =  PM_MAX_THREE_CONNECTION_MODE;
 		}
@@ -2653,4 +2711,97 @@ QDF_STATUS policy_mgr_filter_passive_ch(struct wlan_objmgr_pdev *pdev,
 	*ch_cnt = target_ch_cnt;
 
 	return QDF_STATUS_SUCCESS;
+}
+
+bool policy_mgr_is_3rd_conn_on_same_band_allowed(struct wlan_objmgr_psoc *psoc,
+						 enum policy_mgr_con_mode mode,
+						 qdf_freq_t ch_freq)
+{
+	enum policy_mgr_pcl_type pcl = PM_NONE;
+	enum policy_mgr_conc_priority_mode conc_system_pref = 0;
+	enum policy_mgr_two_connection_mode third_index = 0;
+	struct policy_mgr_psoc_priv_obj *pm_ctx;
+	bool ret = false;
+
+	pm_ctx = policy_mgr_get_context(psoc);
+	if (!pm_ctx) {
+		policy_mgr_err("context is NULL");
+			return false;
+	}
+
+	if (pm_conc_connection_list[0].freq != ch_freq ||
+	    pm_conc_connection_list[0].freq !=
+				pm_conc_connection_list[1].freq) {
+		policy_mgr_debug("No MCC support in 3vif in same mac: %d %d %d",
+				 pm_conc_connection_list[0].freq,
+				 pm_conc_connection_list[1].freq,
+				 ch_freq);
+		return false;
+	}
+
+	policy_mgr_debug("pref:%d requested mode:%d",
+			 pm_ctx->cur_conc_system_pref, mode);
+
+	switch (pm_ctx->cur_conc_system_pref) {
+	case 0:
+		conc_system_pref = PM_THROUGHPUT;
+		break;
+	case 1:
+		conc_system_pref = PM_POWERSAVE;
+		break;
+	case 2:
+		conc_system_pref = PM_LATENCY;
+		break;
+	default:
+		policy_mgr_err("unknown cur_conc_system_pref value %d",
+			       pm_ctx->cur_conc_system_pref);
+		break;
+	}
+
+	third_index = policy_mgr_get_third_connection_pcl_table_index(psoc);
+	policy_mgr_debug("pcl for third connection is %d", third_index);
+	if (PM_MAX_TWO_CONNECTION_MODE == third_index) {
+		policy_mgr_err(
+			"couldn't find index for 3rd connection pcl table");
+			return false;
+	}
+	if (policy_mgr_is_hw_dbs_capable(psoc) == true) {
+		pcl = (*third_connection_pcl_dbs_table)
+			[third_index][mode][conc_system_pref];
+	} else {
+		pcl = (*third_connection_pcl_non_dbs_table)
+			[third_index][mode][conc_system_pref];
+	}
+
+	policy_mgr_debug("pcl for third connection mode %s is %d %s",
+			 device_mode_to_string(mode), pcl,
+			 pcl_type_to_string(pcl));
+	switch (pcl) {
+	case PM_SCC_CH:
+	case PM_SCC_CH_24G:
+	case PM_SCC_CH_5G:
+	case PM_24G_SCC_CH:
+	case PM_5G_SCC_CH:
+	case PM_SCC_ON_5_SCC_ON_24_24G:
+	case PM_SCC_ON_5_SCC_ON_24_5G:
+	case PM_SCC_ON_24_SCC_ON_5_24G:
+	case PM_SCC_ON_24_SCC_ON_5_5G:
+	case PM_SCC_ON_5_SCC_ON_24:
+	case PM_SCC_ON_24_SCC_ON_5:
+	case PM_24G_SCC_CH_SBS_CH:
+	case PM_24G_SCC_CH_SBS_CH_5G:
+	case PM_MCC_CH:
+	case PM_MCC_CH_24G:
+	case PM_MCC_CH_5G:
+	case PM_24G_MCC_CH:
+	case PM_5G_MCC_CH:
+	case PM_24G_SBS_CH_MCC_CH:
+		ret = true;
+		break;
+	default:
+		policy_mgr_debug("Not in SCC case");
+		ret = false;
+		break;
+	}
+	return ret;
 }

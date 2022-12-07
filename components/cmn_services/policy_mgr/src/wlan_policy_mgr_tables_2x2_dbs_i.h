@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -238,7 +239,7 @@ pm_third_connection_pcl_dbs_2x2_table = {
 
 	[PM_STA_SAP_SCC_24_2x2] = {
 	[PM_STA_MODE] = {PM_5G_SCC_CH, PM_5G_SCC_CH, PM_5G_SCC_CH},
-	[PM_SAP_MODE] = {PM_5G, PM_5G, PM_5G},
+	[PM_SAP_MODE] = {PM_5G_SCC_CH, PM_5G_SCC_CH, PM_5G_SCC_CH},
 	[PM_P2P_CLIENT_MODE] = {PM_5G, PM_5G, PM_5G},
 	[PM_P2P_GO_MODE] = {PM_5G, PM_5G, PM_5G},
 	[PM_NAN_DISC_MODE] = {
@@ -277,7 +278,7 @@ pm_third_connection_pcl_dbs_2x2_table = {
 	[PM_STA_SAP_SCC_5_2x2] = {
 	[PM_STA_MODE] = {PM_24G_SCC_CH_SBS_CH_5G, PM_24G_SCC_CH,
 		PM_24G_SCC_CH_SBS_CH},
-	[PM_SAP_MODE] = {PM_24G, PM_24G, PM_24G},
+	[PM_SAP_MODE] = {PM_24G_SCC_CH, PM_24G_SCC_CH, PM_24G_SCC_CH},
 	[PM_P2P_CLIENT_MODE] = {PM_24G, PM_24G, PM_24G},
 	[PM_P2P_GO_MODE] = {PM_24G_SCC_CH_SBS_CH_5G, PM_24G_SCC_CH_SBS_CH_5G,
 		PM_24G_SCC_CH_SBS_CH_5G},
@@ -1788,6 +1789,10 @@ const enum policy_mgr_pcl_type
 fourth_connection_pcl_dbs_table
 	[PM_MAX_THREE_CONNECTION_MODE][PM_MAX_NUM_OF_MODE]
 	[PM_MAX_CONC_PRIORITY_MODE] = {
+	[PM_STA_SAP_SCC_24_SAP_5_DBS] = {
+	[PM_SAP_MODE] = { PM_SCC_ON_5_SCC_ON_24, PM_SCC_ON_5_SCC_ON_24, PM_SCC_ON_5_SCC_ON_24 } },
+	[PM_STA_SAP_SCC_5_SAP_24_DBS] = {
+	[PM_SAP_MODE] = { PM_SCC_ON_24_SCC_ON_5, PM_SCC_ON_24_SCC_ON_5, PM_SCC_ON_24_SCC_ON_5 } },
 	[PM_NAN_DISC_STA_24_NDI_5_DBS] = {
 	[PM_NDI_MODE] = { PM_5G, PM_5G, PM_5G } },
 	[PM_NAN_DISC_NDI_24_STA_5_DBS] = {
@@ -1801,7 +1806,19 @@ fourth_connection_pcl_dbs_table
 	[PM_NDI_NDI_5_NAN_DISC_24_DBS] = {
 	[PM_STA_MODE] = { PM_5G, PM_5G, PM_5G } },
 	[PM_NDI_NDI_NAN_DISC_24_SMM] = {
-	[PM_STA_MODE] = { PM_5G, PM_5G, PM_5G } }
+	[PM_STA_MODE] = { PM_5G, PM_5G, PM_5G } },
+	[PM_SAP_SAP_SCC_24_SAP_5_DBS] = {
+	[PM_STA_MODE] = { PM_5G_24G, PM_5G_24G, PM_5G_24G } },
+	[PM_SAP_SAP_SCC_24_STA_5_DBS] = {
+	[PM_SAP_MODE] = { PM_SCC_ON_5G, PM_SCC_ON_5G, PM_SCC_ON_5G } },
+	[PM_SAP_SAP_SCC_5_SAP_24_DBS] = {
+	[PM_STA_MODE] = { PM_5G_24G, PM_5G_24G, PM_5G_24G } },
+	[PM_SAP_SAP_SCC_5_STA_24_DBS] = {
+	[PM_SAP_MODE] = { PM_SCC_ON_2G, PM_SCC_ON_2G, PM_SCC_ON_2G } },
+	[PM_SAP_SAP_SCC_24_STA_24_SCC] = {
+	[PM_SAP_MODE] = { PM_5G, PM_5G, PM_5G } },
+	[PM_SAP_SAP_SCC_5_STA_5_SCC] = {
+	[PM_SAP_MODE] = { PM_24G, PM_24G, PM_24G } },
 };
 #endif
 #endif
@@ -1940,4 +1957,18 @@ static policy_mgr_next_action_three_connection_table_type
 	[PM_P2P_GO_SAP_SBS_5_1x1] = {PM_DBS_UPGRADE, PM_NOP},
 };
 
+/**
+ * next_action_three_connection_table - table which provides next
+ * action while a new connection is coming up, with two
+ * connections already in the system
+ */
+static policy_mgr_next_action_four_connection_table_type
+	pm_next_action_four_connection_dbs_2x2_table = {
+	[PM_SAP_SAP_SCC_24_STA_5_DBS] = {PM_NOP,	PM_NOP},
+	[PM_SAP_SAP_SCC_24_STA_24_SCC] = {PM_DBS,	PM_DBS},
+	[PM_SAP_SAP_SCC_24_SAP_5_DBS] = {PM_NOP,	PM_NOP},
+	[PM_SAP_SAP_SCC_5_STA_24_DBS] = {PM_NOP,	PM_NOP},
+	[PM_SAP_SAP_SCC_5_STA_5_SCC] = {PM_DBS,	PM_DBS},
+	[PM_SAP_SAP_SCC_5_SAP_24_DBS] = {PM_NOP,	PM_NOP},
+};
 #endif

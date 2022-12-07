@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -215,6 +216,8 @@ extern policy_mgr_next_action_two_connection_table_type
 		*next_action_two_connection_table;
 extern policy_mgr_next_action_three_connection_table_type
 		*next_action_three_connection_table;
+extern policy_mgr_next_action_four_connection_table_type
+		*next_action_four_connection_table;
 
 #ifdef FEATURE_FOURTH_CONNECTION
 extern const enum policy_mgr_pcl_type

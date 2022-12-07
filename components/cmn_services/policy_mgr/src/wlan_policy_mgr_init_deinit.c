@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -568,6 +569,8 @@ QDF_STATUS policy_mgr_psoc_enable(struct wlan_objmgr_psoc *psoc)
 		next_action_three_connection_table =
 		&pm_next_action_three_connection_dbs_1x1_table;
 	}
+	next_action_four_connection_table =
+		&pm_next_action_four_connection_dbs_2x2_table;
 	policy_mgr_debug("is DBS Capable %d, is SBS Capable %d",
 			 policy_mgr_is_hw_dbs_capable(psoc),
 			 policy_mgr_is_hw_sbs_capable(psoc));

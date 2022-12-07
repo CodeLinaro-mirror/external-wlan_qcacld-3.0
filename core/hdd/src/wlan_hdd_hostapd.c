@@ -3274,6 +3274,7 @@ QDF_STATUS wlan_hdd_get_channel_for_sap_restart(
 				struct wlan_objmgr_psoc *psoc,
 				uint8_t vdev_id, uint32_t *ch_freq)
 {
+	bool is_force_scc;
 	mac_handle_t mac_handle;
 	struct hdd_ap_ctx *hdd_ap_ctx;
 	struct hdd_context *hdd_ctx;
@@ -3404,9 +3405,10 @@ sap_restart:
 		  ch_params.ch_width);
 	hdd_ap_ctx->bss_stop_reason = BSS_STOP_DUE_TO_MCC_SCC_SWITCH;
 	*ch_freq = intf_ch_freq;
+	is_force_scc = policy_mgr_is_force_scc(psoc);
 	hdd_debug("SAP channel change with CSA/ECSA");
 	hdd_sap_restart_chan_switch_cb(psoc, vdev_id, *ch_freq,
-				       ch_params.ch_width, false);
+				       ch_params.ch_width, is_force_scc);
 	wlansap_context_put(sap_context);
 
 	return QDF_STATUS_SUCCESS;

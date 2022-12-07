@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -48,6 +49,11 @@ typedef const enum policy_mgr_conc_next_action
 typedef const enum policy_mgr_conc_next_action
 	policy_mgr_next_action_three_connection_table_type
 	[PM_MAX_TWO_CONNECTION_MODE][POLICY_MGR_MAX_BAND];
+
+typedef const enum policy_mgr_conc_next_action
+	policy_mgr_next_action_four_connection_table_type
+	[PM_MAX_THREE_CONNECTION_MODE][POLICY_MGR_MAX_BAND];
+
 
 #define PM_FW_MODE_STA_STA_BIT_POS       0
 #define PM_FW_MODE_STA_P2P_BIT_POS       1
@@ -114,6 +120,52 @@ enum PM_AP_DFS_MASTER_MODE {
 	PM_STA_SAP_ON_DFS_MASTER_MODE_DISABLED,
 	PM_STA_SAP_ON_DFS_MASTER_MODE_FLEX,
 };
+
+static inline const char *device_mode_to_string(uint8_t idx)
+{
+	switch (idx) {
+	CASE_RETURN_STRING(PM_STA_MODE);
+	CASE_RETURN_STRING(PM_SAP_MODE);
+	CASE_RETURN_STRING(PM_P2P_CLIENT_MODE);
+	CASE_RETURN_STRING(PM_P2P_GO_MODE);
+	default:
+		return "none";
+	}
+}
+
+static inline const char *pcl_type_to_string(uint8_t idx)
+{
+	switch (idx) {
+	CASE_RETURN_STRING(PM_NONE);
+	CASE_RETURN_STRING(PM_24G);
+	CASE_RETURN_STRING(PM_5G);
+	CASE_RETURN_STRING(PM_SCC_CH);
+	CASE_RETURN_STRING(PM_MCC_CH);
+	CASE_RETURN_STRING(PM_SCC_CH_24G);
+	CASE_RETURN_STRING(PM_SCC_CH_5G);
+	CASE_RETURN_STRING(PM_24G_SCC_CH);
+	CASE_RETURN_STRING(PM_5G_SCC_CH);
+	CASE_RETURN_STRING(PM_SCC_ON_5_SCC_ON_24_24G);
+	CASE_RETURN_STRING(PM_SCC_ON_5_SCC_ON_24_5G);
+	CASE_RETURN_STRING(PM_SCC_ON_24_SCC_ON_5_24G);
+	CASE_RETURN_STRING(PM_SCC_ON_24_SCC_ON_5_5G);
+	CASE_RETURN_STRING(PM_SCC_ON_5_SCC_ON_24);
+	CASE_RETURN_STRING(PM_SCC_ON_24_SCC_ON_5);
+	CASE_RETURN_STRING(PM_MCC_CH_24G);
+	CASE_RETURN_STRING(PM_MCC_CH_5G);
+	CASE_RETURN_STRING(PM_24G_MCC_CH);
+	CASE_RETURN_STRING(PM_5G_MCC_CH);
+	CASE_RETURN_STRING(PM_SBS_CH_5G);
+	CASE_RETURN_STRING(PM_24G_SCC_CH_SBS_CH);
+	CASE_RETURN_STRING(PM_24G_SCC_CH_SBS_CH_5G);
+	CASE_RETURN_STRING(PM_24G_SBS_CH_MCC_CH);
+	CASE_RETURN_STRING(PM_SCC_ON_2G);
+	CASE_RETURN_STRING(PM_SCC_ON_5G);
+	CASE_RETURN_STRING(PM_5G_24G);
+	default:
+		return "Unknown";
+	}
+}
 
 /**
  * policy_mgr_get_allow_mcc_go_diff_bi() - to get information on whether GO
@@ -3682,4 +3734,48 @@ bool policy_mgr_is_sta_mon_concurrency(struct wlan_objmgr_psoc *psoc);
  *
  */
 QDF_STATUS policy_mgr_check_mon_concurrency(struct wlan_objmgr_psoc *psoc);
+
+/**
+ * policy_mgr_is_3rd_conn_on_same_band_allowed() - Check the third connection
+ * on same band allowed or not
+ * list for third connection
+ * @psoc: PSOC object information
+ * @mode: Device mode
+ * @ch_freq: 3rd channel frequency
+ *
+ * This function checks whether to allow third connection on same band or not
+ * based on pcl table
+ *
+ * Return: TRUE/FALSE
+ */
+bool policy_mgr_is_3rd_conn_on_same_band_allowed(struct wlan_objmgr_psoc *psoc,
+						 enum policy_mgr_con_mode mode,
+						 qdf_freq_t ch_freq);
+
+/**
+ * policy_mgr_allow_4th_new_freq() - Function to check whether 4th freq can
+ * be allowed wthout leading to 3 home freq on same mac
+ * @psoc: Pointer to Psoc
+ * @freq1: Frequency 1
+ * @freq2: Frequency 2
+ * @freq3: Frequency 3
+ * @new_ch_freq: freq to check with reference to freq1 freq2 and freq3
+ *
+ * Return:True if all 4 freq can be allowed without causing 3 home frequency
+ * on same mac
+ */
+#ifdef FEATURE_FOURTH_CONNECTION
+bool
+policy_mgr_allow_4th_new_freq(struct wlan_objmgr_psoc *psoc,
+			      qdf_freq_t freq1, qdf_freq_t freq2,
+			      qdf_freq_t freq3, qdf_freq_t new_ch_freq);
+#else
+static inline bool
+policy_mgr_allow_4th_new_freq(struct wlan_objmgr_psoc *psoc,
+			      qdf_freq_t freq1, qdf_freq_t freq2,
+			      qdf_freq_t freq3, qdf_freq_t new_ch_freq)
+{
+	return false;
+}
+#endif
 #endif /* __WLAN_POLICY_MGR_API_H */

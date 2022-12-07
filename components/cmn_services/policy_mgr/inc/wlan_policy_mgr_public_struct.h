@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -171,6 +172,8 @@ enum policy_mgr_pcl_group_id {
  * @POLICY_MGR_PCL_ORDER_NONE: no order
  * @POLICY_MGR_PCL_ORDER_24G_THEN_5G: 2.4 Ghz channel followed by 5 Ghz channel
  * @POLICY_MGR_PCL_ORDER_5G_THEN_2G: 5 Ghz channel followed by 2.4 Ghz channel
+ * @POLICY_MGR_PCL_ORDER_24G_ONLY: 2.4 Ghz channel only
+ * @POLICY_MGR_PCL_ORDER_5G_ONLY: 5 Ghz channel only
  *
  * Order in which the PCL is requested
  */
@@ -178,6 +181,8 @@ enum policy_mgr_pcl_channel_order {
 	POLICY_MGR_PCL_ORDER_NONE,
 	POLICY_MGR_PCL_ORDER_24G_THEN_5G,
 	POLICY_MGR_PCL_ORDER_5G_THEN_2G,
+	POLICY_MGR_PCL_ORDER_24G_ONLY,
+	POLICY_MGR_PCL_ORDER_5G_ONLY,
 };
 
 /**
@@ -318,6 +323,9 @@ enum policy_mgr_mac_use {
  * @PM_24G_SCC_CH_SBS_CH_5G: 2.4 Ghz channels, SCC channel,
  *      SBS channels & rest of the 5G channels
  * @PM_24G_SBS_CH_MCC_CH: 2.4 Ghz channels, SBS channels & MCC channels
+ * @PM_SCC_ON_2G: Only SCC channel on 2.4 Ghz
+ * @PM_SCC_ON_5G: Only SCC channel on 5 Ghz
+ * @PM_5G_24G: 5G channels & 2.4 Ghz channels
  * @PM_MAX_PCL_TYPE: Max place holder
  *
  * These are generic IDs that identify the various roles
@@ -348,6 +356,9 @@ enum policy_mgr_pcl_type {
 	PM_24G_SCC_CH_SBS_CH,
 	PM_24G_SCC_CH_SBS_CH_5G,
 	PM_24G_SBS_CH_MCC_CH,
+	PM_SCC_ON_2G,
+	PM_SCC_ON_5G,
+	PM_5G_24G,
 
 	PM_MAX_PCL_TYPE
 };
@@ -802,6 +813,12 @@ enum policy_mgr_two_connection_mode {
  * 5ghz DBS
  * @PM_NDI_NDI_5_NAN_DISC_24_DBS: Both NDI on 5ghz and NAN Disc on 2.4Ghz DBS
  * @PM_NDI_NDI_NAN_DISC_24_SMM: Both NDI, NAN Disc on 2.4ghz SMM
+ * @PM_SAP_SAP_SCC_24_STA_5_DBS: Both SAP on 2.4Ghz and another STA on 5Ghz DBS
+ * @PM_SAP_SAP_SCC_24_STA_24_SCC: Both SAP on 2.4Ghz and another STA on 2.4Ghz SCC
+ * @PM_SAP_SAP_SCC_24_SAP_5_DBS: Both SAP on 2.4Ghz and another SAP on 5Ghz DBS
+ * @PM_SAP_SAP_SCC_5_STA_24_DBS: Both SAP on 5Ghz and another STA on 2.4Ghz DBS
+ * @PM_SAP_SAP_SCC_5_STA_5_SCC: Both SAP on 5Ghz and another STA on 5Ghz SCC
+ * @PM_SAP_SAP_SCC_5_SAP_24_DBS: Both SAP on 5Ghz and another SAP on 2.4Ghz DBS
  */
 enum policy_mgr_three_connection_mode {
 	PM_STA_SAP_SCC_24_SAP_5_DBS,
@@ -818,6 +835,12 @@ enum policy_mgr_three_connection_mode {
 	PM_NAN_DISC_NDI_24_NDI_5_DBS,
 	PM_NDI_NDI_5_NAN_DISC_24_DBS,
 	PM_NDI_NDI_NAN_DISC_24_SMM,
+	PM_SAP_SAP_SCC_24_STA_5_DBS,
+	PM_SAP_SAP_SCC_24_STA_24_SCC,
+	PM_SAP_SAP_SCC_24_SAP_5_DBS,
+	PM_SAP_SAP_SCC_5_STA_24_DBS,
+	PM_SAP_SAP_SCC_5_STA_5_SCC,
+	PM_SAP_SAP_SCC_5_SAP_24_DBS,
 
 	PM_MAX_THREE_CONNECTION_MODE
 };

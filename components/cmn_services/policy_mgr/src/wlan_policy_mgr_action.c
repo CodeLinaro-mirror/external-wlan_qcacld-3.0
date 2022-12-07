@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021, 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -811,8 +811,10 @@ policy_mgr_get_next_action(struct wlan_objmgr_psoc *psoc,
 	uint32_t num_connections = 0;
 	enum policy_mgr_one_connection_mode second_index = 0;
 	enum policy_mgr_two_connection_mode third_index = 0;
+	enum policy_mgr_three_connection_mode fourth_index = 0;
 	policy_mgr_next_action_two_connection_table_type *second_conn_table;
 	policy_mgr_next_action_three_connection_table_type *third_conn_table;
+	policy_mgr_next_action_four_connection_table_type *fourth_conn_table;
 	enum policy_mgr_band band;
 	struct policy_mgr_psoc_priv_obj *pm_ctx;
 	enum QDF_OPMODE new_conn_mode = QDF_MAX_NO_OF_MODE;
@@ -872,6 +874,17 @@ policy_mgr_get_next_action(struct wlan_objmgr_psoc *psoc,
 		third_conn_table = policy_mgr_get_third_conn_action_table(
 			psoc, session_id, ch_freq, reason);
 		*next_action = (*third_conn_table)[third_index][band];
+		break;
+	case 3:
+		fourth_index =
+			policy_mgr_get_fourth_connection_pcl_table_index(psoc);
+		if (PM_MAX_THREE_CONNECTION_MODE == fourth_index) {
+			policy_mgr_err(
+			"couldn't find index for 4th connection next action table");
+			return QDF_STATUS_E_FAILURE;
+		}
+		fourth_conn_table = next_action_four_connection_table;
+		*next_action = (*fourth_conn_table)[fourth_index][band];
 		break;
 	default:
 		policy_mgr_err("unexpected num_connections value %d",
