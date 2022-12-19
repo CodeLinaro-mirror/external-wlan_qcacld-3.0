@@ -5356,7 +5356,7 @@ QDF_STATUS csr_roam_process_command(struct mac_context *mac, tSmeCmd *pCommand)
 		}
 #endif
 		/* for success case */
-		/* fallthrough */
+		fallthrough;
 	default:
 		csr_roam_state_change(mac, eCSR_ROAMING_STATE_JOINING,
 				sessionId);

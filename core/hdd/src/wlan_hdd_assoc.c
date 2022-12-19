@@ -4287,7 +4287,7 @@ hdd_sme_roam_callback(void *context, struct csr_roam_info *roam_info,
 					WLAN_CONTROL_PATH);
 			break;
 		}
-		/* fallthrough */
+		fallthrough;
 	case eCSR_ROAM_DISASSOCIATED:
 	{
 		hdd_debug("****eCSR_ROAM_DISASSOCIATED****");
@@ -4343,7 +4343,7 @@ hdd_sme_roam_callback(void *context, struct csr_roam_info *roam_info,
 		break;
 	case eCSR_ROAM_CANCELLED:
 		hdd_debug("****eCSR_ROAM_CANCELLED****");
-		/* fallthrough */
+		fallthrough;
 	case eCSR_ROAM_ASSOCIATION_FAILURE:
 		/* This is temp ifdef will be removed in near future */
 #ifndef FEATURE_CM_ENABLE

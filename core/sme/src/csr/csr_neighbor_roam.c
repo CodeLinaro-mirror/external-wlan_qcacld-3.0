@@ -690,7 +690,7 @@ QDF_STATUS csr_neighbor_roam_indicate_disconnect(struct mac_context *mac,
 		/* Stop pre-auth to reassoc interval timer */
 		qdf_mc_timer_stop(&pSession->ftSmeContext.
 				preAuthReassocIntvlTimer);
-		/* fallthrough */
+		fallthrough;
 	case eCSR_NEIGHBOR_ROAM_STATE_PREAUTHENTICATING:
 		csr_neighbor_roam_state_transition(mac,
 				eCSR_NEIGHBOR_ROAM_STATE_INIT, sessionId);
@@ -916,7 +916,7 @@ QDF_STATUS csr_neighbor_roam_indicate_connect(
 			break;
 		}
 		/* if the status is SUCCESS */
-		/* fallthrough */
+		fallthrough;
 	case eCSR_NEIGHBOR_ROAM_STATE_INIT:
 		/* Reset all the data structures here */
 		csr_neighbor_roam_reset_init_state_control_info(mac,

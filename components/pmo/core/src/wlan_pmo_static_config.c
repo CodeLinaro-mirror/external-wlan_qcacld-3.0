@@ -62,8 +62,7 @@ void pmo_register_wow_wakeup_events(struct wlan_objmgr_vdev *vdev)
 					PMO_WOW_MAX_EVENT_BM_LEN,
 					event_bitmap);
 		}
-
-	/* fallthrough */
+		fallthrough;
 	case QDF_P2P_DEVICE_MODE:
 	case QDF_OCB_MODE:
 	case QDF_MONITOR_MODE:
