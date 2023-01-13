@@ -139,7 +139,8 @@ hdd_update_wiphy_eht_caps_6ghz(struct hdd_context *hdd_ctx,
 	}
 
 	hdd_ctx->iftype_data_6g->types_mask =
-		(BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_AP));
+	//	(BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_AP));
+		BIT(NL80211_IFTYPE_STATION);
 	band_6g->n_iftype_data = EHT_OPMODE_SUPPORTED;
 	band_6g->iftype_data = hdd_ctx->iftype_data_6g;
 	iftype_sta = hdd_ctx->iftype_data_6g;
@@ -201,7 +202,8 @@ void hdd_update_wiphy_eht_cap(struct hdd_context *hdd_ctx)
 		iftype_sta = hdd_ctx->iftype_data_2g;
 		iftype_ap = hdd_ctx->iftype_data_2g + 1;
 		hdd_ctx->iftype_data_2g->types_mask =
-			(BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_AP));
+			BIT(NL80211_IFTYPE_STATION);
+			//(BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_AP));
 		band_2g->n_iftype_data = EHT_OPMODE_SUPPORTED;
 		band_2g->iftype_data = hdd_ctx->iftype_data_2g;
 
@@ -232,7 +234,8 @@ band_5ghz:
 		iftype_sta = hdd_ctx->iftype_data_5g;
 		iftype_ap = hdd_ctx->iftype_data_5g + 1;
 		hdd_ctx->iftype_data_5g->types_mask =
-			(BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_AP));
+			BIT(NL80211_IFTYPE_STATION);
+			//(BIT(NL80211_IFTYPE_STATION) | BIT(NL80211_IFTYPE_AP));
 		band_5g->n_iftype_data = EHT_OPMODE_SUPPORTED;
 		band_5g->iftype_data = hdd_ctx->iftype_data_5g;
 
