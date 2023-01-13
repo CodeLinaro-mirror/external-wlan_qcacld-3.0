@@ -25195,7 +25195,7 @@ static void wlan_hdd_cfg80211_set_wiphy_sae_feature(struct wiphy *wiphy)
 #if defined(CFG80211_SAE_AUTH_TA_ADDR_SUPPORT)
 static void wlan_hdd_cfg8011_sae_auth_tx_randoam_ta(struct wiphy *wiphy)
 {
-	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_AUTH_TX_RANDOM_TA);
+	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_AUTH_AND_DEAUTH_RANDOM_TA);
 }
 #else
 static void wlan_hdd_cfg8011_sae_auth_tx_randoam_ta(struct wiphy *wiphy)
