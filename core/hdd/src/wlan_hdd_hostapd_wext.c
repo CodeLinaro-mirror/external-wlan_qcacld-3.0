@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -858,6 +859,7 @@ static __iw_softap_setparam(struct net_device *dev,
 		struct hdd_ap_ctx *ap_ctx = WLAN_HDD_GET_AP_CTX_PTR(adapter);
 		struct wlan_objmgr_pdev *pdev;
 		struct radar_found_info radar;
+		uint8_t ap_op_chan;
 
 		hdd_debug("Set QCASAP_SET_RADAR_CMD val %d", set_value);
 
@@ -868,8 +870,15 @@ static __iw_softap_setparam(struct net_device *dev,
 		}
 
 		qdf_mem_zero(&radar, sizeof(radar));
-		if (policy_mgr_get_dfs_beaconing_session_id(hdd_ctx->psoc) !=
-		    WLAN_UMAC_VDEV_ID_MAX)
+		ap_op_chan = wlan_reg_freq_to_chan(pdev,
+						   ap_ctx->operating_chan_freq);
+		if (wlansap_is_channel_in_nol_list(ap_ctx->sap_context,
+						   ap_op_chan,
+						   PHY_SINGLE_CHANNEL_CENTERED))
+			hdd_debug("Ignore set radar, op ch_freq(%d) is in nol",
+				  ap_ctx->operating_chan_freq);
+		else if (WLAN_UMAC_VDEV_ID_MAX !=
+			 policy_mgr_get_dfs_beaconing_session_id(hdd_ctx->psoc))
 			tgt_dfs_process_radar_ind(pdev, &radar);
 		else
 			hdd_debug("Ignore set radar, op ch_freq(%d) is not dfs",
