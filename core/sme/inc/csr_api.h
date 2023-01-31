@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2011-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -1370,4 +1370,12 @@ void csr_fill_auth_type(enum csr_akm_type *auth_type,
  */
 enum csr_cfgdot11mode csr_phy_mode_to_dot11mode(enum wlan_phymode phy_mode);
 
+/*
+ * csr_get_basic_rates() - Get basic rate for a band
+ * @b_rates: Basic rate
+ * @chan_freq: frequency for which basic rate is required
+ *
+ * Return: void
+ */
+void csr_get_basic_rates(tSirMacRateSet *b_rates, uint32_t chan_freq);
 #endif
