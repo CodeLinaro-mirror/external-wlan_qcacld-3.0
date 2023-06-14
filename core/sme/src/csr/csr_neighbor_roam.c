@@ -164,7 +164,7 @@ QDF_STATUS csr_neighbor_roam_update_config(struct mac_context *mac_ctx,
 {
 	tpCsrNeighborRoamControlInfo pNeighborRoamInfo =
 	    &mac_ctx->roam.neighborRoamInfo[session_id];
-	struct cm_roam_values_copy src_cfg;
+	struct cm_roam_values_copy src_cfg = {};
 	eCsrNeighborRoamState state;
 	uint8_t old_value;
 	struct wlan_objmgr_vdev *vdev;
@@ -742,7 +742,7 @@ static void csr_neighbor_roam_info_ctx_init(struct mac_context *mac,
 {
 	tpCsrNeighborRoamControlInfo ngbr_roam_info =
 		&mac->roam.neighborRoamInfo[session_id];
-	struct cm_roam_values_copy src_cfg;
+	struct cm_roam_values_copy src_cfg = {};
 	struct csr_roam_session *session = &mac->roam.roamSession[session_id];
 	int init_ft_flag = false;
 	bool mdie_present;
@@ -1057,7 +1057,7 @@ void csr_neighbor_roam_close(struct mac_context *mac, uint8_t sessionId)
  */
 bool csr_neighbor_roam_is11r_assoc(struct mac_context *mac_ctx, uint8_t session_id)
 {
-	struct cm_roam_values_copy config;
+	struct cm_roam_values_copy config = {};
 
 	wlan_cm_roam_cfg_get_value(mac_ctx->psoc, session_id, IS_11R_CONNECTION,
 				   &config);

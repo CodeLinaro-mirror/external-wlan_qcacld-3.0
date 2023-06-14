@@ -78,7 +78,7 @@ QDF_STATUS
 cm_roam_fill_rssi_change_params(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
 				struct wlan_roam_rssi_change_params *params)
 {
-	struct cm_roam_values_copy temp;
+	struct cm_roam_values_copy temp = {};
 
 	params->vdev_id = vdev_id;
 	wlan_cm_roam_cfg_get_value(psoc, vdev_id,
@@ -293,7 +293,7 @@ cm_roam_scan_offload_fill_lfr3_config(struct wlan_objmgr_vdev *vdev,
 	int32_t uccipher, authmode, akm;
 	struct wlan_objmgr_pdev *pdev;
 	struct wlan_objmgr_psoc *psoc;
-	struct cm_roam_values_copy roam_config;
+	struct cm_roam_values_copy roam_config = {};
 	struct mlme_legacy_priv *mlme_priv;
 	uint8_t uapsd_mask;
 
@@ -2081,7 +2081,7 @@ cm_update_btm_offload_config(struct wlan_objmgr_psoc *psoc,
 	struct wlan_mlme_btm *btm_cfg;
 	struct wlan_objmgr_peer *peer;
 	uint8_t bssid[QDF_MAC_ADDR_SIZE];
-	struct cm_roam_values_copy temp;
+	struct cm_roam_values_copy temp = {};
 	bool is_hs_20_ap, is_pmf_enabled, is_open_connection = false;
 	int32_t cipher;
 	uint8_t vdev_id;
@@ -3451,7 +3451,7 @@ cm_store_sae_single_pmk_to_global_cache(struct wlan_objmgr_psoc *psoc,
 					struct wlan_objmgr_vdev *vdev)
 {
 	struct mlme_pmk_info *pmk_info;
-	struct cm_roam_values_copy src_cfg;
+	struct cm_roam_values_copy src_cfg = {};
 	struct qdf_mac_addr bssid;
 	uint8_t vdev_id = wlan_vdev_get_id(vdev);
 
@@ -3516,7 +3516,7 @@ static void cm_roam_start_init(struct wlan_objmgr_psoc *psoc,
 			       struct wlan_objmgr_pdev *pdev,
 			       struct wlan_objmgr_vdev *vdev)
 {
-	struct cm_roam_values_copy src_cfg;
+	struct cm_roam_values_copy src_cfg = {};
 	bool mdie_present;
 	uint8_t vdev_id = wlan_vdev_get_id(vdev);
 	struct wlan_mlme_psoc_ext_obj *mlme_obj;

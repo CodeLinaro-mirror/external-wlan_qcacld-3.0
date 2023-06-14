@@ -6122,7 +6122,7 @@ static void csr_roam_process_join_res(struct mac_context *mac_ctx,
 	uint32_t len;
 	enum csr_akm_type akm_type;
 	uint8_t mdie_present;
-	struct cm_roam_values_copy cfg;
+	struct cm_roam_values_copy cfg = {};
 
 	if (!join_rsp) {
 		sme_err("join_rsp is NULL");
@@ -6868,7 +6868,7 @@ QDF_STATUS csr_roam_copy_connected_profile(struct mac_context *mac,
 	QDF_STATUS status = QDF_STATUS_SUCCESS;
 	tCsrRoamConnectedProfile *pSrcProfile =
 		&mac->roam.roamSession[sessionId].connectedProfile;
-	struct cm_roam_values_copy cfg;
+	struct cm_roam_values_copy cfg = {};
 #ifndef FEATURE_CM_ENABLE
 	struct csr_roam_profile * pcsr_roam_profile =
 		mac->roam.roamSession[sessionId].pCurRoamProfile;
@@ -7777,7 +7777,7 @@ QDF_STATUS csr_roam_disconnect(struct mac_context *mac_ctx, uint32_t session_id,
 static void csr_fill_single_pmk(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
 				struct bss_description *bss_desc)
 {
-	struct cm_roam_values_copy src_cfg;
+	struct cm_roam_values_copy src_cfg = {};
 
 	src_cfg.bool_value = bss_desc->is_single_pmk;
 	wlan_cm_roam_cfg_set_value(psoc, vdev_id,
@@ -7801,7 +7801,7 @@ csr_roam_save_connected_information(struct mac_context *mac,
 	tDot11fBeaconIEs *pIesTemp = pIes;
 	struct csr_roam_session *pSession = NULL;
 	tCsrRoamConnectedProfile *pConnectProfile = NULL;
-	struct cm_roam_values_copy src_cfg;
+	struct cm_roam_values_copy src_cfg = {};
 
 	pSession = CSR_GET_SESSION(mac, sessionId);
 	if (!pSession) {
@@ -7956,7 +7956,7 @@ csr_clear_other_bss_sae_single_pmk_entry(struct mac_context *mac,
 					 uint8_t vdev_id)
 {
 	struct wlan_objmgr_vdev *vdev;
-	struct cm_roam_values_copy src_cfg;
+	struct cm_roam_values_copy src_cfg = {};
 
 	wlan_cm_roam_cfg_get_value(mac->psoc, vdev_id,
 				   IS_SINGLE_PMK, &src_cfg);
@@ -7983,7 +7983,7 @@ csr_delete_current_bss_sae_single_pmk_entry(struct mac_context *mac,
 {
 	struct wlan_objmgr_vdev *vdev;
 	struct wlan_crypto_pmksa pmksa;
-	struct cm_roam_values_copy src_cfg;
+	struct cm_roam_values_copy src_cfg = {};
 
 	wlan_cm_roam_cfg_get_value(mac->psoc, vdev_id,
 				   IS_SINGLE_PMK, &src_cfg);
@@ -12414,7 +12414,7 @@ bool csr_is_same_profile(struct mac_context *mac,
 {
 	uint32_t i;
 	bool fCheck = false;
-	struct cm_roam_values_copy cfg;
+	struct cm_roam_values_copy cfg = {};
 
 	if (!(pProfile1 && pProfile2))
 		return fCheck;
@@ -13122,7 +13122,7 @@ void csr_update_pmk_cache_ft(struct mac_context *mac, uint32_t vdev_id,
 	struct wlan_objmgr_vdev *vdev;
 	struct wlan_crypto_pmksa pmksa;
 	enum QDF_OPMODE vdev_mode;
-	struct cm_roam_values_copy src_cfg;
+	struct cm_roam_values_copy src_cfg = {};
 
 	if (!session) {
 		sme_err("session not found");
@@ -13564,7 +13564,7 @@ static void csr_fill_connected_profile(struct mac_context *mac_ctx,
 	struct bss_description *bss_desc;
 	tDot11fBeaconIEs *bcn_ies;
 	sme_QosAssocInfo assoc_info;
-	struct cm_roam_values_copy src_cfg;
+	struct cm_roam_values_copy src_cfg = {};
 	int32_t ucast_cipher, mcast_cipher;
 	int32_t auth_mode;
 	int32_t akm;
@@ -13692,7 +13692,7 @@ QDF_STATUS cm_csr_connect_rsp(struct wlan_objmgr_vdev *vdev,
 	struct mac_context *mac_ctx;
 	uint8_t vdev_id = wlan_vdev_get_id(vdev);
 	struct csr_roam_session *session;
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	/*
 	 * This API is to update legacy struct and should be removed once
@@ -14286,7 +14286,7 @@ QDF_STATUS csr_send_join_req_msg(struct mac_context *mac, uint32_t sessionId,
 #ifdef FEATURE_WLAN_ESE
 	bool ese_config = false;
 #endif
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	if (!pSession) {
 		sme_err("session %d not found", sessionId);
@@ -15982,7 +15982,7 @@ static bool
 csr_is_adaptive_11r_roam_supported(struct wlan_objmgr_psoc *psoc,
 				   uint8_t vdev_id)
 {
-	struct cm_roam_values_copy config;
+	struct cm_roam_values_copy config = {};
 	struct wlan_mlme_psoc_ext_obj *mlme_obj;
 
 	mlme_obj = mlme_get_psoc_ext_obj(psoc);
@@ -18089,7 +18089,7 @@ csr_process_roam_sync_callback(struct mac_context *mac_ctx,
 	uint8_t ssid_offset;
 	enum csr_akm_type akm_type;
 	uint8_t mdie_present;
-	struct cm_roam_values_copy config;
+	struct cm_roam_values_copy config = {};
 
 	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(mac_ctx->psoc, session_id,
 						    WLAN_LEGACY_SME_ID);

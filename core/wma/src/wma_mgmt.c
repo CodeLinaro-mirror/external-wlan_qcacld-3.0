@@ -2923,7 +2923,7 @@ QDF_STATUS wma_set_cts2self_for_p2p_go(void *wma_handle,
 {
 	int32_t ret;
 	tp_wma_handle wma = (tp_wma_handle)wma_handle;
-	struct pdev_params pdevparam;
+	struct pdev_params pdevparam = {};
 
 	pdevparam.param_id = WMI_PDEV_PARAM_CTS2SELF_FOR_P2P_GO_CONFIG;
 	pdevparam.param_value = cts2self_for_p2p_go;
@@ -4006,7 +4006,7 @@ QDF_STATUS wma_set_txtd_start_timestamp(void *wma_handle, uint32_t ts)
 {
 	QDF_STATUS ret = QDF_STATUS_SUCCESS;
 	tp_wma_handle wma = (tp_wma_handle)wma_handle;
-	struct pdev_params pdevparam;
+	struct pdev_params pdevparam = {};
 
 	pdevparam.param_id = WMI_PDEV_PARAM_SET_TXTD_START_TIMESTAMP;
 	pdevparam.param_value = ts;

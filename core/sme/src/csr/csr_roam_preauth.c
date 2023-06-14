@@ -166,7 +166,7 @@ void csr_neighbor_roam_purge_preauth_failed_list(struct mac_context *mac_ctx)
 void csr_neighbor_roam_reset_preauth_control_info(struct mac_context *mac_ctx,
 		uint8_t session_id)
 {
-	struct cm_roam_values_copy src_cfg;
+	struct cm_roam_values_copy src_cfg = {};
 	tpCsrNeighborRoamControlInfo neigh_roam_info =
 		&mac_ctx->roam.neighborRoamInfo[session_id];
 

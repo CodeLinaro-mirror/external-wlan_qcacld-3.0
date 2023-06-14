@@ -19934,7 +19934,7 @@ static int wlan_hdd_cfg80211_set_ie(struct hdd_adapter *adapter,
 					      HS20_OUI_TYPE_SIZE))) {
 				uint16_t curAddIELen =
 					assoc_add_ie->length;
-				struct cm_roam_values_copy src_cfg;
+				struct cm_roam_values_copy src_cfg = {};
 
 				hdd_debug("HS20 IE(len %d)", eLen + 2);
 

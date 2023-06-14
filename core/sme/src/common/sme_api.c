@@ -5902,7 +5902,7 @@ QDF_STATUS sme_update_roam_scan_n_probes(mac_handle_t mac_handle,
 					 const uint8_t probes)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	src_config.uint_value = probes;
 	return wlan_cm_roam_cfg_set_value(mac->psoc, vdev_id,
@@ -5916,7 +5916,7 @@ sme_update_roam_scan_home_away_time(mac_handle_t mac_handle, uint8_t vdev_id,
 				    const bool send_offload_cmd)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	src_config.bool_value = send_offload_cmd;
 	src_config.uint_value = roam_scan_home_away_time;
@@ -5984,7 +5984,7 @@ QDF_STATUS sme_get_roam_scan_n_probes(mac_handle_t mac_handle, uint8_t vdev_id,
 				      uint8_t *roam_scan_n_probes)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy temp;
+	struct cm_roam_values_copy temp = {};
 
 	wlan_cm_roam_cfg_get_value(mac->psoc, vdev_id, SCAN_N_PROBE, &temp);
 	*roam_scan_n_probes = temp.uint_value;
@@ -5997,7 +5997,7 @@ QDF_STATUS sme_get_roam_scan_home_away_time(mac_handle_t mac_handle,
 					    uint16_t *roam_scan_home_away_time)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy temp;
+	struct cm_roam_values_copy temp = {};
 
 	wlan_cm_roam_cfg_get_value(mac->psoc, vdev_id, SCAN_HOME_AWAY, &temp);
 	*roam_scan_home_away_time = temp.uint_value;
@@ -6009,7 +6009,7 @@ QDF_STATUS sme_update_roam_rssi_diff(mac_handle_t mac_handle, uint8_t vdev_id,
 				     uint8_t roam_rssi_diff)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	src_config.uint_value = roam_rssi_diff;
 	return wlan_cm_roam_cfg_set_value(mac->psoc, vdev_id,
@@ -6701,7 +6701,7 @@ QDF_STATUS sme_get_neighbor_lookup_rssi_threshold(mac_handle_t mac_handle,
 						  uint8_t *lookup_threshold)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy temp;
+	struct cm_roam_values_copy temp = {};
 
 	wlan_cm_roam_cfg_get_value(mac->psoc, vdev_id,
 				   NEIGHBOUR_LOOKUP_THRESHOLD, &temp);
@@ -6724,7 +6724,7 @@ QDF_STATUS sme_set_neighbor_scan_refresh_period(mac_handle_t mac_handle,
 		uint8_t sessionId, uint16_t neighborScanResultsRefreshPeriod)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	src_config.uint_value = neighborScanResultsRefreshPeriod;
 	return wlan_cm_roam_cfg_set_value(mac->psoc, sessionId,
@@ -6759,7 +6759,7 @@ QDF_STATUS sme_get_empty_scan_refresh_period(mac_handle_t mac_handle,
 					     uint16_t *refresh_threshold)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy temp;
+	struct cm_roam_values_copy temp = {};
 
 	wlan_cm_roam_cfg_get_value(mac->psoc, vdev_id,
 				   EMPTY_SCAN_REFRESH_PERIOD, &temp);
@@ -6787,7 +6787,7 @@ QDF_STATUS sme_update_empty_scan_refresh_period(mac_handle_t mac_handle,
 						empty_scan_refresh_period)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	src_config.uint_value = empty_scan_refresh_period;
 	return wlan_cm_roam_cfg_set_value(mac->psoc, sessionId,
@@ -6800,7 +6800,7 @@ QDF_STATUS sme_update_full_roam_scan_period(mac_handle_t mac_handle,
 					    uint32_t full_roam_scan_period)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	src_config.uint_value = full_roam_scan_period;
 	return wlan_cm_roam_cfg_set_value(mac->psoc, vdev_id,
@@ -6813,7 +6813,7 @@ sme_modify_roam_cand_sel_criteria(mac_handle_t mac_handle,
 				  bool enable_scoring_for_roam)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	src_config.bool_value = enable_scoring_for_roam;
 	return wlan_cm_roam_cfg_set_value(mac->psoc, vdev_id,
@@ -6967,7 +6967,7 @@ QDF_STATUS sme_set_neighbor_scan_min_chan_time(mac_handle_t mac_handle,
 					       uint8_t sessionId)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	src_config.uint_value = nNeighborScanMinChanTime;
 	return wlan_cm_roam_cfg_set_value(mac->psoc, sessionId,
@@ -6993,7 +6993,7 @@ QDF_STATUS sme_set_neighbor_scan_max_chan_time(mac_handle_t mac_handle,
 					       nNeighborScanMaxChanTime)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	src_config.uint_value = nNeighborScanMaxChanTime;
 	return wlan_cm_roam_cfg_set_value(mac->psoc, sessionId,
@@ -7012,7 +7012,7 @@ uint16_t sme_get_neighbor_scan_min_chan_time(mac_handle_t mac_handle,
 					     uint8_t sessionId)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy temp;
+	struct cm_roam_values_copy temp = {};
 
 	wlan_cm_roam_cfg_get_value(mac->psoc, sessionId,
 				   SCAN_MIN_CHAN_TIME, &temp);
@@ -7161,7 +7161,7 @@ uint16_t sme_get_neighbor_scan_max_chan_time(mac_handle_t mac_handle,
 					     uint8_t sessionId)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy temp;
+	struct cm_roam_values_copy temp = {};
 
 	wlan_cm_roam_cfg_get_value(mac->psoc, sessionId,
 				   SCAN_MAX_CHAN_TIME, &temp);
@@ -7187,7 +7187,7 @@ QDF_STATUS sme_set_neighbor_scan_period(mac_handle_t mac_handle,
 					const uint16_t nNeighborScanPeriod)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	src_config.uint_value = nNeighborScanPeriod;
 	return wlan_cm_roam_cfg_set_value(mac->psoc, sessionId,
@@ -7207,7 +7207,7 @@ uint16_t sme_get_neighbor_scan_period(mac_handle_t mac_handle,
 				      uint8_t sessionId)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy temp;
+	struct cm_roam_values_copy temp = {};
 
 	wlan_cm_roam_cfg_get_value(mac->psoc, sessionId,
 				   NEIGHBOR_SCAN_PERIOD, &temp);
@@ -7218,7 +7218,7 @@ QDF_STATUS sme_get_roam_rssi_diff(mac_handle_t mac_handle, uint8_t vdev_id,
 				  uint8_t *rssi_diff)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy temp;
+	struct cm_roam_values_copy temp = {};
 
 	wlan_cm_roam_cfg_get_value(mac->psoc, vdev_id,
 				   ROAM_RSSI_DIFF, &temp);
@@ -7279,7 +7279,7 @@ QDF_STATUS sme_change_roam_scan_channel_list(mac_handle_t mac_handle,
 					     uint8_t numChannels)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	src_config.chan_info.freq_list = channel_freq_list;
 	src_config.chan_info.num_chan = numChannels;
@@ -7296,7 +7296,7 @@ sme_update_roam_scan_freq_list(mac_handle_t mac_handle, uint8_t vdev_id,
 			       uint32_t freq_list_type)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	if (!sme_validate_freq_list(mac_handle, freq_list, num_chan)) {
 		sme_err("List contains invalid channel(s)");
@@ -15981,7 +15981,7 @@ QDF_STATUS sme_set_roam_config_enable(mac_handle_t mac_handle,
 				      uint8_t roam_control_enable)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy src_config;
+	struct cm_roam_values_copy src_config = {};
 
 	if (!mac->mlme_cfg->lfr.roam_scan_offload_enabled)
 		return QDF_STATUS_E_INVAL;
@@ -15997,7 +15997,7 @@ QDF_STATUS sme_get_roam_config_status(mac_handle_t mac_handle,
 				      uint8_t *config_status)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy temp;
+	struct cm_roam_values_copy temp = {};
 
 	wlan_cm_roam_cfg_get_value(mac->psoc, vdev_id, ROAM_CONTROL_ENABLE,
 				    &temp);
@@ -16018,7 +16018,7 @@ sme_get_full_roam_scan_period(mac_handle_t mac_handle, uint8_t vdev_id,
 			      uint32_t *full_roam_scan_period)
 {
 	struct mac_context *mac = MAC_CONTEXT(mac_handle);
-	struct cm_roam_values_copy temp;
+	struct cm_roam_values_copy temp = {};
 
 	wlan_cm_roam_cfg_get_value(mac->psoc, vdev_id,
 				   FULL_ROAM_SCAN_PERIOD, &temp);

@@ -141,7 +141,7 @@ void csr_neighbor_roam_process_scan_results(struct mac_context *mac_ctx,
 	uint32_t bss_chan_freq;
 	uint8_t num_candidates = 0;
 	uint8_t num_dropped = 0;
-	struct cm_roam_values_copy config;
+	struct cm_roam_values_copy config = {};
 	/*
 	 * first iteration of scan list should consider
 	 * age constraint for candidates
@@ -609,7 +609,7 @@ csr_neighbor_roam_get_handoff_ap_info(struct mac_context *mac,
 	tpCsrNeighborRoamControlInfo ngbr_roam_info =
 		&mac->roam.neighborRoamInfo[session_id];
 	tpCsrNeighborRoamBSSInfo bss_node = NULL;
-	struct cm_roam_values_copy config;
+	struct cm_roam_values_copy config = {};
 
 	if (!hand_off_node) {
 		QDF_ASSERT(hand_off_node);
