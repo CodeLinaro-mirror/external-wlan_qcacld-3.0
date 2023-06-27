@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2011-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -2424,7 +2425,7 @@ lim_send_assoc_req_mgmt_frame(struct mac_context *mac_ctx,
 	QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
 			  frame, (uint16_t)(sizeof(tSirMacMgmtHdr) + payload));
 
-	min_rid = lim_get_min_session_txrate(pe_session);
+	min_rid = lim_get_min_session_txrate(pe_session, NULL);
 	lim_diag_event_report(mac_ctx, WLAN_PE_DIAG_ASSOC_START_EVENT,
 			      pe_session, QDF_STATUS_SUCCESS, QDF_STATUS_SUCCESS);
 	lim_diag_mgmt_tx_event_report(mac_ctx, mac_hdr,
@@ -2861,7 +2862,7 @@ alloc_packet:
 			 session->peSessionId, mac_hdr->fc.subType));
 
 	mac_ctx->auth_ack_status = LIM_AUTH_ACK_NOT_RCD;
-	min_rid = lim_get_min_session_txrate(session);
+	min_rid = lim_get_min_session_txrate(session, NULL);
 	lim_diag_mgmt_tx_event_report(mac_ctx, mac_hdr,
 				      session, QDF_STATUS_SUCCESS, QDF_STATUS_SUCCESS);
 
@@ -5313,8 +5314,10 @@ static void lim_tx_mgmt_frame(struct mac_context *mac_ctx,
 	struct pe_session *session;
 	uint16_t auth_ack_status;
 	enum rateid min_rid = RATEID_DEFAULT;
-	uint16_t channel_freq = 0;
-	uint16_t auth_algo;
+	qdf_freq_t *pre_auth_freq = NULL;
+	qdf_freq_t channel_freq = 0;
+	enum QDF_OPMODE opmode;
+	struct wlan_objmgr_vdev *vdev;
 
 	vdev_id = mb_msg->vdev_id;
 	session = pe_find_session_by_vdev_id(mac_ctx, vdev_id);
@@ -5329,17 +5332,32 @@ static void lim_tx_mgmt_frame(struct mac_context *mac_ctx,
 		   session->peSessionId, 0);
 
 	mac_ctx->auth_ack_status = LIM_AUTH_ACK_NOT_RCD;
-	min_rid = lim_get_min_session_txrate(session);
+	vdev = wlan_objmgr_get_vdev_by_id_from_pdev(mac_ctx->pdev, vdev_id,
+						    WLAN_LEGACY_MAC_ID);
+	if (!vdev) {
+		pe_err("vdev not found for given vdev_id %d",
+		       vdev_id);
+		return;
+	}
+	opmode = wlan_vdev_mlme_get_opmode(vdev);
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_LEGACY_MAC_ID);
+	if (opmode != QDF_NAN_DISC_MODE && fc->subType == SIR_MAC_MGMT_AUTH) {
+		tpSirFTPreAuthReq pre_auth_req;
+		uint16_t auth_algo = *(uint16_t *)(frame +
+						   sizeof(tSirMacMgmtHdr));
 
-	if (fc->subType == SIR_MAC_MGMT_AUTH) {
-		auth_algo = *(uint16_t *)(mb_msg->data +
-					sizeof(tSirMacMgmtHdr));
-		if ((auth_algo == eSIR_AUTH_TYPE_SAE)
-		    && (session->ftPEContext.pFTPreAuthReq))
-			channel_freq = session->ftPEContext.
-				pFTPreAuthReq->pre_auth_channel_freq;
+		if (auth_algo == eSIR_AUTH_TYPE_SAE) {
+			if (session->ftPEContext.pFTPreAuthReq) {
+				pre_auth_req =
+					session->ftPEContext.pFTPreAuthReq;
+				channel_freq =
+					pre_auth_req->pre_auth_channel_freq;
+			}
+			pre_auth_freq = &channel_freq;
+		}
 		pe_debug("TX SAE pre-auth frame on freq %d", channel_freq);
 	}
+	min_rid = lim_get_min_session_txrate(session, pre_auth_freq);
 
 	qdf_status = wma_tx_frameWithTxComplete(mac_ctx, packet,
 					 (uint16_t)msg_len,

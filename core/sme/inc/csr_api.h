@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2011-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -1465,6 +1466,15 @@ void csr_clear_channel_status(struct mac_context *mac);
  */
 QDF_STATUS csr_update_owe_info(struct mac_context *mac,
 			       struct assoc_ind *assoc_ind);
+
+/**
+ * csr_get_basic_rates() - Get basic rate for a band
+ * @b_rates: Basic rate
+ * @chan_freq: frequency for which basic rate is required
+ *
+ * Return: void
+ */
+void csr_get_basic_rates(tSirMacRateSet *b_rates, uint32_t chan_freq);
 
 /**
  * csr_send_roam_offload_init_msg() - Send roam enable/disable flag to fw
