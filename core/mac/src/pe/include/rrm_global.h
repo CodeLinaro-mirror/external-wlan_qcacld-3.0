@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2011-2012, 2014-2020 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -145,9 +145,16 @@ typedef struct sSirNeighborReportInd {
 	tSirNeighborBssDescription sNeighborBssDescription[1];
 } tSirNeighborReportInd, *tpSirNeighborReportInd;
 
+typedef struct eid_ext_info {
+	uint8_t eid;
+	uint8_t num_eid_ext;
+	uint8_t eid_ext[255];
+} eid_ext_info;
+
 typedef struct sRRMBeaconReportRequestedIes {
 	uint8_t num;
 	uint8_t *pElementIds;
+	eid_ext_info ext_info;
 } tRRMBeaconReportRequestedIes, *tpRRMBeaconReportRequestedIes;
 
 /* Reporting detail defines. */

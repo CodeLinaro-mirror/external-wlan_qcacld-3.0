@@ -7061,6 +7061,10 @@ populate_dot11f_beacon_report(struct mac_context *mac,
 			     pBeaconReport->numIes);
 		pDot11f->report.Beacon.BeaconReportFrmBody.num_reportedFields =
 			pBeaconReport->numIes;
+		pe_debug("AK: hex dump after memcopy, numIes %d", pBeaconReport->numIes);
+		QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+			pDot11f->report.Beacon.BeaconReportFrmBody.reportedFields,
+			pBeaconReport->numIes);
 	}
 
 	if (pBeaconReport->last_bcn_report_ind_support) {

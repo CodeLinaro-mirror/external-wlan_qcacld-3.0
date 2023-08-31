@@ -5638,6 +5638,10 @@ lim_send_radio_measure_report_action_frame(struct mac_context *mac,
 			nStatus);
 	}
 
+	pe_debug("AK: hex dump after packing the frame");
+	QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+						pFrame, nBytes);
+
 	if (frm->MeasurementReport[0].type == SIR_MAC_RRM_BEACON_TYPE) {
 		lim_beacon_report_response_event(frm->MeasurementReport[0].token,
 						 num_report,
