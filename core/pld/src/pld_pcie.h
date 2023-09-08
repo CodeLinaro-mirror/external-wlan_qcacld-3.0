@@ -798,12 +798,12 @@ static inline void pld_pcie_remove_pm_qos(struct device *dev)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
 static inline void pld_pcie_set_tsf_sync_period(struct device *dev, u32 val)
 {
-	cnss_update_time_sync_period(dev, val);
+	return;
 }
 
 static inline void pld_pcie_reset_tsf_sync_period(struct device *dev)
 {
-	cnss_reset_time_sync_period(dev);
+	return;
 }
 #else
 static inline void pld_pcie_set_tsf_sync_period(struct device *dev, u32 val)
@@ -878,7 +878,7 @@ static inline int pld_pcie_get_pci_slot(struct device *dev)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 static inline struct kobject *pld_pcie_get_wifi_kobj(struct device *dev)
 {
-	return cnss_get_wifi_kobj(dev);
+	return NULL;
 }
 #else
 static inline struct kobject *pld_pcie_get_wifi_kobj(struct device *dev)
@@ -960,26 +960,26 @@ static inline int pld_pci_thermal_register(struct device *dev,
 					   unsigned long max_state,
 					   int mon_id)
 {
-	return cnss_thermal_cdev_register(dev, max_state, mon_id);
+	return 0;
 }
 
 static inline void pld_pci_thermal_unregister(struct device *dev,
 					      int mon_id)
 {
-	cnss_thermal_cdev_unregister(dev, mon_id);
+	return;
 }
 
 static inline int pld_pci_get_thermal_state(struct device *dev,
 					    unsigned long *thermal_state,
 					    int mon_id)
 {
-	return cnss_get_curr_therm_cdev_state(dev, thermal_state, mon_id);
+	return 0;
 }
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 static inline bool pld_pcie_is_direct_link_supported(struct device *dev)
 {
-	return cnss_get_fw_cap(dev, CNSS_FW_CAP_DIRECT_LINK_SUPPORT);
+	return false;
 }
 
 static inline bool pld_pcie_audio_is_direct_link_supported(struct device *dev)
@@ -996,13 +996,13 @@ static inline
 int pld_pcie_audio_smmu_map(struct device *dev, phys_addr_t paddr,
 			    dma_addr_t iova, size_t size)
 {
-	return cnss_audio_smmu_map(dev, paddr, iova, size);
+	return 0;
 }
 
 static inline
 void pld_pcie_audio_smmu_unmap(struct device *dev, dma_addr_t iova, size_t size)
 {
-	cnss_audio_smmu_unmap(dev, iova, size);
+	return;
 }
 
 static inline
