@@ -13351,6 +13351,11 @@ void hdd_psoc_idle_timer_start(struct hdd_context *hdd_ctx)
 	enum wake_lock_reason reason =
 		WIFI_POWER_EVENT_WAKELOCK_IFACE_CHANGE_TIMER;
 
+	if (0) {
+		hdd_info("hdd_psoc_idle_timer_start return\n");
+		return;
+	}
+
 	if (!timeout_ms) {
 		hdd_info("psoc idle timer is disabled");
 		return;

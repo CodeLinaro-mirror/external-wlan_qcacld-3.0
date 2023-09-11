@@ -219,7 +219,7 @@ enum hdd_dot11_mode {
 			"gInterfaceChangeWait", \
 			0, \
 			500000, \
-			CFG_INTERFACE_CHANGE_WAIT_DEFAULT, \
+			0, \
 			CFG_VALUE_OR_DEFAULT, \
 			"Interface change wait")
 
