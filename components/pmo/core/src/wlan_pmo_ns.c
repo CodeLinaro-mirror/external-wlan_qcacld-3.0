@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -78,6 +78,7 @@ static QDF_STATUS pmo_core_cache_ns_in_vdev_priv(
 	struct pmo_vdev_priv_obj *vdev_ctx;
 	struct pmo_ns_offload_params *request;
 	struct wlan_objmgr_peer *peer;
+	struct qdf_mac_addr self_mac_addr;
 
 	vdev_ctx = pmo_vdev_get_priv(vdev);
 
@@ -91,9 +92,6 @@ static QDF_STATUS pmo_core_cache_ns_in_vdev_priv(
 
 	request->enable = PMO_OFFLOAD_ENABLE;
 	request->is_offload_applied = false;
-	qdf_mem_copy(&request->self_macaddr.bytes,
-		     wlan_vdev_mlme_get_macaddr(vdev),
-		     QDF_MAC_ADDR_SIZE);
 
 	/* set number of ns offload address count */
 	request->num_ns_offload_count = ns_req->count;
@@ -104,9 +102,15 @@ static QDF_STATUS pmo_core_cache_ns_in_vdev_priv(
 		status = QDF_STATUS_E_INVAL;
 		goto out;
 	}
-	pmo_debug("vdev self mac addr: "QDF_MAC_ADDR_FMT" bss peer mac addr: "QDF_MAC_ADDR_FMT,
-		QDF_MAC_ADDR_REF(wlan_vdev_mlme_get_macaddr(vdev)),
-		QDF_MAC_ADDR_REF(wlan_peer_get_macaddr(peer)));
+
+	if (wlan_vdev_mlme_is_mlo_vdev(vdev))
+		qdf_copy_macaddr(&self_mac_addr,
+				 (struct qdf_mac_addr *)wlan_vdev_mlme_get_mldaddr(vdev));
+	else
+		qdf_copy_macaddr(&self_mac_addr,
+				 (struct qdf_mac_addr *)wlan_vdev_mlme_get_macaddr(vdev));
+
+	qdf_copy_macaddr(&request->self_macaddr, &self_mac_addr);
 	/* get peer and peer mac accdress aka ap mac address */
 	qdf_mem_copy(&request->bssid, wlan_peer_get_macaddr(peer),
 		     QDF_MAC_ADDR_SIZE);
@@ -116,6 +120,10 @@ static QDF_STATUS pmo_core_cache_ns_in_vdev_priv(
 	qdf_mem_copy(&vdev_ctx->vdev_ns_req, request,
 		     sizeof(vdev_ctx->vdev_ns_req));
 	qdf_spin_unlock_bh(&vdev_ctx->pmo_vdev_lock);
+
+	pmo_debug("vdev self mac addr: "QDF_MAC_ADDR_FMT" bss peer mac addr: "QDF_MAC_ADDR_FMT,
+		QDF_MAC_ADDR_REF(self_mac_addr.bytes),
+		QDF_MAC_ADDR_REF(wlan_peer_get_macaddr(peer)));
 out:
 	qdf_mem_free(request);
 	return status;
