@@ -1483,6 +1483,14 @@ static void wma_set_mlo_capability(tp_wma_handle wma,
 				params->msd_caps.med_sync_ofdm_ed_thresh;
 		req->mlo_params.medium_sync_max_txop_num =
 				params->msd_caps.med_sync_max_txop_num;
+		/*
+		 * Set max simultaneous links = 1 for MLSR, 2 for MLMR. The +1
+		 * is added as per the agreement with FW for backward
+		 * compatiblity purposes. Our internal structures still
+		 * conform to the values as per spec i.e. 0 = MLSR, 1 = MLMR.
+		 */
+		req->mlo_params.max_num_simultaneous_links =
+			wlan_mlme_get_sta_mlo_simultaneous_links(psoc) + 1;
 	} else {
 		wma_debug("Peer MLO context is NULL");
 		req->mlo_params.mlo_enabled = false;
