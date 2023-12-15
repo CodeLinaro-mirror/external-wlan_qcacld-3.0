@@ -3914,6 +3914,11 @@ uint8_t wlan_cm_roam_get_full_scan_6ghz_on_disc(struct wlan_objmgr_psoc *psoc)
 	return mlme_obj->cfg.lfr.roam_full_scan_6ghz_on_disc;
 }
 
+bool wlan_cm_is_mbo_ap_without_pmf(struct wlan_objmgr_psoc *psoc,
+				   uint8_t vdev_id)
+{
+	return cm_is_mbo_ap_without_pmf(psoc, vdev_id);
+}
 #else
 QDF_STATUS
 cm_roam_stats_event_handler(struct wlan_objmgr_psoc *psoc,
