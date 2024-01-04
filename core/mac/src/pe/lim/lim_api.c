@@ -4066,7 +4066,7 @@ lim_update_mlo_mgr_info(struct mac_context *mac_ctx,
 	is_security_allowed =
 		wlan_cm_is_eht_allowed_for_current_security(
 					wlan_pdev_get_psoc(mac_ctx->pdev),
-					cache_entry);
+					cache_entry, true);
 
 	util_scan_free_cache_entry(cache_entry);
 
