@@ -680,3 +680,10 @@ ucfg_is_p2p_device_dynamic_set_mac_addr_supported(struct wlan_objmgr_psoc *psoc)
 }
 #endif
 
+#ifdef FEATURE_WLAN_SUPPORT_USD
+QDF_STATUS ucfg_p2p_send_usd_params(struct wlan_objmgr_psoc *psoc,
+				    struct p2p_usd_attr_params *param)
+{
+	return p2p_send_usd_params(psoc, param);
+}
+#endif /* FEATURE_WLAN_SUPPORT_USD */
