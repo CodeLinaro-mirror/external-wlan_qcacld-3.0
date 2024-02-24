@@ -8143,6 +8143,7 @@ const struct nla_policy wlan_hdd_wifi_config_policy[
 	[QCA_WLAN_VENDOR_ATTR_CONFIG_PEER_AMPDU_CNT] = {.type = NLA_U16},
 	[QCA_WLAN_VENDOR_ATTR_CONFIG_KEEP_ALIVE_INTERVAL] = {
 		.type = NLA_U16},
+	[QCA_WLAN_VENDOR_ATTR_CONFIG_BTM_SUPPORT] = {.type = NLA_U8},
 };
 
 static const struct nla_policy
@@ -11070,6 +11071,52 @@ hdd_test_config_emlsr_action_mode(struct hdd_adapter *adapter,
 }
 #endif
 
+/**
+ * hdd_set_btm_support_config() - Update BTM support policy
+ * @link_info: Link info pointer in HDD adapter
+ * @attr: pointer to nla attr
+ *
+ * Return: 0 on success, negative on failure
+ */
+static int hdd_set_btm_support_config(struct hdd_adapter *adapter,
+				      const struct nlattr *attr)
+{
+	uint8_t cfg_val;
+	struct hdd_context *hdd_ctx = WLAN_HDD_GET_CTX(adapter);
+	enum QDF_OPMODE op_mode = adapter->device_mode;
+	bool is_vdev_in_conn_state, is_disable_btm;
+
+	is_vdev_in_conn_state = hdd_is_vdev_in_conn_state(adapter);
+	cfg_val = nla_get_u8(attr);
+
+	hdd_debug("vdev: %d, cfg_val: %d for op_mode: %d, conn_state:%d",
+		  adapter->vdev_id, cfg_val, op_mode,
+		  is_vdev_in_conn_state);
+
+	/*
+	 * Change in BTM support configuration is applicable only for STA
+	 * interface and not allowed in connected state.
+	 */
+	if (op_mode != QDF_STA_MODE || is_vdev_in_conn_state)
+		return -EINVAL;
+
+	switch (cfg_val) {
+	case QCA_WLAN_BTM_SUPPORT_DISABLE:
+		is_disable_btm = true;
+		break;
+	case QCA_WLAN_BTM_SUPPORT_DEFAULT:
+		is_disable_btm = false;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ucfg_cm_set_btm_config(hdd_ctx->psoc, adapter->vdev_id,
+			       is_disable_btm);
+
+	return 0;
+}
+
 #ifdef WLAN_FEATURE_11BE
 /**
  * hdd_set_eht_max_simultaneous_links() - Set EHT maximum number of
@@ -11422,6 +11469,8 @@ static const struct independent_setters independent_setters[] = {
 	 hdd_set_emlsr_mode},
 	{QCA_WLAN_VENDOR_ATTR_CONFIG_KEEP_ALIVE_INTERVAL,
 	 hdd_vdev_set_sta_keep_alive_interval},
+	{QCA_WLAN_VENDOR_ATTR_CONFIG_BTM_SUPPORT,
+	 hdd_set_btm_support_config},
 };
 
 #ifdef WLAN_FEATURE_ELNA
