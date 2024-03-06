@@ -2266,7 +2266,7 @@ static void hdd_chan_change_started_notify(struct wlan_hdd_link_info *link_info,
 	QDF_STATUS status = QDF_STATUS_SUCCESS;
 	struct net_device *dev;
 	struct cfg80211_chan_def chandef;
-	uint16_t puncture_bitmap = 0;
+	uint16_t input_punc_bitmap;
 	uint8_t vdev_id;
 	int ch_switch_count;
 
@@ -2314,17 +2314,17 @@ static void hdd_chan_change_started_notify(struct wlan_hdd_link_info *link_info,
 	if (wlan_vdev_mlme_is_mlo_vdev(vdev))
 		link_id = wlan_vdev_get_link_id(vdev);
 
-	puncture_bitmap = wlan_hdd_get_puncture_bitmap(link_info);
 	ucfg_mlme_get_sap_chn_switch_bcn_count(psoc, &ch_switch_count);
+	input_punc_bitmap = wlan_reg_get_input_punc_bitmap(ch_params);
 
 	hdd_debug("channel switch started notify: link_id %d, vdev_id %d chan:%d width:%d freq1:%d freq2:%d punct 0x%x ch_switch_count %d",
 		  link_id, vdev_id, chandef.chan->center_freq, chandef.width,
 		  chandef.center_freq1, chandef.center_freq2,
-		  puncture_bitmap, ch_switch_count);
+		  input_punc_bitmap, ch_switch_count);
 
 	wlan_cfg80211_ch_switch_started_notify(dev, &chandef, link_id,
 					       ch_switch_count, false,
-					       puncture_bitmap);
+					       input_punc_bitmap);
 
 exit:
 	hdd_wiphy_unlock(dev->ieee80211_ptr);
@@ -3436,9 +3436,9 @@ QDF_STATUS hdd_hostapd_sap_event_cb(struct sap_context *sap_ctx,
 					    link_info->vdev_id,
 					    CSA_REASON_PEER_ACTION_FRAME);
 
-		if (hdd_softap_set_channel_change(link_info,
-						  new_chan_freq,
-						  CH_WIDTH_MAX, false, false))
+		if (hdd_softap_set_channel_change(link_info, new_chan_freq,
+						  CH_WIDTH_MAX, NO_SCHANS_PUNC,
+						  false, false))
 			return QDF_STATUS_E_FAILURE;
 		else
 			return QDF_STATUS_SUCCESS;
@@ -3800,7 +3800,8 @@ next_adapter:
 
 int hdd_softap_set_channel_change(struct wlan_hdd_link_info *link_info,
 				  int target_chan_freq,
-				  enum phy_ch_width target_bw, bool forced,
+				  enum phy_ch_width target_bw,
+				  uint32_t punct_bitmap, bool forced,
 				  bool allow_blocking)
 {
 	QDF_STATUS status;
@@ -3955,6 +3956,7 @@ int hdd_softap_set_channel_change(struct wlan_hdd_link_info *link_info,
 		return -EBUSY;
 	}
 	ch_params.ch_width = target_bw;
+	wlan_reg_set_input_punc_bitmap(&ch_params, punct_bitmap);
 	target_bw = wlansap_get_csa_chanwidth_from_phymode(
 			sap_ctx, target_chan_freq, &ch_params);
 	pm_con_mode = policy_mgr_qdf_opmode_to_pm_con_mode(hdd_ctx->psoc,
@@ -4048,7 +4050,7 @@ int hdd_softap_set_channel_change(struct wlan_hdd_link_info *link_info,
 
 	status = wlansap_set_channel_change_with_csa(
 		WLAN_HDD_GET_SAP_CTX_PTR(link_info),
-		target_chan_freq, target_bw, strict);
+		target_chan_freq, target_bw, punct_bitmap, strict);
 
 	if (QDF_STATUS_SUCCESS != status) {
 		hdd_err("SAP set channel failed for channel freq: %d, bw: %d",
@@ -4179,8 +4181,7 @@ void hdd_stop_sap_set_tx_power(struct wlan_objmgr_psoc *psoc,
 QDF_STATUS hdd_sap_restart_with_channel_switch(struct wlan_objmgr_psoc *psoc,
 					struct wlan_hdd_link_info *link_info,
 					uint32_t target_chan_freq,
-					uint32_t target_bw,
-					bool forced)
+					uint32_t target_bw, bool forced)
 {
 	int ret;
 
@@ -4191,9 +4192,9 @@ QDF_STATUS hdd_sap_restart_with_channel_switch(struct wlan_objmgr_psoc *psoc,
 		return QDF_STATUS_E_INVAL;
 	}
 
-	ret = hdd_softap_set_channel_change(link_info,
-					    target_chan_freq,
-					    target_bw, forced, false);
+	ret = hdd_softap_set_channel_change(link_info, target_chan_freq,
+					    target_bw, NO_SCHANS_PUNC,
+					    forced, false);
 	if (ret && ret != -EBUSY) {
 		hdd_err("channel switch failed");
 		hdd_stop_sap_set_tx_power(psoc, link_info);
@@ -6199,9 +6200,8 @@ hdd_handle_acs_2g_preferred_sap_conc(struct wlan_objmgr_psoc *psoc,
 	hostapd_state = WLAN_HDD_GET_HOSTAP_STATE_PTR(go_link_info);
 	qdf_event_reset(&hostapd_state->qdf_event);
 	go_bw = wlansap_get_chan_width(WLAN_HDD_GET_SAP_CTX_PTR(go_link_info));
-	ret = hdd_softap_set_channel_change(go_link_info,
-					    go_new_ch_freq, go_bw,
-					    false, true);
+	ret = hdd_softap_set_channel_change(go_link_info, go_new_ch_freq, go_bw,
+					    NO_SCHANS_PUNC, false, true);
 	if (ret) {
 		hdd_err("CSA failed to %d, ret %d", go_new_ch_freq, ret);
 		return;
@@ -6297,8 +6297,8 @@ hdd_handle_p2p_go_for_3rd_ap_conc(struct hdd_context *hdd_ctx,
 	hostapd_state = WLAN_HDD_GET_HOSTAP_STATE_PTR(go_link_info);
 	qdf_event_reset(&hostapd_state->qdf_event);
 
-	ret = hdd_softap_set_channel_change(go_link_info,
-					    go_new_ch_freq, CH_WIDTH_80MHZ,
+	ret = hdd_softap_set_channel_change(go_link_info, go_new_ch_freq,
+					    CH_WIDTH_80MHZ, NO_SCHANS_PUNC,
 					    false, true);
 	if (ret) {
 		hdd_err("CSA failed to %d, ret %d", go_new_ch_freq, ret);
