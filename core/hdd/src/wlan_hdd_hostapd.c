@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -4835,7 +4835,6 @@ static int wlan_hdd_sap_p2p_11ac_overrides(struct hdd_adapter *ap_adapter)
 	struct sap_config *sap_cfg = &ap_adapter->session.ap.sap_config;
 	struct hdd_context *hdd_ctx = WLAN_HDD_GET_CTX(ap_adapter);
 	uint8_t ch_width;
-	uint8_t sub_20_chan_width;
 	QDF_STATUS status;
 	bool sap_force_11n_for_11ac = 0;
 	bool go_force_11n_for_11ac = 0;
@@ -4859,21 +4858,15 @@ static int wlan_hdd_sap_p2p_11ac_overrides(struct hdd_adapter *ap_adapter)
 	/*
 	 * sub_20 MHz channel width is incompatible with 11AC rates, hence do
 	 * not allow 11AC rates or more than 20 MHz channel width when
-	 * enable_sub_20_channel_width is non zero
+	 * sub_20_channel_width is enabled
 	 */
-	status = ucfg_mlme_get_sub_20_chan_width(hdd_ctx->psoc,
-						 &sub_20_chan_width);
-	if (QDF_IS_STATUS_ERROR(status)) {
-		hdd_err("Failed to get sub_20_chan_width config");
-		return -EIO;
-	}
 
 	ucfg_mlme_is_go_11ac_override(hdd_ctx->psoc,
 				      &go_11ac_override);
 	ucfg_mlme_is_sap_11ac_override(hdd_ctx->psoc,
 				       &sap_11ac_override);
 
-	if (!sub_20_chan_width &&
+	if (!cds_is_sub_20_mhz_enabled() &&
 	    (sap_cfg->SapHw_mode == eCSR_DOT11_MODE_11n ||
 	    sap_cfg->SapHw_mode == eCSR_DOT11_MODE_11ac ||
 	    sap_cfg->SapHw_mode == eCSR_DOT11_MODE_11ac_ONLY ||
