@@ -4975,4 +4975,16 @@ void wlan_hdd_set_pm_qos_request(struct hdd_context *hdd_ctx,
 {
 }
 #endif
+
+/*
+ * hdd_update_sub20_chan_width() - update sub 20 MHz channel width
+ *
+ * @adapter: pointer to HDD adapter
+ * @sub_20_ch_width: sub 20 MHz channel width to set
+ *
+ * Return: 0 on success, else error number
+ */
+QDF_STATUS
+hdd_update_sub20_chan_width(struct hdd_adapter *adapter,
+			    enum cfg_sub_20_channel_width sub_20_ch_width);
 #endif /* end #if !defined(WLAN_HDD_MAIN_H) */

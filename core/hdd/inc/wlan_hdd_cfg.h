@@ -267,6 +267,7 @@ struct hdd_config {
 	uint32_t sta_stats_cache_expiry_time;
 #endif
 	int icmp_req_to_fw_mark_interval;
+	enum cfg_sub_20_channel_width sub_20_ch_width;
 };
 
 /**

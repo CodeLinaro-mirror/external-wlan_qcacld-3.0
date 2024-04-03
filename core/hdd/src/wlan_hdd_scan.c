@@ -689,6 +689,12 @@ static int __wlan_hdd_cfg80211_scan(struct wiphy *wiphy,
 		/* Use default scan priority */
 		params.priority = SCAN_PRIORITY_COUNT;
 
+	if (cds_is_10_mhz_enabled())
+		params.half_rate = true;
+
+	if (cds_is_5_mhz_enabled())
+		params.quarter_rate = true;
+
 	status = wlan_cfg80211_scan(vdev, request, &params);
 	hdd_objmgr_put_vdev_by_user(vdev, WLAN_OSIF_SCAN_ID);
 error:
