@@ -91,7 +91,7 @@
 #include "wlan_mlo_link_force.h"
 #include <target_if_spatial_reuse.h>
 
-#if defined(WLAN_FEATURE_MULTI_LINK_SAP) && defined(WLAN_FEATURE_11BE_MLO)
+#if defined(WLAN_FEATURE_11BE_MLO)
 #include <wmi_unified_11be_api.h>
 #endif
 
@@ -2151,7 +2151,7 @@ static void wma_upt_mlo_partner_info(struct beacon_tmpl_params *params,
 }
 #endif
 
-#if defined(WLAN_FEATURE_MULTI_LINK_SAP) && defined(WLAN_FEATURE_11BE_MLO)
+#if defined(WLAN_FEATURE_11BE_MLO)
 #define CU_VDEV_BITMAP_LOWER32(_cu_vdev_map) ((_cu_vdev_map) & 0xFFFFFFFFLL)
 #define CU_VDEV_BITMAP_UPPER32(_cu_vdev_map) \
 	(((_cu_vdev_map) & 0xFFFFFFFF00000000LL) >> 32)
@@ -4005,7 +4005,7 @@ static int wma_mgmt_rx_process(void *handle, uint8_t *data,
 	return 0;
 }
 
-#if defined(WLAN_FEATURE_MULTI_LINK_SAP) && defined(WLAN_FEATURE_11BE_MLO)
+#if defined(WLAN_FEATURE_11BE_MLO)
 /**
  * wma_mgmt_mlo_rx_process() - process management rx mlo tlv.
  * @handle: wma handle
@@ -4078,7 +4078,7 @@ QDF_STATUS wma_de_register_mgmt_frm_client(void)
 		return QDF_STATUS_E_FAILURE;
 	}
 
-#if defined(WLAN_FEATURE_MULTI_LINK_SAP) && defined(WLAN_FEATURE_11BE_MLO)
+#if defined(WLAN_FEATURE_11BE_MLO)
 	if (wmi_unified_unregister_event_handler(wma_handle->wmi_handle,
 						 wmi_mlo_link_info_sync_event_id) != 0) {
 		wma_err("Failed to Unregister rx mgmt mlo handler");
@@ -4148,7 +4148,7 @@ QDF_STATUS wma_register_mgmt_frm_client(void)
 		wma_err("Failed to register rx mgmt handler with wmi");
 		return QDF_STATUS_E_FAILURE;
 	}
-#if defined(WLAN_FEATURE_MULTI_LINK_SAP) && defined(WLAN_FEATURE_11BE_MLO)
+#if defined(WLAN_FEATURE_11BE_MLO)
 	/* this event will be delivered before mgmt rx event */
 	if (wmi_unified_register_event_handler(wma_handle->wmi_handle,
 					       wmi_mlo_link_info_sync_event_id,
