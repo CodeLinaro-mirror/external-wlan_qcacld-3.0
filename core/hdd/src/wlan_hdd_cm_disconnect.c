@@ -183,7 +183,10 @@ hdd_reset_sta_keep_alive_interval(struct hdd_adapter *adapter,
 		return;
 	}
 
-	wlan_hdd_save_sta_keep_alive_interval(adapter, 0);
+	if (!wlan_vdev_mlme_get_is_mlo_link(hdd_ctx->psoc,
+					    adapter->vdev_id))
+		wlan_hdd_save_sta_keep_alive_interval(adapter, 0);
+
 	ucfg_mlme_get_sta_keep_alive_period(hdd_ctx->psoc,
 					    &keep_alive_interval);
 	hdd_vdev_send_sta_keep_alive_interval(adapter, hdd_ctx,
