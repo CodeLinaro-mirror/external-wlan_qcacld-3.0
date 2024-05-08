@@ -173,24 +173,39 @@ hdd_reset_sta_keep_alive_interval(struct hdd_adapter *adapter,
 {
 	enum QDF_OPMODE device_mode = adapter->device_mode;
 	uint32_t keep_alive_interval;
-
-	if (adapter->keep_alive_interval)
-		return;
+	struct hdd_adapter *assoc_link_adapter;
 
 	if (device_mode != QDF_STA_MODE) {
 		hdd_debug("Not supported for device mode %s = ",
-			  device_mode_to_string(device_mode));
+		device_mode_to_string(device_mode));
 		return;
 	}
 
-	if (!wlan_vdev_mlme_get_is_mlo_link(hdd_ctx->psoc,
-					    adapter->vdev_id))
-		wlan_hdd_save_sta_keep_alive_interval(adapter, 0);
+	if (hdd_adapter_is_ml_adapter(adapter)) {
+		assoc_link_adapter = hdd_get_assoc_link_adapter(adapter);
+		if (!assoc_link_adapter) {
+			hdd_err("Assoc link adapter is null");
+			return;
+		}
 
-	ucfg_mlme_get_sta_keep_alive_period(hdd_ctx->psoc,
-					    &keep_alive_interval);
-	hdd_vdev_send_sta_keep_alive_interval(adapter, hdd_ctx,
-					      keep_alive_interval);
+		if (!assoc_link_adapter->keep_alive_interval)
+			return;
+
+		if (!wlan_vdev_mlme_get_is_mlo_link(hdd_ctx->psoc,
+						    adapter->vdev_id))
+			wlan_hdd_save_sta_keep_alive_interval(
+							assoc_link_adapter, 0);
+		ucfg_mlme_get_sta_keep_alive_period(hdd_ctx->psoc,
+						    &keep_alive_interval);
+		hdd_vdev_send_sta_keep_alive_interval(adapter, hdd_ctx,
+						      keep_alive_interval);
+	} else if (adapter->keep_alive_interval) {
+		wlan_hdd_save_sta_keep_alive_interval(adapter, 0);
+		ucfg_mlme_get_sta_keep_alive_period(hdd_ctx->psoc,
+						    &keep_alive_interval);
+		hdd_vdev_send_sta_keep_alive_interval(adapter, hdd_ctx,
+						      keep_alive_interval);
+	}
 }
 
 void __hdd_cm_disconnect_handler_post_user_update(struct hdd_adapter *adapter,

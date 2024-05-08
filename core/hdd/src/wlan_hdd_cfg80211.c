@@ -10878,6 +10878,19 @@ int hdd_vdev_send_sta_keep_alive_interval(
 void wlan_hdd_save_sta_keep_alive_interval(struct hdd_adapter *adapter,
 					   uint16_t keep_alive_interval)
 {
+	struct hdd_adapter *assoc_link_adapter;
+
+	if (hdd_adapter_is_ml_adapter(adapter)) {
+		assoc_link_adapter = hdd_get_assoc_link_adapter(adapter);
+		if (!assoc_link_adapter) {
+			hdd_err("Assoc link adapter is null");
+			return;
+		}
+
+		assoc_link_adapter->keep_alive_interval = keep_alive_interval;
+		return;
+	}
+
 	adapter->keep_alive_interval = keep_alive_interval;
 }
 
@@ -10967,21 +10980,20 @@ static int hdd_vdev_set_sta_keep_alive_interval(
 		return -EINVAL;
 	}
 
-	hdd_debug("sta keep alive interval = %u", keep_alive_interval);
-
 	if (device_mode != QDF_STA_MODE) {
 		hdd_debug("This command is not supported for %s device mode",
 			  device_mode_to_string(device_mode));
 		return -EINVAL;
 	}
 
-	if (!hdd_is_vdev_in_conn_state(adapter)) {
-		hdd_debug("Vdev (id %d) not in connected/started state, cannot accept command",
-			  adapter->vdev_id);
-		return -EINVAL;
-	}
-
+	hdd_debug("sta keep alive interval = %u", keep_alive_interval);
 	wlan_hdd_save_sta_keep_alive_interval(adapter, keep_alive_interval);
+
+	if (!hdd_is_vdev_in_conn_state(adapter)) {
+		hdd_debug("Vdev (id %d) not in connected/started state, configure KEEPALIVE interval after connection",
+			  adapter->vdev_id);
+		return 0;
+	}
 
 	if (!wlan_vdev_mlme_is_mlo_vdev(vdev))
 		return hdd_vdev_send_sta_keep_alive_interval(
