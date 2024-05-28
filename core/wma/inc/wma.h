@@ -2644,5 +2644,25 @@ QDF_STATUS wma_vdev_detach(struct del_vdev_params *pdel_vdev_req_param);
 
 QDF_STATUS wma_p2p_self_peer_remove(struct wlan_objmgr_vdev *vdev);
 #endif
+
+#ifdef WLAN_FEATURE_MULTI_LINK_SAP
+/**
+ * wma_get_mlo_sap_emlsr() - Get sap emlsr flag
+ * @wmi_handle: wmi handler
+ *
+ * The API will return if fw support emlsr or not for mlo sap mode.
+ *
+ * Return: true if support emlsr otherwise false.
+ */
+bool
+wma_get_mlo_sap_emlsr(struct wmi_unified *wmi_handle);
+#else
+static inline bool
+wma_get_mlo_sap_emlsr(struct wmi_unified *wmi_handle)
+{
+	return false;
+}
+#endif
+
 #endif
 
