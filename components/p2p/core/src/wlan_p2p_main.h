@@ -628,4 +628,15 @@ QDF_STATUS
 p2p_check_and_force_scc_go_plus_go(struct wlan_objmgr_psoc *psoc,
 				   struct wlan_objmgr_vdev *vdev);
 #endif /* WLAN_FEATURE_P2P_P2P_STA */
+
+/**
+ * p2p_parse_assoc_ie_for_device_info() - This function finds P2P interface
+ * address from assocaition IE
+ * @assoc_ie: Association request IE
+ * @assoc_ie_len: Association IE length
+ *
+ * Return: pointer to P2P address
+ */
+const uint8_t *p2p_parse_assoc_ie_for_device_info(const uint8_t *assoc_ie,
+						  uint32_t assoc_ie_len);
 #endif /* _WLAN_P2P_MAIN_H_ */
