@@ -3611,8 +3611,6 @@ stopbss:
 
 static int hdd_softap_unpack_ie(mac_handle_t mac_handle,
 				eCsrEncryptionType *encrypt_type,
-				eCsrEncryptionType *mc_encrypt_type,
-				tCsrAuthList *akm_list,
 				bool *mfp_capable,
 				bool *mfp_required,
 				uint16_t gen_ie_len, uint8_t *gen_ie)
@@ -3623,6 +3621,8 @@ static int hdd_softap_unpack_ie(mac_handle_t mac_handle,
 	tDot11fIERSN dot11_rsn_ie = {0};
 	tDot11fIEWPA dot11_wpa_ie = {0};
 	tDot11fIEWAPI dot11_wapi_ie = {0};
+	eCsrEncryptionType mc_encrypt_type;
+	tCsrAuthList akm_list;
 
 	if (!mac_handle) {
 		hdd_err("NULL mac Handle");
@@ -3659,16 +3659,16 @@ static int hdd_softap_unpack_ie(mac_handle_t mac_handle,
 		 * Translate akms in akm suite
 		 */
 		for (i = 0; i < dot11_rsn_ie.akm_suite_cnt; i++)
-			akm_list->authType[i] =
+			akm_list.authType[i] =
 				hdd_translate_rsn_to_csr_auth_type(
 						       dot11_rsn_ie.akm_suite[i]);
-		akm_list->numEntries = dot11_rsn_ie.akm_suite_cnt;
+		akm_list.numEntries = dot11_rsn_ie.akm_suite_cnt;
 		/* dot11_rsn_ie.pwise_cipher_suite_count */
 		*encrypt_type =
 			hdd_translate_rsn_to_csr_encryption_type(dot11_rsn_ie.
 								 pwise_cipher_suites[0]);
 		/* dot11_rsn_ie.gp_cipher_suite_count */
-		*mc_encrypt_type =
+		mc_encrypt_type =
 			hdd_translate_rsn_to_csr_encryption_type(dot11_rsn_ie.
 								 gp_cipher_suite);
 		/* Set the PMKSA ID Cache for this interface */
@@ -3700,16 +3700,16 @@ static int hdd_softap_unpack_ie(mac_handle_t mac_handle,
 		 * Translate akms in akm suite
 		 */
 		for (i = 0; i < dot11_wpa_ie.auth_suite_count; i++)
-			akm_list->authType[i] =
+			akm_list.authType[i] =
 				hdd_translate_wpa_to_csr_auth_type(
 						     dot11_wpa_ie.auth_suites[i]);
-		akm_list->numEntries = dot11_wpa_ie.auth_suite_count;
+		akm_list.numEntries = dot11_wpa_ie.auth_suite_count;
 		/* dot11_wpa_ie.unicast_cipher_count */
 		*encrypt_type =
 			hdd_translate_wpa_to_csr_encryption_type(dot11_wpa_ie.
 								 unicast_ciphers[0]);
 		/* dot11_wpa_ie.unicast_cipher_count */
-		*mc_encrypt_type =
+		mc_encrypt_type =
 			hdd_translate_wpa_to_csr_encryption_type(dot11_wpa_ie.
 								 multicast_cipher);
 		*mfp_capable = false;
@@ -3740,17 +3740,17 @@ static int hdd_softap_unpack_ie(mac_handle_t mac_handle,
 		 * Translate akms in akm suite
 		 */
 		for (i = 0; i < dot11_wapi_ie.akm_suite_count; i++)
-			akm_list->authType[i] =
+			akm_list.authType[i] =
 				hdd_translate_wapi_to_csr_auth_type(
 						dot11_wapi_ie.akm_suites[i]);
 
-		akm_list->numEntries = dot11_wapi_ie.akm_suite_count;
+		akm_list.numEntries = dot11_wapi_ie.akm_suite_count;
 		/* dot11_wapi_ie.akm_suite_count */
 		*encrypt_type =
 			hdd_translate_wapi_to_csr_encryption_type(
 				dot11_wapi_ie.unicast_cipher_suites[0]);
 		/* dot11_wapi_ie.unicast_cipher_count */
-		*mc_encrypt_type =
+		mc_encrypt_type =
 			hdd_translate_wapi_to_csr_encryption_type(
 				dot11_wapi_ie.multicast_cipher_suite);
 		*mfp_capable = false;
@@ -3759,6 +3759,12 @@ static int hdd_softap_unpack_ie(mac_handle_t mac_handle,
 		hdd_err("gen_ie[0]: %d", gen_ie[0]);
 		return QDF_STATUS_E_FAILURE;
 	}
+
+	hdd_debug("CSR Encryption: %d mcEncryption: %d num_akm_suites:%d",
+		  *encrypt_type, mc_encrypt_type, akm_list.numEntries);
+	QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_HDD, QDF_TRACE_LEVEL_DEBUG,
+			   akm_list.authType, akm_list.numEntries);
+
 	return QDF_STATUS_SUCCESS;
 }
 
@@ -6940,7 +6946,6 @@ int wlan_hdd_cfg80211_start_bss(struct wlan_hdd_link_info *link_info,
 	struct ieee80211_mgmt mgmt;
 	const uint8_t *ie = NULL;
 	eCsrEncryptionType rsn_encrypt_type;
-	eCsrEncryptionType mc_rsn_encrypt_type;
 	uint16_t capab_info;
 	int status = QDF_STATUS_SUCCESS, ret;
 	int qdf_status = QDF_STATUS_SUCCESS;
@@ -7233,8 +7238,6 @@ int wlan_hdd_cfg80211_start_bss(struct wlan_hdd_link_info *link_info,
 			hdd_softap_unpack_ie(cds_get_context
 						     (QDF_MODULE_ID_SME),
 					     &rsn_encrypt_type,
-					     &mc_rsn_encrypt_type,
-					     &config->akm_list,
 					     &mfp_capable,
 					     &mfp_required,
 					     config->RSNWPAReqIE[1] + 2,
@@ -7247,14 +7250,6 @@ int wlan_hdd_cfg80211_start_bss(struct wlan_hdd_link_info *link_info,
 			 * parsed out. Use the cipher type in the RSN IE
 			 */
 			ap_ctx->encryption_type = rsn_encrypt_type;
-			hdd_debug("CSR Encryption: %d mcEncryption: %d num_akm_suites:%d",
-				  rsn_encrypt_type, mc_rsn_encrypt_type,
-				  config->akm_list.numEntries);
-			QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_HDD,
-					   QDF_TRACE_LEVEL_DEBUG,
-					   config->akm_list.authType,
-					   config->akm_list.numEntries);
-
 			hdd_softap_update_pasn_vdev_params(
 					hdd_ctx, link_info->vdev_id,
 					beacon, mfp_capable, mfp_required);
@@ -7288,8 +7283,6 @@ int wlan_hdd_cfg80211_start_bss(struct wlan_hdd_link_info *link_info,
 			status = hdd_softap_unpack_ie
 					(cds_get_context(QDF_MODULE_ID_SME),
 					 &rsn_encrypt_type,
-					 &mc_rsn_encrypt_type,
-					 &config->akm_list,
 					 &mfp_capable, &mfp_required,
 					 config->RSNWPAReqIE[1] + 2,
 					 config->RSNWPAReqIE);
@@ -7299,13 +7292,6 @@ int wlan_hdd_cfg80211_start_bss(struct wlan_hdd_link_info *link_info,
 				goto error;
 			} else {
 				ap_ctx->encryption_type = rsn_encrypt_type;
-				hdd_debug("CSR Encryption: %d mcEncryption: %d num_akm_suites:%d",
-					  rsn_encrypt_type, mc_rsn_encrypt_type,
-					  config->akm_list.numEntries);
-				QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_HDD,
-						   QDF_TRACE_LEVEL_DEBUG,
-						   config->akm_list.authType,
-						   config->akm_list.numEntries);
 			}
 		}
 	}

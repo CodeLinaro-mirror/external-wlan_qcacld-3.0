@@ -556,7 +556,6 @@ struct sap_config {
 	/* Max ie length 255 * 2(WPA+RSN) + 2 bytes(vendor specific ID) * 2 */
 	uint8_t RSNWPAReqIE[(WLAN_MAX_IE_LEN * 2) + 4];
 	eSapAuthType authType;
-	tCsrAuthList akm_list;
 	bool privacy;
 	/* 0 - disabled, 1 - not configured , 2 - configured */
 	uint8_t wps_state;
