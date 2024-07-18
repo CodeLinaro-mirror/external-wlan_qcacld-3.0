@@ -342,7 +342,9 @@ lim_send_probe_req_mgmt_frame(struct mac_context *mac_ctx,
 	if (IS_DOT11_MODE_EHT(dot11mode) && pesession &&
 			pesession->lim_join_req) {
 		lim_update_session_eht_capable(mac_ctx, pesession);
-		mlo_ie_len = lim_send_probe_req_frame_mlo(mac_ctx, pesession);
+		if (pesession->rsno_gen_used != RSNO_GEN_WIFI6)
+			mlo_ie_len = lim_send_probe_req_frame_mlo(mac_ctx,
+								  pesession);
 	}
 
 	populate_dot11f_eht_caps(mac_ctx, pesession, &pr->eht_cap);
@@ -2411,7 +2413,7 @@ lim_send_assoc_req_mgmt_frame(struct mac_context *mac_ctx,
 	uint8_t *eht_cap_ie = NULL, eht_cap_ie_len = 0;
 	bool bss_mfp_capable, frag_ie_present = false;
 	int8_t peer_rssi = 0;
-	bool is_band_2g;
+	bool is_band_2g, is_ml_ap = false;
 	uint16_t ie_buf_size;
 	uint16_t mlo_ie_len, fils_hlp_ie_len = 0;
 	uint8_t *fils_hlp_ie = NULL;
@@ -2653,12 +2655,17 @@ lim_send_assoc_req_mgmt_frame(struct mac_context *mac_ctx,
 		lim_strip_mlo_ie(mac_ctx, add_ie, &add_ie_len);
 	}
 
-	mlo_ie_len = lim_fill_assoc_req_mlo_ie(mac_ctx, pe_session, frm);
+	if (pe_session->rsno_gen_used != RSNO_GEN_WIFI6)
+		is_ml_ap = true;
+
+	if (is_ml_ap)
+		mlo_ie_len = lim_fill_assoc_req_mlo_ie(mac_ctx, pe_session,
+						       frm);
 
 	/**
 	 * In case of ML connection, if ML IE length is 0 then return failure.
 	 */
-	if (mlo_is_mld_sta(pe_session->vdev) && !mlo_ie_len) {
+	if (is_ml_ap && mlo_is_mld_sta(pe_session->vdev) && !mlo_ie_len) {
 		pe_err("Failed to add ML IE for vdev:%d", pe_session->vdev_id);
 		goto end;
 	}
