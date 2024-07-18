@@ -714,6 +714,7 @@ struct dfs_p2p_group_info {
  * @cal_tpc_post_csa: Recalculate tx power power csa
  * @wnm_action_dialog_token: Dialog token for WNM action frames.
  * @dfs_p2p_info: DFS P2P group operation info.
+ * @rsno_gen_used: rsno gen used for connection
  */
 struct pe_session {
 	uint8_t available;
@@ -1049,6 +1050,7 @@ struct pe_session {
 
 	uint8_t wnm_action_dialog_token;
 	struct dfs_p2p_group_info dfs_p2p_info;
+	uint8_t rsno_gen_used;
 };
 
 /*-------------------------------------------------------------------------
