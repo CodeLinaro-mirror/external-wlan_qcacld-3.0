@@ -661,6 +661,7 @@ struct wlan_mlo_ie_info {
  * @user_edca_set:
  * @is_oui_auth_assoc_6mbps_2ghz_enable: send auth/assoc req with 6 Mbps rate
  * on 2.4 GHz
+ * @rsno_gen_used: rsno gen used for connection
  */
 struct pe_session {
 	uint8_t available;
@@ -987,6 +988,7 @@ struct pe_session {
 #endif /* WLAN_FEATURE_11BE */
 	uint8_t user_edca_set;
 	bool is_oui_auth_assoc_6mbps_2ghz_enable;
+	uint8_t rsno_gen_used;
 };
 
 /*-------------------------------------------------------------------------
