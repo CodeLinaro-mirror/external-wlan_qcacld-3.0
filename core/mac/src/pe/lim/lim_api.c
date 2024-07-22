@@ -3985,6 +3985,31 @@ free_cache_entry:
 	qdf_mem_free(cache_entry);
 	return status;
 }
+
+static
+QDF_STATUS lim_mlo_check_cmn_akm(struct mac_context *mac_ctx,
+				 struct wlan_objmgr_vdev *vdev,
+				 struct qdf_mac_addr *link_addr)
+{
+	struct wlan_objmgr_pdev *pdev;
+	struct scan_cache_entry *cache_entry;
+
+	pdev = mac_ctx->pdev;
+	if (!pdev) {
+		pe_err("pdev is NULL");
+		return QDF_STATUS_E_NULL_VALUE;
+	}
+
+	cache_entry =
+		wlan_scan_entry_from_bssid_and_crypto(pdev, link_addr,
+						      wlan_vdev_get_id(vdev));
+	if (!cache_entry)
+		return QDF_STATUS_E_FAILURE;
+
+	util_scan_free_cache_entry(cache_entry);
+
+	return QDF_STATUS_SUCCESS;
+}
 #else
 static inline void
 lim_clear_ml_partner_info(struct pe_session *session_entry)
@@ -3997,6 +4022,14 @@ lim_check_db_for_join_req_partner_info(struct pe_session *session_entry,
 {
 
 	return QDF_STATUS_E_FAILURE;
+}
+
+static
+QDF_STATUS lim_mlo_check_cmn_akm(struct mac_context *mac_ctx,
+				 struct wlan_objmgr_vdev *vdev,
+				 struct qdf_mac_addr *link_addr)
+{
+	return QDF_STATUS_SUCCESS;
 }
 #endif
 
@@ -4157,6 +4190,14 @@ lim_gen_link_specific_probe_rsp(struct mac_context *mac_ctx,
 				if (QDF_IS_STATUS_ERROR(status))
 				       lim_clear_ml_partner_info(session_entry);
 
+				goto end;
+			}
+			status = lim_mlo_check_cmn_akm(mac_ctx,
+						       session_entry->vdev,
+						       &link_info->link_addr);
+			if (QDF_IS_STATUS_ERROR(status)) {
+				pe_err("Failed to get cmn AKM in partner");
+				lim_clear_ml_partner_info(session_entry);
 				goto end;
 			}
 		}

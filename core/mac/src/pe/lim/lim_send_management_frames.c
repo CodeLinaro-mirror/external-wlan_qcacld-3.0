@@ -2415,7 +2415,7 @@ lim_send_assoc_req_mgmt_frame(struct mac_context *mac_ctx,
 	int8_t peer_rssi = 0;
 	bool is_band_2g, is_ml_ap = false;
 	uint16_t ie_buf_size;
-	uint16_t mlo_ie_len, fils_hlp_ie_len = 0;
+	uint16_t mlo_ie_len = 0, fils_hlp_ie_len = 0;
 	uint8_t *fils_hlp_ie = NULL;
 
 	if (!pe_session) {
