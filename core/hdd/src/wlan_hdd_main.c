@@ -827,7 +827,7 @@ uint8_t g_wlan_driver_version[] = QWLAN_VERSIONSTR TIMER_MANAGER_STR MEMORY_DEBU
 #endif
 
 int hdd_validate_channel_and_bandwidth(struct hdd_adapter *adapter,
-				       qdf_freq_t chan_freq,
+				       qdf_freq_t chan_freq, uint32_t ccfs1,
 				       enum phy_ch_width chan_bw)
 {
 	struct ch_params ch_params = {0};
@@ -852,6 +852,7 @@ int hdd_validate_channel_and_bandwidth(struct hdd_adapter *adapter,
 		return -EINVAL;
 	}
 	ch_params.ch_width = CH_WIDTH_MAX;
+	ch_params.mhz_freq_seg1 = ccfs1;
 	wlan_reg_set_channel_params_for_pwrmode(hdd_ctx->pdev, chan_freq,
 						0, &ch_params,
 						REG_CURRENT_PWR_MODE);
@@ -10650,6 +10651,7 @@ int wlan_hdd_validate_mon_params(struct hdd_adapter *adapter,
 
 		ret = hdd_validate_channel_and_bandwidth(adapter,
 							 mon_params[index].freq,
+							 0,
 							 mon_params[index].bandwidth);
 		if (ret) {
 			hdd_err("Invalid CH %d and BW %d combo",
@@ -10735,7 +10737,7 @@ int wlan_hdd_set_mon_chan(struct hdd_adapter *adapter)
 		}
 
 		ret = hdd_validate_channel_and_bandwidth(adapter,
-							 mon_ctx->freq,
+							 mon_ctx->freq, 0,
 							 mon_ctx->bandwidth);
 		if (ret) {
 			hdd_err("Invalid CH %d and BW %d combo",
