@@ -190,6 +190,9 @@
 #define WMA_NAN_PASN_PEER_CREATE_RESPONSE 0x0c
 #define WMA_NAN_PASN_PEER_DELETE_RESPONSE 0x0d
 
+/* Delete peer response for existing ranging peer */
+#define WMA_DELETE_STA_EXISTING_PASN_PEER_RSP 0x0e
+
 /* FW response timeout values in milli seconds */
 #define WMA_VDEV_PLCY_MGR_TIMEOUT        SIR_VDEV_PLCY_MGR_TIMEOUT
 #define WMA_VDEV_HW_MODE_REQUEST_TIMEOUT WMA_VDEV_PLCY_MGR_TIMEOUT
@@ -1789,7 +1792,28 @@ void wma_peer_tbl_trans_add_entry(struct wlan_objmgr_peer *peer, bool is_create,
 static inline void
 wma_peer_tbl_trans_add_entry(struct wlan_objmgr_peer *peer, bool is_create,
 			     struct cdp_peer_setup_info *peer_info)
+{}
+#endif
+
+#if defined(WIFI_POS_CONVERGED) && defined(WLAN_FEATURE_RTT_11AZ_SUPPORT)
+/**
+ * wma_remove_existing_pasn_peer() - Remove existing PASN peer
+ * This API is called in association request to existing PASN peer case
+ * to delete the PASN peer and create a new peer.
+ * @psoc: Pointer to PSOC object
+ * @req:  Peer create request
+ * @is_del_rsp_supported: Is delete response supported
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS wma_remove_existing_pasn_peer(struct wlan_objmgr_psoc *psoc,
+					 struct cm_peer_create_req *req);
+#else
+static inline
+QDF_STATUS wma_remove_existing_pasn_peer(struct wlan_objmgr_psoc *psoc,
+					 struct cm_peer_create_req *req)
 {
+	return QDF_STATUS_E_NOSUPPORT;
 }
 #endif
 

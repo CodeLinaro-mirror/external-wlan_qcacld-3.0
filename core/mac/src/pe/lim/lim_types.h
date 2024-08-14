@@ -1790,6 +1790,15 @@ lim_pasn_peer_del_all_resp_vdev_delete_resume(struct mac_context *mac,
 #endif
 
 /**
+ * lim_continue_bss_peer_create() - Continue bss peer create after
+ * deleting the existing ranging peer.
+ * @req: Peer create request pointer
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS lim_continue_bss_peer_create(struct cm_peer_create_req *req);
+
+/**
  * lim_send_peer_create_resp() -  Send peer create response
  * @mac:     Pointer to MAC context
  * @vdev_id: vdev id
