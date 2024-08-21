@@ -208,4 +208,37 @@ void wlan_hdd_set_mcc_latency(struct hdd_adapter *adapter, int set_value);
  * Return: None
  */
 void wlan_hdd_cleanup_actionframe(struct wlan_hdd_link_info *link_info);
+
+#ifdef FEATURE_WLAN_SUPPORT_USD
+/**
+ * wlan_hdd_cfg80211_p2p_parse_wfd_params - this function start VDEV sync and
+ * calls function __wlan_hdd_cfg80211_p2p_parse_wfdr2_params()
+ * @wiphy: pointer to wiphy structure
+ * @wdev: pointer to wireless device
+ * @data: pointer to data
+ * @data_len: data length
+ *
+ * Return: 0 on success, negative errno if error
+ */
+int wlan_hdd_cfg80211_p2p_parse_wfd_params(struct wiphy *wiphy,
+					   struct wireless_dev *wdev,
+					   const void *data, int data_len);
+
+extern const struct nla_policy
+p2p_wfdr2_attr_policy[QCA_WLAN_VENDOR_ATTR_SET_P2P_MODE_MAX + 1];
+
+#define FEATURE_P2P_SET_MODE_VENDOR_COMMANDS			\
+{								\
+	.info.vendor_id = QCA_NL80211_VENDOR_ID,		\
+	.info.subcmd =						\
+		QCA_NL80211_VENDOR_SUBCMD_SET_P2P_MODE,		\
+	.flags = WIPHY_VENDOR_CMD_NEED_WDEV |			\
+			WIPHY_VENDOR_CMD_NEED_NETDEV,		\
+	.doit = wlan_hdd_cfg80211_p2p_parse_wfd_params,	\
+	vendor_command_policy(p2p_wfdr2_attr_policy,		\
+			      QCA_WLAN_VENDOR_ATTR_SET_P2P_MODE_MAX)	\
+},
+#else
+#define FEATURE_P2P_SET_MODE_VENDOR_COMMANDS
+#endif /* FEATURE_WLAN_SUPPORT_USD */
 #endif /* __P2P_H */

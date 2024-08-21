@@ -2032,4 +2032,21 @@ wlan_find_peer_and_get_mac_and_mld_addr(
 				struct wlan_objmgr_psoc *psoc,
 				struct peer_mac_addresses *peer_mac_info);
 
+#ifdef FEATURE_WLAN_SUPPORT_USD
+/**
+ * wlan_get_wfd_mode_from_vdev_id() - Get WFD mode from VDEV ID
+ * @psoc: pointer to PSOC object
+ * @vdev_id: VDEV ID
+ *
+ * Return: WFD mode
+ */
+uint8_t wlan_get_wfd_mode_from_vdev_id(struct wlan_objmgr_psoc *psoc,
+				       uint8_t vdev_id);
+#else
+static inline uint8_t
+wlan_get_wfd_mode_from_vdev_id(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id)
+{
+	return 0xFF;
+}
+#endif /* FEATURE_WLAN_SUPPORT_USD */
 #endif

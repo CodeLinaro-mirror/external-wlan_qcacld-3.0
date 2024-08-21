@@ -5874,3 +5874,24 @@ QDF_STATUS wlan_find_peer_and_get_mac_and_mld_addr(
 
 	return status;
 }
+
+#ifdef FEATURE_WLAN_SUPPORT_USD
+uint8_t wlan_get_wfd_mode_from_vdev_id(struct wlan_objmgr_psoc *psoc,
+				       uint8_t vdev_id)
+{
+	struct wlan_objmgr_vdev *vdev;
+	uint8_t wfd_mode = P2P_MODE_WFD_INVALID;
+
+	if (!psoc)
+		return wfd_mode;
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id, WLAN_P2P_ID);
+	if (!vdev)
+		return wfd_mode;
+
+	wfd_mode = wlan_vdev_mlme_get_wfd_mode(vdev);
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_P2P_ID);
+
+	return wfd_mode;
+}
+#endif
