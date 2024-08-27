@@ -1798,3 +1798,8 @@ end:
 
 	return status;
 }
+
+struct qdf_mac_addr *ucfg_nan_get_fw_addr(struct wlan_objmgr_psoc *psoc)
+{
+	return nan_get_fw_addr(psoc);
+}
