@@ -568,6 +568,7 @@ ucfg_p2p_extract_ap_assist_dfs_params(struct wlan_objmgr_vdev *vdev,
  * @vdev: VDEV object manager
  * @is_dfs_owner: Pointer to get the DFS owner cap
  * @is_valid_ap_assist: Is valid AP assist params
+ * @is_usr_restrict_csa: Is CSA restricted by user
  * @ap_bssid: BSSID of the assisted AP
  * @opclass: Operating class of the assisted AP
  * @chan: Channel number of assisted AP
@@ -577,6 +578,7 @@ ucfg_p2p_extract_ap_assist_dfs_params(struct wlan_objmgr_vdev *vdev,
 QDF_STATUS ucfg_p2p_get_ap_assist_dfs_params(struct wlan_objmgr_vdev *vdev,
 					     bool *is_dfs_owner,
 					     bool *is_valid_ap_assist,
+					     bool *is_usr_restrict_csa,
 					     struct qdf_mac_addr *ap_bssid,
 					     uint8_t *opclass, uint8_t *chan);
 
@@ -591,4 +593,17 @@ QDF_STATUS ucfg_p2p_get_ap_assist_dfs_params(struct wlan_objmgr_vdev *vdev,
  * Return: QDF_STATUS
  */
 QDF_STATUS ucfg_p2p_check_ap_assist_dfs_group_go(struct wlan_objmgr_vdev *vdev);
+
+/**
+ * ucfg_p2p_force_restrict_dfs_go_csa() - User restricted CSA for assisted P2P
+ * group operation
+ * @vdev: VDEV object manager
+ * @val: Value from user.
+ *
+ * Test configuration to restrict CSA from happening via assisted P2P group
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+ucfg_p2p_force_restrict_dfs_go_csa(struct wlan_objmgr_vdev *vdev, bool val);
 #endif /* _WLAN_P2P_UCFG_API_H_ */

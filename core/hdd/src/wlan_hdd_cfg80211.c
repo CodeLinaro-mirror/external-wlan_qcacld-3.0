@@ -8913,7 +8913,9 @@ wlan_hdd_wifi_test_config_policy[
 		[QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_EHT_SCS_TRAFFIC_SUPPORT] = {
 			.type = NLA_U8},
 		[QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_RSNE_ADD_RANDOM_PMKIDS] = {
-			.type = NLA_U8}
+			.type = NLA_U8},
+		[QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_DISABLE_CHAN_SWITCH_INITIATION] = {
+			.type = NLA_U8},
 };
 
 /**
@@ -14864,6 +14866,7 @@ __wlan_hdd_cfg80211_set_wifi_test_config(struct wiphy *wiphy,
 	struct hdd_station_ctx *hdd_sta_ctx =
 			WLAN_HDD_GET_STATION_CTX_PTR(link_info);
 	uint8_t op_mode;
+	struct wlan_objmgr_vdev *vdev;
 
 	hdd_enter_dev(dev);
 
@@ -16021,6 +16024,21 @@ __wlan_hdd_cfg80211_set_wifi_test_config(struct wiphy *wiphy,
 		wlan_crypto_set_vdev_param(link_info->vdev,
 					   WLAN_CRYPTO_PARAM_RANDOM_PMKID,
 					   cfg_val);
+	}
+
+	cmd_id = QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_DISABLE_CHAN_SWITCH_INITIATION;
+	if (tb[cmd_id] && adapter->device_mode == QDF_P2P_GO_MODE) {
+		cfg_val = nla_get_u8(tb[cmd_id]);
+		hdd_debug("Restrict CSA params %d", cfg_val);
+		vdev = hdd_objmgr_get_vdev_by_user(link_info, WLAN_OSIF_ID);
+		if (vdev) {
+			status = ucfg_p2p_force_restrict_dfs_go_csa(vdev,
+								    cfg_val);
+			hdd_objmgr_put_vdev_by_user(vdev, WLAN_OSIF_ID);
+			ret_val = qdf_status_to_os_return(status);
+		} else {
+			ret_val = qdf_status_to_os_return(QDF_STATUS_E_INVAL);
+		}
 	}
 
 	if (update_sme_cfg)
