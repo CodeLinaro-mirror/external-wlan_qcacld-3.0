@@ -717,6 +717,15 @@ QDF_STATUS p2p_send_usd_params(struct wlan_objmgr_psoc *psoc,
  * Return: bool
  */
 bool p2p_is_vdev_wfd_r2_mode(struct wlan_objmgr_vdev *vdev);
+
+/**
+ * p2p_is_fw_support_usd() - wrapper API for API
+ * tgt_p2p_is_fw_support_usd()
+ * @psoc: pointer to PSOC object
+ *
+ * Return: true if USD is supported by FW else false
+ */
+bool p2p_is_fw_support_usd(struct wlan_objmgr_psoc *psoc);
 #else
 static inline bool p2p_is_vdev_wfd_r2_mode(struct wlan_objmgr_vdev *vdev)
 {
