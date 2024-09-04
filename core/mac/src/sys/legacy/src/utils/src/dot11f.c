@@ -6972,7 +6972,7 @@ uint32_t dot11f_unpack_ie_rsn(tpAniSirGlobal pCtx,
 	}
 
 	if (!pDst->pwise_cipher_suite_count ||
-		pDst->pwise_cipher_suite_count > 6) {
+		pDst->pwise_cipher_suite_count > 60) {
 		pDst->present = 0;
 		return DOT11F_SKIPPED_BAD_IE;
 	}
@@ -7003,7 +7003,7 @@ uint32_t dot11f_unpack_ie_rsn(tpAniSirGlobal pCtx,
 	}
 
 	if (!pDst->akm_suite_cnt ||
-		pDst->akm_suite_cnt > 6) {
+		pDst->akm_suite_cnt > 60) {
 		pDst->present = 0;
 		return DOT11F_SKIPPED_BAD_IE;
 	}
@@ -7046,7 +7046,7 @@ uint32_t dot11f_unpack_ie_rsn(tpAniSirGlobal pCtx,
 		return DOT11F_INCOMPLETE_IE;
 	}
 
-	if (pDst->pmkid_count > 4) {
+	if (pDst->pmkid_count > 12) {
 		pDst->present = 0;
 		return DOT11F_SKIPPED_BAD_IE;
 	}
@@ -11467,7 +11467,7 @@ static const tIEDefn IES_Beacon[] = {
 	present), 0, "ExtSuppRates", 0, 3, 14, SigIeExtSuppRates, {0, 0, 0, 0, 0},
 	0, DOT11F_EID_EXTSUPPRATES, 0, 0, },
 	{ offsetof(tDot11fBeacon, RSN), offsetof(tDot11fIERSN, present), 0, "RSN",
-	0, 4, 132, SigIeRSN, {0, 0, 0, 0, 0}, 0, DOT11F_EID_RSN, 0, 0, },
+	0, 4, 255, SigIeRSN, {0, 0, 0, 0, 0}, 0, DOT11F_EID_RSN, 0, 0, },
 	{ offsetof(tDot11fBeacon, QBSSLoad), offsetof(tDot11fIEQBSSLoad, present),
 	0, "QBSSLoad", 0, 7, 7, SigIeQBSSLoad, {0, 0, 0, 0, 0},
 	0, DOT11F_EID_QBSSLOAD, 0, 0, },
@@ -11975,7 +11975,7 @@ static const tIEDefn IES_BeaconIEs[] = {
 	0, 3, 14, SigIeExtSuppRates, {0, 0, 0, 0, 0},
 	0, DOT11F_EID_EXTSUPPRATES, 0, 0, },
 	{ offsetof(tDot11fBeaconIEs, RSN), offsetof(tDot11fIERSN, present), 0,
-	"RSN", 0, 4, 132, SigIeRSN, {0, 0, 0, 0, 0}, 0, DOT11F_EID_RSN, 0, 0, },
+	"RSN", 0, 4, 255, SigIeRSN, {0, 0, 0, 0, 0}, 0, DOT11F_EID_RSN, 0, 0, },
 	{ offsetof(tDot11fBeaconIEs, QBSSLoad), offsetof(tDot11fIEQBSSLoad,
 	present), 0, "QBSSLoad", 0, 7, 7, SigIeQBSSLoad, {0, 0, 0, 0, 0},
 	0, DOT11F_EID_QBSSLOAD, 0, 0, },
