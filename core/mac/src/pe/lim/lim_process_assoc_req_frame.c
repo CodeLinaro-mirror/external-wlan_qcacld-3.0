@@ -271,12 +271,12 @@ static bool lim_chk_assoc_req_parse_error(struct mac_context *mac_ctx,
 						frm_body, frame_len, assoc_req);
 
 	if (wlan_status == STATUS_SUCCESS) {
-		qdf_status = lim_strip_and_decode_eht_cap(
-					frm_body + WLAN_ASSOC_REQ_IES_OFFSET,
-					frame_len - WLAN_ASSOC_REQ_IES_OFFSET,
-					&assoc_req->eht_cap,
-					assoc_req->he_cap,
-					session->curr_op_freq);
+		qdf_status = lim_strip_and_decode_eht_cap(frm_body + WLAN_ASSOC_REQ_IES_OFFSET,
+							  frame_len - WLAN_ASSOC_REQ_IES_OFFSET,
+							  &assoc_req->eht_cap,
+							  assoc_req->he_cap,
+							  session->curr_op_freq,
+							  true);
 		if (QDF_IS_STATUS_ERROR(qdf_status)) {
 			pe_err("Failed to extract eht cap");
 			return false;
