@@ -706,6 +706,20 @@ const uint8_t *p2p_parse_assoc_ie_for_device_info(const uint8_t *assoc_ie,
  */
 QDF_STATUS p2p_send_usd_params(struct wlan_objmgr_psoc *psoc,
 			       struct p2p_usd_attr_params *param);
+
+/**
+ * p2p_is_vdev_wfd_r2_mode() - Returns true if current mode of VDEV operation
+ * is WFD-R2.
+ * @vdev: VDEV object manager.
+ *
+ * Return: bool
+ */
+bool p2p_is_vdev_wfd_r2_mode(struct wlan_objmgr_vdev *vdev);
+#else
+static inline bool p2p_is_vdev_wfd_r2_mode(struct wlan_objmgr_vdev *vdev)
+{
+	return false;
+}
 #endif /* FEATURE_WLAN_SUPPORT_USD */
 
 /**
