@@ -7533,13 +7533,13 @@ typedef struct sDot11fIERSN {
 	uint8_t             gp_cipher_suite_present;
 	uint8_t             gp_cipher_suite[4];
 	uint16_t            pwise_cipher_suite_count;
-	uint8_t             pwise_cipher_suites[6][4];
+	uint8_t             pwise_cipher_suites[60][4];
 	uint16_t            akm_suite_cnt;
-	uint8_t             akm_suite[8][4];
+	uint8_t             akm_suite[60][4];
 	uint8_t             RSN_Cap_present;
 	uint8_t             RSN_Cap[2];
 	uint16_t            pmkid_count;
-	uint8_t             pmkid[4][16];
+	uint8_t             pmkid[12][16];
 	uint8_t             gp_mgmt_cipher_suite_present;
 	uint8_t             gp_mgmt_cipher_suite[4];
 } tDot11fIERSN;
