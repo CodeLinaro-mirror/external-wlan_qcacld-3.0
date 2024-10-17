@@ -5413,6 +5413,26 @@ QDF_STATUS
 ucfg_mlme_get_valid_channels(struct wlan_objmgr_psoc *psoc,
 			     uint32_t *ch_freq_list, uint32_t *list_len);
 
+/*
+ * ucfg_mlme_set_mrsno_support() - Set MRSNO support
+ * @psoc: psoc object
+ * @val: MRSNO support
+ *
+ * Return: QDF STATUS
+ */
+QDF_STATUS
+ucfg_mlme_set_mrsno_support(struct wlan_objmgr_psoc *psoc, bool val);
+
+/*
+ * ucfg_mlme_get_mrsno_support() - Get MRSNO support
+ * @psoc: psoc object
+ * @val: pointer to mrsno support
+ *
+ * Return: QDF STATUS
+ */
+QDF_STATUS
+ucfg_mlme_get_mrsno_support(struct wlan_objmgr_psoc *psoc, bool *val);
+
 /**
  * ucfg_mlme_set_ul_mu_config - set ul mu config
  * @psoc: pointer to psoc object

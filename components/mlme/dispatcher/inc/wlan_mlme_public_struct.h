@@ -2113,6 +2113,7 @@ struct fw_scan_channels {
  * roam invoke fail on nud.
  * @hs20_btm_offload_disable: indicate whether btm offload is enable/disable
  * for Hotspot 2.0
+ * @mrsno_support: FW support for Multi RSNO feature
  */
 struct wlan_mlme_lfr_cfg {
 	bool mawc_roam_enabled;
@@ -2242,6 +2243,7 @@ struct wlan_mlme_lfr_cfg {
 	uint8_t roam_full_scan_6ghz_on_disc;
 	bool disconnect_on_nud_roam_invoke_fail;
 	bool hs20_btm_offload_disable;
+	bool mrsno_support;
 };
 
 /**
