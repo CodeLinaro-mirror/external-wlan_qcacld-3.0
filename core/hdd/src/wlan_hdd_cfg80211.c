@@ -14494,6 +14494,9 @@ __wlan_hdd_cfg80211_set_connect_ext_features(struct wiphy *wiphy,
 		rsno_gen = RSNO_GEN_WIFI7;
 
 	ucfg_scan_set_mrsno_support(wlan_vdev_get_psoc(vdev), rsno_gen);
+	wma_cli_set_command(adapter->deflink->vdev_id,
+			    wmi_vdev_param_connect_ext_features,
+			    ext_features, VDEV_CMD);
 rel:
 	hdd_objmgr_put_vdev_by_user(vdev, WLAN_OSIF_ID);
 	return ret;
