@@ -32380,7 +32380,7 @@ static int wlan_hdd_cfg80211_tx_control_port(struct wiphy *wiphy,
 
 #if defined(CFG80211_CTRL_FRAME_SRC_ADDR_TA_ADDR)
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 24))
 bool wlan_hdd_cfg80211_rx_control_port(struct net_device *dev,
 				       u8 *ta_addr,
 				       struct sk_buff *skb,
