@@ -1189,7 +1189,7 @@ void lim_send_channel_usage_req_notif_cap_action_frame(uint8_t vdev_id)
 
 	tx_flag |= HAL_USE_BD_RATE2_FOR_MANAGEMENT_FRAME;
 
-	mgmt_txrx_frame_hex_dump(frame_ptr, num_bytes, true);
+	qdf_trace_hex_dump(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG, frame_ptr, num_bytes);
 
 	qdf_status = wma_tx_frame(mac, pkt_ptr, (uint16_t)num_bytes,
 				  TXRX_FRM_802_11_MGMT, ANI_TXDIR_TODS,
@@ -1353,9 +1353,7 @@ pack_frame:
 	 * the timer will be started on receivng tx completion from FW.
 	 */
 	tx_timer_deactivate(&mac_ctx->lim.lim_timers.channel_vacate_timer);
-
-	mgmt_txrx_frame_hex_dump(frame_ptr, num_bytes, true);
-
+	qdf_trace_hex_dump(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG, frame_ptr, num_bytes);
 	qdf_status = wma_tx_frameWithTxComplete(mac_ctx, pkt_ptr,
 						(uint16_t)num_bytes,
 						TXRX_FRM_802_11_MGMT,
