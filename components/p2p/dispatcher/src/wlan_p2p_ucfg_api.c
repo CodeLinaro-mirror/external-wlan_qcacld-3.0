@@ -757,15 +757,23 @@ ucfg_p2p_extract_ap_assist_dfs_params(struct wlan_objmgr_vdev *vdev,
 QDF_STATUS ucfg_p2p_get_ap_assist_dfs_params(struct wlan_objmgr_vdev *vdev,
 					     bool *is_dfs_owner,
 					     bool *is_valid_ap_assist,
+					     bool *is_usr_restrict_csa,
 					     struct qdf_mac_addr *ap_bssid,
 					     uint8_t *opclass, uint8_t *chan)
 {
 	return p2p_get_ap_assist_dfs_params(vdev, is_dfs_owner,
-					    is_valid_ap_assist, ap_bssid,
+					    is_valid_ap_assist,
+					    is_usr_restrict_csa, ap_bssid,
 					    opclass, chan);
 }
 
 QDF_STATUS ucfg_p2p_check_ap_assist_dfs_group_go(struct wlan_objmgr_vdev *vdev)
 {
 	return p2p_check_ap_assist_dfs_group_go(vdev);
+}
+
+QDF_STATUS
+ucfg_p2p_force_restrict_dfs_go_csa(struct wlan_objmgr_vdev *vdev, bool val)
+{
+	return p2p_force_restrict_dfs_go_csa(vdev, val);
 }
