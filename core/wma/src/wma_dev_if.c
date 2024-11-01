@@ -1802,7 +1802,6 @@ wma_remove_existing_pasn_peer(struct wlan_objmgr_psoc *psoc,
 	wma_debug("vdev:%d Wait for the peer delete response", vdev_id);
 	del_req = wma_fill_hold_req(wma, vdev_id,
 				    WMA_DELETE_STA_REQ, req_type,
-				    req->peer_mac.bytes,
 				    req, WMA_DELETE_STA_TIMEOUT);
 	if (!del_req) {
 		wma_err("vdev:%d Failed to allocate request", vdev_id);
