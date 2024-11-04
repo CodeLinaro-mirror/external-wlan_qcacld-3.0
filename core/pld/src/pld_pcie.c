@@ -355,9 +355,6 @@ enum pld_bus_event pld_bus_event_type_convert(enum cnss_bus_event_type etype)
 	case BUS_EVENT_PCI_LINK_DOWN:
 		pld_etype = PLD_BUS_EVENT_PCIE_LINK_DOWN;
 		break;
-	case BUS_EVENT_PCI_LINK_RESUME_FAIL:
-		pld_etype = PLD_BUS_EVENT_PCIE_LINK_RESUME_FAIL;
-		break;
 	default:
 		break;
 	}
