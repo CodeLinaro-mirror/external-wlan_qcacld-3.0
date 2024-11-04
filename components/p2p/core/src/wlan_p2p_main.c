@@ -2003,8 +2003,7 @@ bool p2p_fw_support_ap_assist_dfs_group(struct wlan_objmgr_psoc *psoc)
 	if (!wmi_handle)
 		return false;
 
-	return wmi_service_enabled(wmi_handle,
-				   wmi_service_ap_assisted_dfs_chan_p2p_session);
+	return true;
 }
 
 QDF_STATUS p2p_validate_ap_assist_dfs_group(struct wlan_objmgr_vdev *vdev)
