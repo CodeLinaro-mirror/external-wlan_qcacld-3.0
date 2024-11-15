@@ -9259,7 +9259,7 @@ lim_calculate_peer_ch_width(struct pe_session *session,
 	peer_org_bw = wlan_mlme_get_peer_ch_width(
 				wlan_vdev_get_psoc(session->vdev), mac_addr);
 
-	updated_bw = new_ch_width;
+	updated_bw = peer_org_bw;
 
 	qdf_mem_copy(&data.peer_mac_address.bytes, mac_addr, QDF_MAC_ADDR_SIZE);
 	status = wlan_mlme_get_peer_indicated_ch_width(
@@ -9271,7 +9271,8 @@ lim_calculate_peer_ch_width(struct pe_session *session,
 		 QDF_MAC_ADDR_REF(mac_addr), peer_org_bw, updated_bw,
 		 new_ch_width);
 
-	return qdf_min(peer_org_bw, qdf_min(updated_bw, new_ch_width));
+	return session->ch_width > QDF_MIN(peer_org_bw, updated_bw) ?
+			QDF_MIN(updated_bw, new_ch_width) : new_ch_width;
 }
 
 static void
