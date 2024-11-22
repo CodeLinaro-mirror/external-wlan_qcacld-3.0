@@ -55,7 +55,9 @@ struct hdd_adapter_create_param {
 #endif
 
 #if defined(WLAN_FEATURE_11BE_MLO) && defined(CFG80211_11BE_BASIC)
-#define hdd_adapter_is_ml_adapter(x)   ((x)->mlo_adapter_info.is_ml_adapter)
+#define hdd_adapter_is_ml_adapter(x) \
+	(((x)->mlo_adapter_info.is_ml_adapter) && \
+	 ((x)->device_mode == QDF_STA_MODE || (x)->device_mode == QDF_SAP_MODE))
 
 /* MLO_STATE_COMMANDS */
 #define FEATURE_ML_LINK_STATE_COMMANDS					\
