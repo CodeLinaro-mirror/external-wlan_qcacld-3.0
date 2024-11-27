@@ -8022,7 +8022,7 @@ twt_get_responder_flag(struct mac_context *mac)
 #ifdef WLAN_SUPPORT_TWT
 static void
 populate_dot11f_twt_he_cap(struct mac_context *mac,
-			   struct pe_session *session,
+			   enum QDF_OPMODE opmode,
 			   tDot11fIEhe_cap *he_cap)
 {
 	bool twt_requestor = false;
@@ -8036,7 +8036,7 @@ populate_dot11f_twt_he_cap(struct mac_context *mac,
 	wlan_twt_get_bcast_responder_cfg(mac->psoc, &bcast_responder);
 
 	he_cap->broadcast_twt = 0;
-	switch (session->opmode) {
+	switch (opmode) {
 	case QDF_STA_MODE:
 	case QDF_P2P_CLIENT_MODE:
 		wlan_twt_get_requestor_cfg(mac->psoc, &twt_requestor);
@@ -8050,8 +8050,8 @@ populate_dot11f_twt_he_cap(struct mac_context *mac,
 		he_cap->twt_responder =
 			twt_responder && twt_get_responder_flag(mac);
 		he_cap->broadcast_twt = bcast_responder;
-		pe_debug("vdev:%d bcast_responder:%d twt_responder:%d",
-			 session->vdev_id, he_cap->broadcast_twt,
+		pe_debug("opmode:%d bcast_responder:%d twt_responder:%d",
+			 opmode, he_cap->broadcast_twt,
 			 he_cap->twt_responder);
 		break;
 	default:
@@ -8061,7 +8061,7 @@ populate_dot11f_twt_he_cap(struct mac_context *mac,
 #else
 static inline void
 populate_dot11f_twt_he_cap(struct mac_context *mac_ctx,
-			   struct pe_session *session,
+			   enum QDF_OPMODE opmode,
 			   tDot11fIEhe_cap *he_cap)
 {
 	he_cap->broadcast_twt = 0;
@@ -8076,7 +8076,10 @@ populate_dot11f_twt_he_cap(struct mac_context *mac_ctx,
  *
  * Populdate the HE capability IE based on the session.
  */
-QDF_STATUS populate_dot11f_he_caps(struct mac_context *mac_ctx, struct pe_session *session,
+QDF_STATUS populate_dot11f_he_caps(struct mac_context *mac_ctx,
+				   struct pe_session *session,
+				   enum QDF_OPMODE opmode, qdf_freq_t freq,
+				   enum phy_ch_width ch_width,
 				   tDot11fIEhe_cap *he_cap)
 {
 	uint8_t *ppet;
@@ -8087,15 +8090,17 @@ QDF_STATUS populate_dot11f_he_caps(struct mac_context *mac_ctx, struct pe_sessio
 	if (!session) {
 		qdf_mem_copy(he_cap, &mac_ctx->mlme_cfg->he_caps.dot11_he_cap,
 			     sizeof(tDot11fIEhe_cap));
-		return QDF_STATUS_SUCCESS;
+		if (!freq)
+			return QDF_STATUS_SUCCESS;
+	} else {
+		/** TODO: String items needs attention. **/
+		qdf_mem_copy(he_cap, &session->he_config, sizeof(*he_cap));
 	}
 
-	/** TODO: String items needs attention. **/
-	qdf_mem_copy(he_cap, &session->he_config, sizeof(*he_cap));
 	if (he_cap->ppet_present) {
 		value = WNI_CFG_HE_PPET_LEN;
 		/* if session is present, populate PPET based on band */
-		if (!wlan_reg_is_24ghz_ch_freq(session->curr_op_freq))
+		if (!wlan_reg_is_24ghz_ch_freq(freq))
 			qdf_mem_copy(he_cap->ppet.ppe_threshold.ppe_th,
 				     mac_ctx->mlme_cfg->he_caps.he_ppet_5g,
 				     value);
@@ -8110,14 +8115,22 @@ QDF_STATUS populate_dot11f_he_caps(struct mac_context *mac_ctx, struct pe_sessio
 	} else {
 		he_cap->ppet.ppe_threshold.num_ppe_th = 0;
 	}
-	populate_dot11f_twt_he_cap(mac_ctx, session, he_cap);
+	populate_dot11f_twt_he_cap(mac_ctx, opmode, he_cap);
 
-	if (wlan_reg_is_5ghz_ch_freq(session->curr_op_freq) ||
-	    wlan_reg_is_6ghz_chan_freq(session->curr_op_freq)) {
-		if (session->ch_width <= CH_WIDTH_80MHZ) {
+	if (WLAN_REG_IS_24GHZ_CH_FREQ(freq)) {
+		he_cap->chan_width_1 = 0;
+		he_cap->chan_width_2 = 0;
+		he_cap->chan_width_3 = 0;
+		he_cap->chan_width_5 = 0;
+		he_cap->chan_width_6 = 0;
+	} else {
+		he_cap->chan_width_0 = 0;
+		he_cap->chan_width_4 = 0;
+		he_cap->chan_width_6 = 0;
+		if (ch_width <= CH_WIDTH_80MHZ) {
 			he_cap->chan_width_2 = 0;
 			he_cap->chan_width_3 = 0;
-		} else if (session->ch_width == CH_WIDTH_160MHZ) {
+		} else if (ch_width == CH_WIDTH_160MHZ) {
 			he_cap->chan_width_3 = 0;
 		}
 	}
@@ -8137,7 +8150,7 @@ populate_dot11f_he_caps_by_band(struct mac_context *mac_ctx,
 		qdf_mem_copy(he_cap, &mac_ctx->he_cap_5g, sizeof(*he_cap));
 
 	if (session)
-		populate_dot11f_twt_he_cap(mac_ctx, session, he_cap);
+		populate_dot11f_twt_he_cap(mac_ctx, session->opmode, he_cap);
 
 	return QDF_STATUS_SUCCESS;
 }
