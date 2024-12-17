@@ -5193,6 +5193,9 @@ endif
 # Flag to enable Constrained Application Protocol feature
 ccflags-$(CONFIG_WLAN_FEATURE_COAP) += -DWLAN_FEATURE_COAP
 
+# Link recfg feature, should move to msm kernel
+ccflags-$(CONFIG_WLAN_FEATURE_LINK_RECFG) += -DCFG80211_SETUP_LINK_RECONFIG_SUPPORT
+
 # SSR driver dump config
 ccflags-$(CONFIG_CNSS2_SSR_DRIVER_DUMP) += -DWLAN_FEATURE_SSR_DRIVER_DUMP
 
