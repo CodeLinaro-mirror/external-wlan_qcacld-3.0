@@ -39,9 +39,9 @@
 #include <stddef.h> /* For offsetof */
 #endif
 
-#include <core/mac/inc/ani_global.h>
-#include <core/mac/src/include/utils_api.h>
-#include "core/mac/src/sys/legacy/src/utils/inc/dot11fdefs.h"
+#include <ani_global.h>
+#include <utils_api.h>
+#include "dot11fdefs.h"
 #include "dot11f.h"
 
 #if defined(_MSC_VER)
