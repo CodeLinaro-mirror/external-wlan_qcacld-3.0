@@ -24,10 +24,18 @@
 #include <linux/slab.h>
 
 #ifdef CONFIG_PLD_SDIO_CNSS
+#ifdef CONFIG_CNSS_OUT_OF_TREE
+#include "cnss.h"
+#else
 #include <net/cnss.h>
 #endif
+#endif
 #ifdef CONFIG_PLD_SDIO_CNSS2
+#ifdef CONFIG_CNSS_OUT_OF_TREE
+#include "cnss2.h"
+#else
 #include <net/cnss2.h>
+#endif
 #endif
 
 #include "pld_common.h"

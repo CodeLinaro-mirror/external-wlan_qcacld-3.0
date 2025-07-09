@@ -1928,6 +1928,13 @@ static inline QDF_STATUS wma_mgmt_frame_fill_peer_cb(struct wlan_objmgr_peer *pe
 {
 	return QDF_STATUS_SUCCESS;
 }
+
+static inline QDF_STATUS
+wma_update_edca_pifs_param(WMA_HANDLE handle,
+			   struct edca_pifs_vparam *edca_pifs_param)
+{
+	return QDF_STATUS_SUCCESS;
+}
 #endif
 
 /**

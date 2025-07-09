@@ -21,7 +21,11 @@
 #define __PLD_SDIO_H__
 
 #ifdef CONFIG_PLD_SDIO_CNSS
+#ifdef CONFIG_CNSS_OUT_OF_TREE
+#include "cnss.h"
+#else
 #include <net/cnss.h>
+#endif
 #endif
 #include "pld_common.h"
 
@@ -217,7 +221,11 @@ static inline void pld_hif_sdio_release_ramdump_mem(unsigned long *address)
 }
 #else
 #ifdef CONFIG_PLD_SDIO_CNSS2
+#ifdef CONFIG_CNSS_OUT_OF_TREE
+#include "cnss2.h"
+#else
 #include <net/cnss2.h>
+#endif
 
 /**
  * pld_sdio_get_sdio_al_client_handle() - Get the sdio al client handle
