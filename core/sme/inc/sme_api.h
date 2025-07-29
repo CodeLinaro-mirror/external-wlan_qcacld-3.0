@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -1389,6 +1390,20 @@ QDF_STATUS sme_ap_disable_intra_bss_fwd(mac_handle_t mac_handle,
  */
 QDF_STATUS sme_send_unit_test_cmd(uint32_t vdev_id, uint32_t module_id,
 				  uint32_t arg_count, uint32_t *arg);
+
+#ifdef WLAN_PEER_TID_RATE_CTRL
+/**
+ * sme_send_peer_tid_rate_custom_cmd() - send peer tid rate custom command to lower layer
+ * @tid_rate: peer tid rate parameter
+ *
+ * This API exposed to HDD layer which takes the argument from user and sends
+ * down to lower layer for further processing
+ *
+ * Return: QDF_STATUS based on overall success
+ */
+QDF_STATUS
+sme_send_peer_tid_rate_custom_cmd(struct wmi_host_peer_tid_rate *tid_rate);
+#endif /* WLAN_PEER_TID_RATE_CTRL */
 
 typedef struct sStatsExtRequestReq {
 	uint32_t request_data_len;

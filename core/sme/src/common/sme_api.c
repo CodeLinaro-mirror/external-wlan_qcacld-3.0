@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -10524,6 +10525,14 @@ QDF_STATUS sme_send_unit_test_cmd(uint32_t vdev_id, uint32_t module_id,
 	return wma_form_unit_test_cmd_and_send(vdev_id, module_id,
 					       arg_count, arg);
 }
+
+#ifdef WLAN_PEER_TID_RATE_CTRL
+QDF_STATUS
+sme_send_peer_tid_rate_custom_cmd(struct wmi_host_peer_tid_rate *tid_rate)
+{
+	return wma_send_peer_tid_rate_custom_cmd(tid_rate);
+}
+#endif /* WLAN_PEER_TID_RATE_CTRL */
 
 #ifdef WLAN_FEATURE_GPIO_LED_FLASHING
 /*

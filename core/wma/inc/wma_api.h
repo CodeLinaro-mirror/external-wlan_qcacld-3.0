@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -244,6 +245,11 @@ static inline int wma_unified_radio_tx_mem_free(void *handle)
  */
 QDF_STATUS wma_form_unit_test_cmd_and_send(uint32_t vdev_id,
 		uint32_t module_id, uint32_t arg_count, uint32_t *arg);
+
+#ifdef WLAN_PEER_TID_RATE_CTRL
+QDF_STATUS
+wma_send_peer_tid_rate_custom_cmd(struct wmi_host_peer_tid_rate *tid_rate);
+#endif /* WLAN_PEER_TID_RATE_CTRL */
 
 /**
  * wma_lro_init() - sends LRO configuration to FW

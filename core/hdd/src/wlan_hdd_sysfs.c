@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -79,6 +79,7 @@
 #include <wlan_hdd_sysfs_swlm.h>
 #include <wlan_hdd_sysfs_wds_mode.h>
 #include <wlan_hdd_sysfs_roam_trigger_bitmap.h>
+#include <wlan_hdd_sysfs_peer_tid_rate.h>
 
 #define MAX_PSOC_ID_SIZE 10
 
@@ -670,6 +671,7 @@ hdd_sysfs_create_sta_adapter_root_obj(struct hdd_adapter *adapter)
 	hdd_sysfs_motion_detection_create(adapter);
 	hdd_sysfs_range_ext_create(adapter);
 	hdd_sysfs_dl_modes_create(adapter);
+	hdd_sysfs_peer_tid_rate_create(adapter);
 }
 
 static void
@@ -697,6 +699,7 @@ hdd_sysfs_destroy_sta_adapter_root_obj(struct hdd_adapter *adapter)
 	hdd_sysfs_crash_inject_destroy(adapter);
 	hdd_sysfs_reassoc_destroy(adapter);
 	hdd_sysfs_destroy_bcn_reception_interface(adapter);
+	hdd_sysfs_peer_tid_rate_destroy(adapter);
 }
 
 static void
@@ -724,6 +727,7 @@ hdd_sysfs_create_sap_adapter_root_obj(struct hdd_adapter *adapter)
 	hdd_sysfs_range_ext_create(adapter);
 	hdd_sysfs_ipa_create(adapter);
 	hdd_sysfs_dl_modes_create(adapter);
+	hdd_sysfs_peer_tid_rate_create(adapter);
 }
 
 static void
@@ -751,6 +755,7 @@ hdd_sysfs_destroy_sap_adapter_root_obj(struct hdd_adapter *adapter)
 	hdd_sysfs_crash_inject_destroy(adapter);
 	hdd_sysfs_sta_info_interface_destroy(adapter);
 	hdd_sysfs_channel_interface_destroy(adapter);
+	hdd_sysfs_peer_tid_rate_destroy(adapter);
 }
 
 static void

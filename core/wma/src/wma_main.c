@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -732,6 +733,33 @@ QDF_STATUS wma_form_unit_test_cmd_and_send(uint32_t vdev_id,
 
 	return status;
 }
+
+#ifdef WLAN_PEER_TID_RATE_CTRL
+QDF_STATUS
+wma_send_peer_tid_rate_custom_cmd(struct wmi_host_peer_tid_rate *tid_rate)
+{
+	tp_wma_handle wma_handle = cds_get_context(QDF_MODULE_ID_WMA);
+	QDF_STATUS status;
+	struct wmi_unified *wmi_handle;
+
+	wma_debug("enter");
+
+	if (!wma_is_vdev_valid(tid_rate->vdev_id))
+		return QDF_STATUS_E_FAILURE;
+
+	if (wma_validate_handle(wma_handle))
+		return QDF_STATUS_E_FAILURE;
+
+	wmi_handle = wma_handle->wmi_handle;
+	if (wmi_validate_handle(wmi_handle))
+		return QDF_STATUS_E_FAILURE;
+
+	status = wmi_unified_peer_tid_rate_custom_cmd(wmi_handle, tid_rate);
+	wma_debug("exit");
+
+	return status;
+}
+#endif /* WLAN_PEER_TID_RATE_CTRL */
 
 static void wma_process_send_addba_req(tp_wma_handle wma_handle,
 		struct send_add_ba_req *send_addba)

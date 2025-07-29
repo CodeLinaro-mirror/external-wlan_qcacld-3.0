@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022,2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -145,6 +145,7 @@
 #include <dp_txrx.h>
 #include <dp_rx_thread.h>
 #include "wlan_hdd_sysfs.h"
+#include "wlan_hdd_sysfs_peer_tid_rate.h"
 #include "wlan_disa_ucfg_api.h"
 #include "wlan_disa_obj_mgmt_api.h"
 #include "wlan_action_oui_ucfg_api.h"
@@ -4207,6 +4208,7 @@ int hdd_wlan_start_modules(struct hdd_context *hdd_ctx, bool reinit)
 
 		hdd_create_sysfs_files(hdd_ctx);
 		hdd_update_hw_sw_info(hdd_ctx);
+		hdd_init_tid_rate_peer_table();
 
 		if (QDF_GLOBAL_FTM_MODE == hdd_get_conparam()) {
 			hdd_enable_power_management(hdd_ctx);
@@ -4256,6 +4258,7 @@ int hdd_wlan_start_modules(struct hdd_context *hdd_ctx, bool reinit)
  */
 sched_disable:
 	dispatcher_disable();
+	hdd_deinit_and_free_tid_rate_peer_table();
 	hdd_destroy_sysfs_files();
 	cds_post_disable();
 unregister_notifiers:
@@ -14580,6 +14583,7 @@ int hdd_wlan_stop_modules(struct hdd_context *hdd_ctx, bool ftm_mode)
 		goto done;
 	}
 
+	hdd_deinit_and_free_tid_rate_peer_table();
 	hdd_destroy_sysfs_files();
 	hdd_debug("Closing CDS modules!");
 
