@@ -2342,6 +2342,13 @@ void ol_txrx_flush_rx_frames(struct ol_txrx_peer_t *peer,
 	QDF_STATUS ret;
 	ol_txrx_rx_fp data_rx = NULL;
 
+	/*
+	 * Flush cached frames only for mld peers and legacy peers, as
+	 * link peers don't store cached frames
+	 */
+	if (IS_MLO_OL_TXRX_LINK_PEER(peer))
+		return;
+
 	if (qdf_atomic_inc_return(&peer->flush_in_progress) > 1) {
 		qdf_atomic_dec(&peer->flush_in_progress);
 		return;
@@ -2770,12 +2777,15 @@ static int ol_txrx_get_peer_state(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 		ol_txrx_get_pdev_from_pdev_id(soc, OL_TXRX_PDEV_ID);
 	ol_txrx_peer_handle peer;
 	enum ol_txrx_peer_state peer_state;
+	struct cdp_peer_info peer_info = { 0 };
 
 	if (!pdev)
 		return QDF_STATUS_E_FAILURE;
 
-	peer =  ol_txrx_peer_find_hash_find(pdev, peer_mac, 0, 1, vdev_id,
-					    PEER_DEBUG_ID_OL_INTERNAL);
+	DP_PEER_INFO_PARAMS_INIT(&peer_info, vdev_id, peer_mac,
+				 false, CDP_WILD_PEER_TYPE);
+	peer = ol_txrx_peer_find_hash_find_wrapper(pdev, &peer_info, 1,
+						   PEER_DEBUG_ID_OL_INTERNAL);
 	if (!peer)
 		return OL_TXRX_PEER_STATE_INVALID;
 
@@ -2804,8 +2814,32 @@ ol_txrx_get_info_by_peer_mac(struct cdp_soc_t *soc_hdl,
 			     uint8_t vdev_id,
 			     struct cdp_peer_output_param *param)
 {
-	param->vdev_id = vdev_id;
-	param->state = ol_txrx_get_peer_state(soc_hdl, vdev_id, peer_mac, false);
+	struct ol_txrx_soc_t *soc = cdp_soc_t_to_ol_txrx_soc_t(soc_hdl);
+	struct ol_txrx_pdev_t *pdev =
+		ol_txrx_get_pdev_from_pdev_id(soc, OL_TXRX_PDEV_ID);
+	struct ol_txrx_peer_t *peer, *tgt_peer;
+	struct cdp_peer_info peer_info = { 0 };
+
+	/* check if there's already a peer object with this MAC address */
+	DP_PEER_INFO_PARAMS_INIT(&peer_info, CDP_VDEV_ALL, peer_mac,
+				 false, CDP_WILD_PEER_TYPE);
+	peer = ol_txrx_peer_find_hash_find_wrapper(pdev, &peer_info, 1,
+						   PEER_DEBUG_ID_OL_INTERNAL);
+	if (!peer) {
+		param->state = OL_TXRX_PEER_STATE_INVALID;
+		return;
+	}
+	tgt_peer = ol_txrx_get_tgt_peer_from_peer(peer);
+	param->state = tgt_peer->state;
+	param->vdev_id = tgt_peer->vdev->vdev_id;
+
+	/* mlo connection link peer, get mld peer with reference */
+	if (IS_MLO_OL_TXRX_MLD_PEER(peer))
+		param->mld_peer = true;
+	else
+		param->mld_peer = false;
+
+	ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);
 }
 
 /**
@@ -3008,6 +3042,83 @@ ol_txrx_get_ocb_chan_info(struct cdp_soc_t *soc_hdl, uint8_t vdev_id)
 }
 #endif
 
+#ifdef WLAN_FEATURE_11BE_MLO
+QDF_STATUS ol_txrx_peer_state_update(struct cdp_soc_t *soc_hdl,
+				     uint8_t *peer_mac,
+				     enum ol_txrx_peer_state state)
+{
+	struct ol_txrx_soc_t *soc = cdp_soc_t_to_ol_txrx_soc_t(soc_hdl);
+	ol_txrx_pdev_handle pdev =
+		ol_txrx_get_pdev_from_pdev_id(soc, OL_TXRX_PDEV_ID);
+	struct ol_txrx_peer_t *peer;
+
+	if (qdf_unlikely(!pdev)) {
+		ol_txrx_err("Pdev is NULL");
+		qdf_assert(0);
+		return QDF_STATUS_E_INVAL;
+	}
+
+	peer =  ol_txrx_peer_find_hash_find(pdev, peer_mac, 0, 1,
+					    CDP_VDEV_ALL,
+					    PEER_DEBUG_ID_OL_INTERNAL);
+	if (!peer) {
+		ol_txrx_err("peer is null for peer_mac " QDF_MAC_ADDR_FMT,
+			    QDF_MAC_ADDR_REF(peer_mac));
+		return QDF_STATUS_E_INVAL;
+	}
+
+	peer->state = state;
+	peer->authorize = (state == OL_TXRX_PEER_STATE_AUTH) ? 1 : 0;
+
+	ol_txrx_info("peer %pK MAC " QDF_MAC_ADDR_FMT " state %d",
+		     peer, QDF_MAC_ADDR_REF(peer->mac_addr.raw),
+		     peer->state);
+
+	if (IS_MLO_OL_TXRX_LINK_PEER(peer) && peer->first_link) {
+		peer->mld_peer->state = peer->state;
+		peer->mld_peer->authorize = peer->authorize;
+		ol_txrx_info("mld peer %pK MAC " QDF_MAC_ADDR_FMT " state %d",
+			     peer->mld_peer,
+			     QDF_MAC_ADDR_REF(peer->mld_peer->mac_addr.raw),
+			     peer->mld_peer->state);
+	}
+
+	/* TODO: Should we send WMI command of the connection state? */
+	/* avoid multiple auth state change. */
+
+	switch (state) {
+	case OL_TXRX_PEER_STATE_AUTH:
+		peer->tx_filter = ol_tx_filter_pass_thru;
+		break;
+	case OL_TXRX_PEER_STATE_CONN:
+		peer->tx_filter = ol_tx_filter_non_auth;
+		break;
+	default:
+		peer->tx_filter = ol_tx_filter_discard;
+		break;
+	}
+
+	if (peer->vdev->pdev->cfg.host_addba) {
+		if (state == OL_TXRX_PEER_STATE_AUTH) {
+			int tid;
+			/*
+			 * Pause all regular (non-extended) TID tx queues until
+			 * data arrives and ADDBA negotiation has completed.
+			 */
+			ol_txrx_dbg("pause peer and unpause mgmt/non-qos");
+			ol_txrx_peer_pause(peer); /* pause all tx queues */
+			/* unpause mgmt and non-QoS tx queues */
+			for (tid = OL_TX_NUM_QOS_TIDS;
+			     tid < OL_TX_NUM_TIDS; tid++)
+				ol_txrx_peer_tid_unpause(peer, tid);
+		}
+	}
+
+	ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);
+
+	return QDF_STATUS_SUCCESS;
+}
+#else
 QDF_STATUS ol_txrx_peer_state_update(struct cdp_soc_t *soc_hdl,
 				     uint8_t *peer_mac,
 				     enum ol_txrx_peer_state state)
@@ -3028,10 +3139,8 @@ QDF_STATUS ol_txrx_peer_state_update(struct cdp_soc_t *soc_hdl,
 					    CDP_VDEV_ALL,
 					    PEER_DEBUG_ID_OL_INTERNAL);
 	if (!peer) {
-		ol_txrx_err(
-			   "peer is null for peer_mac 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
-			   peer_mac[0], peer_mac[1], peer_mac[2], peer_mac[3],
-			   peer_mac[4], peer_mac[5]);
+		ol_txrx_err("peer is null for peer_mac " QDF_MAC_ADDR_FMT,
+			    QDF_MAC_ADDR_REF(peer_mac));
 		return QDF_STATUS_E_INVAL;
 	}
 
@@ -3085,6 +3194,7 @@ QDF_STATUS ol_txrx_peer_state_update(struct cdp_soc_t *soc_hdl,
 		peer->state = state;
 	return QDF_STATUS_SUCCESS;
 }
+#endif /* WLAN_FEATURE_11BE_MLO */
 
 void
 ol_txrx_peer_keyinstalled_state_update(struct ol_txrx_peer_t *peer, uint8_t val)
@@ -5308,6 +5418,69 @@ drop_rx_buf:
 	ol_txrx_drop_nbuf_list(rx_buf_list);
 }
 
+#ifdef WLAN_FEATURE_11BE_MLO
+/**
+ * ol_txrx_register_peer() - register peer
+ * @sta_desc: sta descriptor
+ *
+ * Return: QDF Status
+ */
+static QDF_STATUS ol_txrx_register_peer(struct ol_txrx_desc_type *sta_desc)
+{
+	struct ol_txrx_peer_t *peer;
+	struct ol_txrx_soc_t *soc = cds_get_context(QDF_MODULE_ID_SOC);
+	ol_txrx_pdev_handle pdev;
+	union ol_txrx_peer_update_param_t param;
+	struct privacy_exemption privacy_filter;
+
+	if (!soc) {
+		ol_txrx_err("Soc is NULL");
+		return QDF_STATUS_E_INVAL;
+	}
+
+	pdev = ol_txrx_get_pdev_from_pdev_id(soc, OL_TXRX_PDEV_ID);
+
+	if (!pdev) {
+		ol_txrx_err("Pdev is NULL");
+		return QDF_STATUS_E_INVAL;
+	}
+
+	peer = ol_txrx_find_peer_by_addr((struct cdp_pdev *)pdev,
+					 sta_desc->peer_addr.bytes);
+
+	if (!peer)
+		return QDF_STATUS_E_FAULT;
+
+	qdf_spin_lock_bh(&peer->peer_info_lock);
+	peer->state = OL_TXRX_PEER_STATE_CONN;
+	qdf_spin_unlock_bh(&peer->peer_info_lock);
+
+	param.qos_capable = sta_desc->is_qos_enabled;
+	ol_txrx_peer_update(peer->vdev, peer->mac_addr.raw, &param,
+			    ol_txrx_peer_update_qos_capable);
+
+	if (sta_desc->is_wapi_supported) {
+		/*Privacy filter to accept unencrypted WAI frames */
+		privacy_filter.ether_type = ETHERTYPE_WAI;
+		privacy_filter.filter_type = PRIVACY_FILTER_ALWAYS;
+		privacy_filter.packet_type = PRIVACY_FILTER_PACKET_BOTH;
+		ol_txrx_set_privacy_filters(peer->vdev, &privacy_filter, 1);
+	}
+
+	ol_txrx_flush_rx_frames(peer, 0);
+
+	if (IS_MLO_OL_TXRX_LINK_PEER(peer) && peer->first_link) {
+		ol_txrx_info("register for mld peer" QDF_MAC_ADDR_FMT,
+			     QDF_MAC_ADDR_REF(peer->mld_peer->mac_addr.raw));
+		qdf_spin_lock_bh(&peer->mld_peer->peer_info_lock);
+		peer->mld_peer->state = peer->state;
+		qdf_spin_unlock_bh(&peer->mld_peer->peer_info_lock);
+		ol_txrx_flush_rx_frames(peer->mld_peer, false);
+	}
+
+	return QDF_STATUS_SUCCESS;
+}
+#else
 /**
  * ol_txrx_register_peer() - register peer
  * @sta_desc: sta descriptor
@@ -5359,6 +5532,8 @@ static QDF_STATUS ol_txrx_register_peer(struct ol_txrx_desc_type *sta_desc)
 	ol_txrx_flush_rx_frames(peer, 0);
 	return QDF_STATUS_SUCCESS;
 }
+
+#endif /* WLAN_FEATURE_11BE_MLO */
 
 /**
  * ol_txrx_register_ocb_peer - Function to register the OCB peer
