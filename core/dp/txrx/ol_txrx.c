@@ -1913,6 +1913,23 @@ ol_txrx_vdev_per_vdev_tx_desc_init(struct ol_txrx_vdev_t *vdev)
 }
 #endif /* QCA_HL_NETDEV_FLOW_CONTROL */
 
+#ifdef WLAN_FEATURE_11BE_MLO
+static inline void
+ol_txrx_vdev_save_mld_addr(struct ol_txrx_vdev_t *vdev,
+			   struct cdp_vdev_info *vdev_info)
+{
+	if (vdev_info->mld_mac_addr)
+		qdf_mem_copy(&vdev->mld_mac_addr.raw[0],
+			     vdev_info->mld_mac_addr, QDF_MAC_ADDR_SIZE);
+}
+#else
+static inline void
+ol_txrx_vdev_save_mld_addr(struct ol_txrx_vdev_t *vdev,
+			   struct cdp_vdev_info *vdev_info)
+{
+}
+#endif /* WLAN_FEATURE_11BE_MLO */
+
 /**
  * ol_txrx_vdev_attach - Allocate and initialize the data object
  * for a new virtual device.
@@ -1975,6 +1992,7 @@ ol_txrx_vdev_attach(struct cdp_soc_t *soc_hdl, uint8_t pdev_id,
 
 	qdf_mem_copy(&vdev->mac_addr.raw[0], vdev_mac_addr,
 		     QDF_MAC_ADDR_SIZE);
+	ol_txrx_vdev_save_mld_addr(vdev, vdev_info);
 
 	TAILQ_INIT(&vdev->peer_list);
 	vdev->last_real_peer = NULL;
