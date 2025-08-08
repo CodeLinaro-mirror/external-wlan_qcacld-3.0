@@ -95,6 +95,62 @@ void
 ol_txrx_peer_find_hash_add(struct ol_txrx_pdev_t *pdev,
 			   struct ol_txrx_peer_t *peer);
 
+/**
+ * ol_txrx_peer_find_hash_find
+ * - Find the legacy peer from peer_hash_table matching mac_address
+ *
+ * @pdev: ol txrx pdev handle
+ * @peer_mac_addr: peer mac address
+ * @mac_addr_is_aligned: is mac addr aligned
+ * @check_valid: is peer valid
+ * @vdev_id: valid vdev_id or CDP_VDEV_ALL
+ * @dbg_id: id of module requesting reference.
+ *
+ * If the valid peer found, increments peer's reference count by default,
+ * user need release peer reference after operation completed.
+ *
+ * return: peer in success, NULL in failure
+ */
+struct ol_txrx_peer_t *ol_txrx_peer_find_hash_find(struct ol_txrx_pdev_t *pdev,
+	uint8_t *peer_mac_addr, int mac_addr_is_aligned, u8 check_valid,
+	uint8_t vdev_id, enum peer_debug_id_type dbg_id);
+
+#ifdef WLAN_FEATURE_11BE_MLO
+/**
+ * ol_txrx_mld_peer_find_hash_find
+ * - Find the mld peer from mld peer hash table matching mac_address
+ *
+ * @pdev: ol txrx pdev handle
+ * @peer_mac_addr: mld peer mac address
+ * @mac_addr_is_aligned: is mac addr aligned
+ * @check_valid: is peer valid
+ * @vdev_id: valid vdev_id or CDP_VDEV_ALL
+ * @dbg_id: id of module requesting reference.
+ *
+ * If the mld peer found, increments peer's reference count by default,
+ * user need release peer reference after operation completed.
+ *
+ * return: peer in success, NULL in failure
+ */
+struct ol_txrx_peer_t *ol_txrx_mld_peer_find_hash_find(
+	struct ol_txrx_pdev_t *pdev, uint8_t *peer_mac_addr,
+	int mac_addr_is_aligned, uint8_t check_valid,
+	uint8_t vdev_id, enum peer_debug_id_type dbg_id);
+#endif
+
+/**
+ * ol_txrx_peer_find_hash_find_wrapper
+ * - wrapper function to find link peer or mld peer from related hash thable
+ *
+ * @pdev: ol txrx pdev handle
+ * @peer_info: detail peer information
+ * @check_valid: is peer valid
+ * @dbg_id: id of module requesting reference.
+ */
+struct ol_txrx_peer_t *ol_txrx_peer_find_hash_find_wrapper(
+	struct ol_txrx_pdev_t *pdev, struct cdp_peer_info *peer_info,
+	uint8_t check_valid, enum peer_debug_id_type dbg_id);
+
 struct ol_txrx_peer_t *
 	ol_txrx_peer_find_hash_find_get_ref
 				(struct ol_txrx_pdev_t *pdev,

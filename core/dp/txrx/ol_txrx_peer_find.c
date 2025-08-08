@@ -382,6 +382,110 @@ void ol_txrx_peer_find_hash_erase(struct ol_txrx_pdev_t *pdev)
 	}
 }
 
+/**
+ * ol_txrx_mld_peer_find_hash_find
+ * - Find the mld peer peer from mld peer hash matching mac_address
+ *
+ * @pdev: ol txrx pdev handle
+ * @peer_mac_addr: mld peer mac address
+ * @mac_addr_is_aligned: is mac addr aligned
+ * @check_valid: is peer valid
+ * @vdev_id: valid vdev_id or CDP_VDEV_ALL
+ * @dbg_id: id of module requesting reference.
+ *
+ * If the mld peer found, increments peer's reference count by default,
+ * user need release reference after operation completed.
+ *
+ * return: peer in success, NULL in failure
+ *
+ * Sample usage:
+ * {
+ *     // Call API to find peer, increments peer->ref_cnt
+ *     peer = ol_txrx_mld_peer_find_hash_find(pdev, addr, 0, 1, vid, dbgid);
+ *
+ *     // peer operation.
+ *
+ *     //Call API to decrement the peer->ref_cnt
+ *     ol_txrx_peer_release_ref(peer, dbgid);
+ * }
+ */
+struct ol_txrx_peer_t *ol_txrx_mld_peer_find_hash_find(
+	struct ol_txrx_pdev_t *pdev, uint8_t *peer_mac_addr,
+	int mac_addr_is_aligned, uint8_t check_valid,
+	uint8_t vdev_id, enum peer_debug_id_type dbg_id)
+{
+	union ol_txrx_align_mac_addr_t local_mac_addr_aligned, *mac_addr;
+	unsigned int index;
+	struct ol_txrx_peer_t *peer;
+	struct ol_txrx_vdev_t *vdev = NULL;
+
+	if (mac_addr_is_aligned) {
+		mac_addr = (union ol_txrx_align_mac_addr_t *)peer_mac_addr;
+	} else {
+		qdf_mem_copy(&local_mac_addr_aligned.raw[0],
+			     peer_mac_addr, QDF_MAC_ADDR_SIZE);
+		mac_addr = &local_mac_addr_aligned;
+	}
+
+	if (vdev_id != CDP_VDEV_ALL) {
+		vdev = ol_txrx_get_vdev_from_soc_vdev_id(pdev->soc, vdev_id);
+		if (!vdev) {
+			ol_txrx_err("vdev is null");
+			return NULL;
+		}
+	}
+
+	index = ol_txrx_peer_find_hash_index(pdev, mac_addr);
+	qdf_spin_lock_bh(&pdev->mld_peer_hash_lock);
+	TAILQ_FOREACH(peer, &pdev->mld_peer_hash.bins[index], hash_list_elem) {
+		if (!ol_txrx_peer_find_mac_addr_cmp(mac_addr, &peer->mac_addr)
+		    && (check_valid == 0 || peer->valid)
+		    && (vdev_id == CDP_VDEV_ALL ||
+			!ol_txrx_peer_find_mac_addr_cmp(
+				&peer->vdev->mld_mac_addr,
+				&vdev->mld_mac_addr))) {
+			/* found it, increment peer->ref_cnt */
+			ol_txrx_peer_get_ref(peer, dbg_id);
+			qdf_spin_unlock_bh(&pdev->mld_peer_hash_lock);
+			return peer;
+		}
+	}
+	qdf_spin_unlock_bh(&pdev->mld_peer_hash_lock);
+	return NULL;
+}
+
+/**
+ * ol_txrx_peer_find_hash_find_wrapper
+ * - wrapper function to find link peer or mld peer from related hash thable
+ *
+ * @pdev: ol txrx pdev handle
+ * @peer_info: detail peer information
+ * @check_valid: is peer valid
+ * @dbg_id: id of module requesting reference.
+ */
+struct ol_txrx_peer_t *ol_txrx_peer_find_hash_find_wrapper(
+	struct ol_txrx_pdev_t *pdev, struct cdp_peer_info *peer_info,
+	uint8_t check_valid, enum peer_debug_id_type dbg_id)
+{
+	struct ol_txrx_peer_t *peer = NULL;
+
+	if (peer_info->peer_type == CDP_LINK_PEER_TYPE ||
+	    peer_info->peer_type == CDP_WILD_PEER_TYPE) {
+		peer = ol_txrx_peer_find_hash_find(pdev, peer_info->mac_addr,
+			peer_info->mac_addr_is_aligned, check_valid,
+			peer_info->vdev_id, dbg_id);
+		if (peer)
+			return peer;
+	}
+
+	if (peer_info->peer_type == CDP_MLD_PEER_TYPE ||
+	    peer_info->peer_type == CDP_WILD_PEER_TYPE)
+		peer = ol_txrx_mld_peer_find_hash_find(pdev,
+			peer_info->mac_addr, peer_info->mac_addr_is_aligned,
+			check_valid, peer_info->vdev_id, dbg_id);
+	return peer;
+}
+
 #else /* !WLAN_FEATURE_11BE_MLO */
 
 static int ol_txrx_peer_find_hash_attach(struct ol_txrx_pdev_t *pdev)
@@ -538,7 +642,77 @@ void ol_txrx_peer_find_hash_erase(struct ol_txrx_pdev_t *pdev)
 		}
 	}
 }
+
+struct ol_txrx_peer_t *ol_txrx_peer_find_hash_find_wrapper(
+	struct ol_txrx_pdev_t *pdev, struct cdp_peer_info *peer_info,
+	uint8_t check_valid, enum peer_debug_id_type dbg_id)
+{
+	return ol_txrx_peer_find_hash_find(pdev, peer_info->mac_addr,
+					   peer_info->mac_addr_is_aligned,
+					   check_valid, peer_info->vdev_id,
+					   dbg_id);
+}
+
 #endif /* WLAN_FEATURE_11BE_MLO */
+
+/**
+ * ol_txrx_peer_find_hash_find
+ * - Find the legacy peer peer from peer hash matching mac_address
+ *
+ * @pdev: ol txrx pdev handle
+ * @peer_mac_addr: peer mac address
+ * @mac_addr_is_aligned: is mac addr aligned
+ * @check_valid: is peer valid
+ * @vdev_id: valid vdev_id or CDP_VDEV_ALL
+ * @dbg_id: id of module requesting reference.
+ *
+ * If the valid peer found, increments peer's reference count by default,
+ * user need release reference after operation completed.
+ *
+ * return: peer in success, NULL in failure
+ *
+ * Sample usage:
+ * {
+ *     // Call API to find peer, increments peer->ref_cnt
+ *     peer = ol_txrx_peer_find_hash_find(pdev, addr, 0, 1, vdev_id, dbg_id);
+ *
+ *     // peer operation.
+ *
+ *     //Call API to decrement the peer->ref_cnt
+ *     ol_txrx_peer_release_ref(peer, dbgid);
+ * }
+ */
+struct ol_txrx_peer_t *ol_txrx_peer_find_hash_find(struct ol_txrx_pdev_t *pdev,
+	uint8_t *peer_mac_addr, int mac_addr_is_aligned, u8 check_valid,
+	uint8_t vdev_id, enum peer_debug_id_type dbg_id)
+{
+	unsigned int index;
+	struct ol_txrx_peer_t *peer;
+	union ol_txrx_align_mac_addr_t local_mac_addr_aligned, *mac_addr;
+
+	if (mac_addr_is_aligned) {
+		mac_addr = (union ol_txrx_align_mac_addr_t *)peer_mac_addr;
+	} else {
+		qdf_mem_copy(&local_mac_addr_aligned.raw[0],
+			     peer_mac_addr, QDF_MAC_ADDR_SIZE);
+		mac_addr = &local_mac_addr_aligned;
+	}
+	index = ol_txrx_peer_find_hash_index(pdev, mac_addr);
+	qdf_spin_lock_bh(&pdev->peer_hash_lock);
+	TAILQ_FOREACH(peer, &pdev->peer_hash.bins[index], hash_list_elem) {
+		if (!ol_txrx_peer_find_mac_addr_cmp(mac_addr, &peer->mac_addr)
+		    && (check_valid == 0 || peer->valid)
+		    && (vdev_id == CDP_VDEV_ALL ||
+			peer->vdev->vdev_id == vdev_id)) {
+			/* found it, inc peer's ref_cnt */
+			ol_txrx_peer_get_ref(peer, dbg_id);
+			qdf_spin_unlock_bh(&pdev->peer_hash_lock);
+			return peer;
+		}
+	}
+	qdf_spin_unlock_bh(&pdev->peer_hash_lock);
+	return NULL;
+}
 
 struct ol_txrx_peer_t *ol_txrx_peer_vdev_find_hash(struct ol_txrx_pdev_t *pdev,
 						   struct ol_txrx_vdev_t *vdev,
