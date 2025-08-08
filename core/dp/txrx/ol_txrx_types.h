@@ -745,6 +745,19 @@ struct ol_txrx_pdev_t {
 
 		TAILQ_HEAD(, ol_txrx_peer_t) * bins;
 	} peer_hash;
+	/* Protect peer hash table */
+	qdf_spinlock_t peer_hash_lock;
+
+#ifdef WLAN_FEATURE_11BE_MLO
+	struct {
+		unsigned int mask;
+		unsigned int idx_bits;
+
+		TAILQ_HEAD(, ol_txrx_peer_t) * bins;
+	} mld_peer_hash;
+	/* Protect mld peer hash table */
+	qdf_spinlock_t mld_peer_hash_lock;
+#endif
 
 	/* rx specific processing */
 	struct {
@@ -1201,6 +1214,11 @@ struct ol_txrx_vdev_t {
 	void *ctrl_vdev; /* vdev objmgr handle */
 
 	union ol_txrx_align_mac_addr_t mac_addr; /* MAC address */
+#ifdef WLAN_FEATURE_11BE_MLO
+	/* MLO MAC address corresponding to vdev */
+	union ol_txrx_align_mac_addr_t mld_mac_addr;
+#endif
+
 	/* tx paused - NO LONGER NEEDED? */
 	TAILQ_ENTRY(ol_txrx_vdev_t) vdev_list_elem; /* node in the pdev's list
 						     * of vdevs
@@ -1436,8 +1454,48 @@ struct ol_txrx_cached_bufq_t {
 	uint32_t dropped;
 };
 
+#ifdef WLAN_FEATURE_11BE_MLO
+/* Max number of links for MLO connection */
+#define OL_TXRX_MAX_MLO_LINKS 4
+
+/**
+ * struct ol_txrx_peer_link_info - link peer information for MLO
+ * @mac_addr: Mac address
+ * @vdev_id: Vdev ID for current link peer
+ * @is_valid: flag for link peer info valid or not
+ * @chip_id: chip id
+ * @is_bridge_peer: flag to indicate if peer is bridge peer
+ */
+struct ol_txrx_peer_link_info {
+	union ol_txrx_align_mac_addr_t mac_addr;
+	uint8_t vdev_id;
+	uint8_t is_valid;
+	uint8_t chip_id;
+	uint8_t is_bridge_peer;
+};
+
+/**
+ * struct ol_txrx_mld_link_peers
+ * - this structure is used to get link peers pointer from mld peer
+ * @link_peers: link peers pointer array
+ * @num_links: number of link peers fetched
+ */
+struct ol_txrx_mld_link_peers {
+	struct ol_txrx_peer_t *link_peers[OL_TXRX_MAX_MLO_LINKS];
+	uint8_t num_links;
+};
+#else
+#define OL_TXRX_MAX_MLO_LINKS 0
+#endif
+
 struct ol_txrx_peer_t {
 	struct ol_txrx_vdev_t *vdev;
+
+	uint16_t peer_id;
+	uint8_t authorize:1, /* Whether peer is authorized for data */
+		in_twt:1, /* Whether peer is in TWT (Target Wake Time) mode */
+		hw_txrx_stats_en:1, /* Hardware TxRx statistics enabled */
+		is_mld_peer:1; /* Whether this is an MLO MLD peer */
 
 	/* UMAC peer objmgr handle */
 	struct cdp_ctrl_objmgr_peer *ctrl_peer;
@@ -1555,6 +1613,30 @@ struct ol_txrx_peer_t {
 	qdf_timer_t peer_unmap_timer;
 	bool is_tdls_peer; /* Mark peer as tdls peer */
 	bool tdls_offchan_enabled; /* TDLS OffChan operation in use */
+
+#ifdef WLAN_FEATURE_11BE_MLO
+	uint8_t first_link:1, /* Indicate this is the first link peer for MLO */
+		primary_link:1; /* Indicate this is the primary link for MLO */
+
+	/* peer type */
+	enum cdp_peer_type peer_type;
+
+	/*---------for link peer---------*/
+	/* Pointer to the MLD peer this link peer belongs to */
+	struct ol_txrx_peer_t *mld_peer;
+
+	/* Link ID of link peer*/
+	uint8_t link_id; /* Link ID assigned by firmware */
+	bool link_id_valid; /* Whether link_id contains valid data */
+	uint8_t local_link_id; /* Locally assigned link ID */
+
+	/*---------for mld peer----------*/
+	/* Array of link peers associated with this MLD peer */
+	struct ol_txrx_peer_link_info link_peers[OL_TXRX_MAX_MLO_LINKS];
+	uint8_t num_links;
+	/* Lock to protect concurrent access to link_peers array */
+	qdf_spinlock_t link_peers_info_lock;
+#endif
 };
 
 struct ol_rx_remote_data {
