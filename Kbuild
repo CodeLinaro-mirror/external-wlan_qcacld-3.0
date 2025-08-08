@@ -2132,6 +2132,8 @@ TXRX_OBJS += $(TXRX_DIR)/ol_txrx.o \
                 $(TXRX_DIR)/ol_txrx_encap.o \
                 $(TXRX_DIR)/ol_tx_send.o
 
+TXRX_OBJS += $(TXRX_DIR)/ol_txrx_peer.o
+
 ifeq ($(CONFIG_LL_DP_SUPPORT), y)
 
 TXRX_OBJS +=     $(TXRX_DIR)/ol_tx_ll.o
