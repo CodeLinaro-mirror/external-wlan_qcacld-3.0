@@ -91,6 +91,7 @@
 #include "wlan_vdev_mlme_main.h"
 #include "wlan_tdls_api.h"
 #include "wlan_twt_ucfg_ext_api.h"
+#include "wlan_wfa_tgt_if_tx_api.h"
 
 static QDF_STATUS init_sme_cmd_list(struct mac_context *mac);
 
@@ -15904,11 +15905,34 @@ void sme_set_mlo_assoc_link_band(mac_handle_t mac_handle, uint8_t vdev_id,
 	wlan_mlme_set_sta_mlo_conn_band_bmp(mac_ctx->psoc, val);
 }
 
+void sme_send_ext_mld_cap_wfatest_cmd(mac_handle_t mac_handle, uint8_t vdev_id,
+				      uint8_t value)
+{
+	struct mac_context *mac_ctx = MAC_CONTEXT(mac_handle);
+	struct wlan_objmgr_vdev *vdev;
+	struct set_wfatest_params wfa_param = {0};
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(mac_ctx->psoc, vdev_id,
+						    WLAN_LEGACY_SME_ID);
+	if (!vdev)
+		return;
+
+	wfa_param.vdev_id = vdev_id;
+	wfa_param.value = value;
+
+	wfa_param.cmd = WFA_CONFIG_ML;
+	sme_debug("send wfa test config for ext MLD cap support: %d", value);
+
+	wlan_send_wfatest_cmd(vdev, &wfa_param);
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_LEGACY_SME_ID);
+}
+
 void sme_set_eht_testbed_def(mac_handle_t mac_handle, uint8_t vdev_id)
 {
 	struct mac_context *mac_ctx = MAC_CONTEXT(mac_handle);
 	struct csr_roam_session *session;
 	tDot11fIEeht_cap *mlme_eht_cap;
+	struct set_wfatest_params wfa_param = {0};
 
 	session = CSR_GET_SESSION(mac_ctx, vdev_id);
 
@@ -16005,6 +16029,7 @@ void sme_set_eht_testbed_def(mac_handle_t mac_handle, uint8_t vdev_id)
 	wlan_mlme_set_sta_mlo_conn_max_num(mac_ctx->psoc, 1);
 	ucfg_mlme_set_bss_color_collision_det_sta(mac_ctx->psoc, false);
 	wlan_mlme_set_exclude_ext_mld_cap(mac_ctx->psoc, true);
+	sme_send_ext_mld_cap_wfatest_cmd(mac_handle, vdev_id, false);
 }
 
 static inline
@@ -16067,6 +16092,7 @@ void sme_reset_eht_caps(mac_handle_t mac_handle, uint8_t vdev_id)
 	wlan_mlme_set_eht_mld_id(mac_ctx->psoc, 0);
 	wlan_mlme_set_ext_mld_cap_supp(mac_ctx->psoc, true);
 	wlan_mlme_set_exclude_ext_mld_cap(mac_ctx->psoc, false);
+	sme_send_ext_mld_cap_wfatest_cmd(mac_handle, vdev_id, true);
 }
 
 void sme_update_eht_cap_nss(mac_handle_t mac_handle, uint8_t vdev_id,
