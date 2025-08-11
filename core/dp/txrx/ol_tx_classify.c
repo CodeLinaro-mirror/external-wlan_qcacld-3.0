@@ -341,16 +341,10 @@ struct ol_txrx_peer_t *ol_tx_tdls_peer_find(struct ol_txrx_pdev_t *pdev,
 	uint8_t zero_mac_addr[QDF_MAC_ADDR_SIZE] = { 0, 0, 0, 0, 0, 0 };
 	enum peer_debug_id_type id_type = PEER_DEBUG_ID_OL_INTERNAL;
 
-	struct ol_txrx_peer_t *(*find_peer)(struct ol_txrx_pdev_t *pdev,
-					    uint8_t *peer_mac_addr,
-					    int mac_addr_is_aligned,
-					    u8 check_valid,
-					    enum peer_debug_id_type dbg_id)
-		= ol_txrx_peer_find_hash_find_get_ref;
-
 	if (vdev->hlTdlsFlag) {
-		peer = find_peer(pdev, vdev->hl_tdls_ap_mac_addr.raw,
-				 0, 1, id_type);
+		peer = ol_txrx_peer_find_hash_find(pdev,
+			vdev->hl_tdls_ap_mac_addr.raw, 0, 1,
+			CDP_VDEV_ALL, id_type);
 
 		if (peer && (peer->peer_ids[0] == HTT_INVALID_PEER_ID)) {
 			ol_txrx_peer_release_ref(peer, id_type);
@@ -387,9 +381,9 @@ struct ol_txrx_peer_t *ol_tx_tdls_peer_find(struct ol_txrx_pdev_t *pdev,
 		} else { /* packet destined for other peers and AP when
 			  * STA has TDLS link
 			  */
-			peer = find_peer(pdev, vdev->hl_tdls_ap_mac_addr.raw,
-					 0, 1, id_type);
-
+			peer = ol_txrx_peer_find_hash_find(pdev,
+				vdev->hl_tdls_ap_mac_addr.raw,
+				0, 1, CDP_VDEV_ALL, id_type);
 			if (peer &&
 			    (peer->peer_ids[0] == HTT_INVALID_PEER_ID)) {
 				ol_txrx_peer_release_ref(peer, id_type);
@@ -495,11 +489,9 @@ ol_tx_classify(
 			 * classify_extension function can check whether to
 			 * encrypt multicast / broadcast frames.
 			 */
-			peer = ol_txrx_peer_find_hash_find_get_ref
-						(pdev,
-						 vdev->mac_addr.raw,
-						 0, 1,
-						 PEER_DEBUG_ID_OL_INTERNAL);
+			peer = ol_txrx_peer_find_hash_find(pdev,
+				vdev->mac_addr.raw, 0, 1, CDP_VDEV_ALL,
+				PEER_DEBUG_ID_OL_INTERNAL);
 			if (!peer) {
 				QDF_TRACE(QDF_MODULE_ID_TXRX,
 					  QDF_TRACE_LEVEL_ERROR,
@@ -553,10 +545,8 @@ ol_tx_classify(
 						    dest_addr,
 						    &peer_id);
 		} else {
-			peer = ol_txrx_peer_find_hash_find_get_ref(pdev,
-								   dest_addr,
-								   0, 1,
-						PEER_DEBUG_ID_OL_INTERNAL);
+			peer = ol_txrx_peer_find_hash_find(pdev, dest_addr,
+				0, 1, CDP_VDEV_ALL, PEER_DEBUG_ID_OL_INTERNAL);
 		}
 		tx_msdu_info->htt.info.is_unicast = true;
 		if (!peer) {
@@ -618,8 +608,13 @@ ol_tx_classify(
 		}
 	}
 	tx_msdu_info->peer = peer;
-	if (ol_if_tx_bad_peer_txq_overflow(pdev, peer, txq))
+	if (ol_if_tx_bad_peer_txq_overflow(pdev, peer, txq)) {
+		if (peer)
+			/* remove the peer reference added above */
+			ol_txrx_peer_release_ref(peer,
+						 PEER_DEBUG_ID_OL_INTERNAL);
 		return NULL;
+	}
 	/*
 	 * If relevant, do a deeper inspection to determine additional
 	 * characteristics of the tx frame.
@@ -723,10 +718,8 @@ ol_tx_classify_mgmt(
 			}
 		} else {
 			/* find the peer and increment its reference count */
-			peer = ol_txrx_peer_find_hash_find_get_ref(pdev,
-								   dest_addr,
-								   0, 1,
-						PEER_DEBUG_ID_OL_INTERNAL);
+			peer = ol_txrx_peer_find_hash_find(pdev, dest_addr,
+				0, 1, CDP_VDEV_ALL, PEER_DEBUG_ID_OL_INTERNAL);
 		}
 		tx_msdu_info->peer = peer;
 		if (!peer) {
@@ -741,6 +734,9 @@ ol_tx_classify_mgmt(
 			 * to remain true.
 			 */
 			tx_msdu_info->htt.info.peer_id = peer->peer_ids[0];
+
+			ol_txrx_peer_release_ref(peer,
+						 PEER_DEBUG_ID_OL_INTERNAL);
 		}
 		tx_msdu_info->htt.info.is_unicast = 1;
 	}

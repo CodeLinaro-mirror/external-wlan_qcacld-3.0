@@ -151,21 +151,6 @@ struct ol_txrx_peer_t *ol_txrx_peer_find_hash_find_wrapper(
 	struct ol_txrx_pdev_t *pdev, struct cdp_peer_info *peer_info,
 	uint8_t check_valid, enum peer_debug_id_type dbg_id);
 
-struct ol_txrx_peer_t *
-	ol_txrx_peer_find_hash_find_get_ref
-				(struct ol_txrx_pdev_t *pdev,
-				uint8_t *peer_mac_addr,
-				int mac_addr_is_aligned,
-				u8 check_valid,
-				enum peer_debug_id_type dbg_id);
-
-struct
-ol_txrx_peer_t *ol_txrx_peer_vdev_find_hash(struct ol_txrx_pdev_t *pdev,
-					    struct ol_txrx_vdev_t *vdev,
-					    uint8_t *peer_mac_addr,
-					    int mac_addr_is_aligned,
-					    uint8_t check_valid);
-
 void
 ol_txrx_peer_find_hash_remove(struct ol_txrx_pdev_t *pdev,
 			      struct ol_txrx_peer_t *peer);

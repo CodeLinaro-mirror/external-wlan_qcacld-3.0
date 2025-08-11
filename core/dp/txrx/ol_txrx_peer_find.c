@@ -714,73 +714,6 @@ struct ol_txrx_peer_t *ol_txrx_peer_find_hash_find(struct ol_txrx_pdev_t *pdev,
 	return NULL;
 }
 
-struct ol_txrx_peer_t *ol_txrx_peer_vdev_find_hash(struct ol_txrx_pdev_t *pdev,
-						   struct ol_txrx_vdev_t *vdev,
-						   uint8_t *peer_mac_addr,
-						   int mac_addr_is_aligned,
-						   uint8_t check_valid)
-{
-	union ol_txrx_align_mac_addr_t local_mac_addr_aligned, *mac_addr;
-	unsigned int index;
-	struct ol_txrx_peer_t *peer;
-
-	if (mac_addr_is_aligned) {
-		mac_addr = (union ol_txrx_align_mac_addr_t *)peer_mac_addr;
-	} else {
-		qdf_mem_copy(&local_mac_addr_aligned.raw[0],
-			     peer_mac_addr, QDF_MAC_ADDR_SIZE);
-		mac_addr = &local_mac_addr_aligned;
-	}
-	index = ol_txrx_peer_find_hash_index(pdev, mac_addr);
-	qdf_spin_lock_bh(&pdev->peer_hash_lock);
-	TAILQ_FOREACH(peer, &pdev->peer_hash.bins[index], hash_list_elem) {
-		if (ol_txrx_peer_find_mac_addr_cmp(mac_addr, &peer->mac_addr) ==
-		    0 && (check_valid == 0 || peer->valid)
-		    && peer->vdev == vdev) {
-			/* found it */
-			ol_txrx_peer_get_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);
-			qdf_spin_unlock_bh(&pdev->peer_hash_lock);
-			return peer;
-		}
-	}
-	qdf_spin_unlock_bh(&pdev->peer_hash_lock);
-	return NULL;            /* failure */
-}
-
-struct ol_txrx_peer_t *
-	ol_txrx_peer_find_hash_find_get_ref
-				(struct ol_txrx_pdev_t *pdev,
-				uint8_t *peer_mac_addr,
-				int mac_addr_is_aligned,
-				u8 check_valid,
-				enum peer_debug_id_type dbg_id)
-{
-	union ol_txrx_align_mac_addr_t local_mac_addr_aligned, *mac_addr;
-	unsigned int index;
-	struct ol_txrx_peer_t *peer;
-
-	if (mac_addr_is_aligned) {
-		mac_addr = (union ol_txrx_align_mac_addr_t *)peer_mac_addr;
-	} else {
-		qdf_mem_copy(&local_mac_addr_aligned.raw[0],
-			     peer_mac_addr, QDF_MAC_ADDR_SIZE);
-		mac_addr = &local_mac_addr_aligned;
-	}
-	index = ol_txrx_peer_find_hash_index(pdev, mac_addr);
-	qdf_spin_lock_bh(&pdev->peer_hash_lock);
-	TAILQ_FOREACH(peer, &pdev->peer_hash.bins[index], hash_list_elem) {
-		if (ol_txrx_peer_find_mac_addr_cmp(mac_addr, &peer->mac_addr) ==
-		    0 && (check_valid == 0 || peer->valid)) {
-			/* found it */
-			ol_txrx_peer_get_ref(peer, dbg_id);
-			qdf_spin_unlock_bh(&pdev->peer_hash_lock);
-			return peer;
-		}
-	}
-	qdf_spin_unlock_bh(&pdev->peer_hash_lock);
-	return NULL;            /* failure */
-}
-
 void ol_txrx_peer_free_inactive_list(struct ol_txrx_pdev_t *pdev)
 {
 	struct ol_txrx_peer_t *peer = NULL, *tmp;
@@ -876,12 +809,10 @@ static inline void ol_txrx_peer_find_add_id(struct ol_txrx_pdev_t *pdev,
 		check_valid = 1;
 
 	/* check if there's already a peer object with this MAC address */
-	peer =
-		ol_txrx_peer_find_hash_find_get_ref(pdev, peer_mac_addr,
-						    1 /* is aligned */,
-						    check_valid,
-						    PEER_DEBUG_ID_OL_PEER_MAP);
-
+	peer = ol_txrx_peer_find_hash_find(pdev, peer_mac_addr,
+					   1 /* is aligned */,
+					   check_valid, CDP_VDEV_ALL,
+					   PEER_DEBUG_ID_OL_PEER_MAP);
 	if (!peer || peer_id == HTT_INVALID_PEER) {
 		/*
 		 * Currently peer IDs are assigned for vdevs as well as peers.
@@ -894,6 +825,11 @@ static inline void ol_txrx_peer_find_add_id(struct ol_txrx_pdev_t *pdev,
 				    DEBUG_PEER_MAP_EVENT,
 				    peer_id, peer_mac_addr,
 				    peer, 0, 0);
+
+		if (peer)
+			/* Release reference incremented by hash find */
+			ol_txrx_peer_release_ref(peer,
+						 PEER_DEBUG_ID_OL_PEER_MAP);
 
 		return;
 	}

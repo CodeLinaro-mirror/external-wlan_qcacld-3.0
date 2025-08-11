@@ -271,7 +271,8 @@ ol_txrx_find_peer_by_addr_and_vdev(struct cdp_pdev *ppdev,
 	struct ol_txrx_vdev_t *vdev = (struct ol_txrx_vdev_t *)pvdev;
 	struct ol_txrx_peer_t *peer;
 
-	peer = ol_txrx_peer_vdev_find_hash(pdev, vdev, peer_addr, 0, 1);
+	peer = ol_txrx_peer_find_hash_find(pdev, peer_addr, 0, 1, vdev->vdev_id,
+					   PEER_DEBUG_ID_OL_INTERNAL);
 	if (!peer)
 		return NULL;
 	ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);
@@ -298,10 +299,13 @@ static QDF_STATUS ol_txrx_get_vdevid(struct cdp_soc_t *soc_hdl,
 	uint8_t pdev_id = OL_TXRX_PDEV_ID;
 	struct ol_txrx_soc_t *soc = cdp_soc_t_to_ol_txrx_soc_t(soc_hdl);
 	ol_txrx_pdev_handle pdev = ol_txrx_get_pdev_from_pdev_id(soc, pdev_id);
-	struct ol_txrx_peer_t *peer =
-		ol_txrx_peer_find_hash_find_get_ref(pdev, peer_mac, 0, 1,
-						    PEER_DEBUG_ID_OL_INTERNAL);
+	struct ol_txrx_peer_t *peer;
+	struct cdp_peer_info peer_info = { 0 };
 
+	DP_PEER_INFO_PARAMS_INIT(&peer_info, CDP_VDEV_ALL, peer_mac,
+				 false, peer_type);
+	peer = ol_txrx_peer_find_hash_find_wrapper(pdev, &peer_info, 1,
+						   PEER_DEBUG_ID_OL_INTERNAL);
 	if (!peer) {
 		QDF_TRACE(QDF_MODULE_ID_TXRX, QDF_TRACE_LEVEL_ERROR,
 			  "peer argument is null!!");
@@ -466,8 +470,8 @@ void *ol_txrx_find_peer_by_addr(struct cdp_pdev *ppdev,
 	struct ol_txrx_peer_t *peer;
 	struct ol_txrx_pdev_t *pdev = (struct ol_txrx_pdev_t *)ppdev;
 
-	peer = ol_txrx_peer_find_hash_find_get_ref(pdev, peer_addr, 0, 1,
-						   PEER_DEBUG_ID_OL_INTERNAL);
+	peer = ol_txrx_peer_find_hash_find(pdev, peer_addr, 0, 1, CDP_VDEV_ALL,
+					   PEER_DEBUG_ID_OL_INTERNAL);
 	if (!peer)
 		return NULL;
 	ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);
@@ -503,8 +507,8 @@ ol_txrx_peer_handle ol_txrx_peer_get_ref_by_addr(ol_txrx_pdev_handle pdev,
 {
 	struct ol_txrx_peer_t *peer;
 
-	peer = ol_txrx_peer_find_hash_find_get_ref(pdev, peer_addr, 0, 1,
-						   dbg_id);
+	peer = ol_txrx_peer_find_hash_find(pdev, peer_addr, 0, 1,
+					   CDP_VDEV_ALL, dbg_id);
 	if (!peer)
 		return NULL;
 
@@ -2706,8 +2710,8 @@ ol_txrx_get_pn_info(struct cdp_soc_t *soc_hdl, uint8_t *peer_mac,
 		return;
 	}
 
-	peer =  ol_txrx_peer_find_hash_find_get_ref(pdev, peer_mac, 0, 1,
-						    PEER_DEBUG_ID_OL_INTERNAL);
+	peer =  ol_txrx_peer_find_hash_find(pdev, peer_mac, 0, 1, vdev_id,
+					    PEER_DEBUG_ID_OL_INTERNAL);
 	if (!peer)
 		return;
 
@@ -2760,15 +2764,13 @@ static int ol_txrx_get_peer_state(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 	if (!pdev)
 		return QDF_STATUS_E_FAILURE;
 
-	peer =  ol_txrx_peer_find_hash_find_get_ref(pdev, peer_mac, 0, 1,
-						    PEER_DEBUG_ID_OL_INTERNAL);
+	peer =  ol_txrx_peer_find_hash_find(pdev, peer_mac, 0, 1, vdev_id,
+					    PEER_DEBUG_ID_OL_INTERNAL);
 	if (!peer)
-		return QDF_STATUS_E_FAILURE;
+		return OL_TXRX_PEER_STATE_INVALID;
 
 	peer_state = peer->state;
 	ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);
-	if (peer->vdev->vdev_id != vdev_id)
-		return OL_TXRX_PEER_STATE_INVALID;
 
 	return peer_state;
 }
@@ -3012,8 +3014,9 @@ QDF_STATUS ol_txrx_peer_state_update(struct cdp_soc_t *soc_hdl,
 		return QDF_STATUS_E_INVAL;
 	}
 
-	peer =  ol_txrx_peer_find_hash_find_get_ref(pdev, peer_mac, 0, 1,
-						    PEER_DEBUG_ID_OL_INTERNAL);
+	peer =  ol_txrx_peer_find_hash_find(pdev, peer_mac, 0, 1,
+					    CDP_VDEV_ALL,
+					    PEER_DEBUG_ID_OL_INTERNAL);
 	if (!peer) {
 		ol_txrx_err(
 			   "peer is null for peer_mac 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x",
@@ -3087,8 +3090,9 @@ ol_txrx_peer_update(ol_txrx_vdev_handle vdev,
 {
 	struct ol_txrx_peer_t *peer;
 
-	peer = ol_txrx_peer_find_hash_find_get_ref(vdev->pdev, peer_mac, 0, 1,
-						   PEER_DEBUG_ID_OL_INTERNAL);
+	peer = ol_txrx_peer_find_hash_find(vdev->pdev, peer_mac, 0, 1,
+					   vdev->vdev_id,
+					   PEER_DEBUG_ID_OL_INTERNAL);
 	if (!peer) {
 		ol_txrx_dbg("peer is null");
 		return;
@@ -3760,8 +3764,8 @@ ol_txrx_peer_flush_frags(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 	if (!pdev)
 		return;
 
-	peer =  ol_txrx_peer_find_hash_find_get_ref(pdev, peer_mac, 0, 1,
-						    PEER_DEBUG_ID_OL_INTERNAL);
+	peer =  ol_txrx_peer_find_hash_find(pdev, peer_mac, 0, 1,
+					    vdev_id, PEER_DEBUG_ID_OL_INTERNAL);
 	if (!peer)
 		return;
 
@@ -5900,8 +5904,9 @@ static void ol_txrx_wrapper_flush_rx_frames(struct cdp_soc_t *soc_hdl,
 		return;
 	}
 
-	peer = ol_txrx_peer_find_hash_find_get_ref(pdev, peer_mac, 0, 1,
-						   PEER_DEBUG_ID_OL_INTERNAL);
+	peer = ol_txrx_peer_find_hash_find(pdev, peer_mac, 0, 1,
+					   CDP_VDEV_ALL,
+					   PEER_DEBUG_ID_OL_INTERNAL);
 	if (!peer) {
 		ol_txrx_err("peer "QDF_MAC_ADDR_FMT" not found",
 			    QDF_MAC_ADDR_REF(peer_mac));
@@ -5909,6 +5914,8 @@ static void ol_txrx_wrapper_flush_rx_frames(struct cdp_soc_t *soc_hdl,
 	}
 
 	ol_txrx_flush_rx_frames(peer, drop);
+
+	ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);
 }
 
 /**
