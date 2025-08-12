@@ -438,6 +438,100 @@ static void htt_t2h_lp_msg_handler(void *context, qdf_nbuf_t htt_t2h_msg,
 		ol_rx_peer_unmap_handler(pdev->txrx_pdev, peer_id);
 		break;
 	}
+	case HTT_T2H_MSG_TYPE_PEER_MAP_V2:
+	{
+		u_int8_t mac_addr_deswizzle_buf[QDF_MAC_ADDR_SIZE];
+		u_int8_t *peer_mac_addr;
+		u_int16_t peer_id;
+		u_int16_t hw_peer_id;
+		u_int8_t vdev_id;
+
+		peer_id = HTT_RX_PEER_MAP_V2_SW_PEER_ID_GET(*msg_word);
+		hw_peer_id = HTT_RX_PEER_MAP_V2_HW_PEER_ID_GET(*(msg_word + 2));
+		vdev_id = HTT_RX_PEER_MAP_V2_VDEV_ID_GET(*msg_word);
+		peer_mac_addr = htt_t2h_mac_addr_deswizzle(
+			(u_int8_t *)(msg_word + 1), &mac_addr_deswizzle_buf[0]);
+
+		QDF_TRACE(QDF_MODULE_ID_TXRX, QDF_TRACE_LEVEL_INFO,
+			  "HTT_T2H_MSG_TYPE_PEER_MAP_V2 msg for peer id %d "
+			  "hw peer id %d vdev id %d peer mac "QDF_MAC_ADDR_FMT,
+			  peer_id, hw_peer_id, vdev_id,
+			  QDF_MAC_ADDR_REF(peer_mac_addr));
+
+		ol_rx_peer_map_handler(pdev->txrx_pdev, peer_id,
+				       vdev_id, peer_mac_addr,
+				       1 /*can tx */);
+		break;
+	}
+	case HTT_T2H_MSG_TYPE_PEER_UNMAP_V2:
+	{
+		u_int8_t mac_addr_deswizzle_buf[QDF_MAC_ADDR_SIZE];
+		u_int8_t *mac_addr;
+		u_int16_t peer_id;
+		u_int8_t vdev_id;
+
+		peer_id = HTT_RX_PEER_UNMAP_V2_SW_PEER_ID_GET(*msg_word);
+		vdev_id = HTT_RX_PEER_UNMAP_V2_VDEV_ID_GET(*msg_word);
+		mac_addr = htt_t2h_mac_addr_deswizzle((u_int8_t *)(msg_word + 1),
+						      &mac_addr_deswizzle_buf[0]);
+
+		QDF_TRACE(QDF_MODULE_ID_TXRX, QDF_TRACE_LEVEL_INFO,
+			  "HTT_T2H_MSG_TYPE_PEER_UNMAP_V2 msg for peer id %d "
+			  "vdev id %d peer mac "QDF_MAC_ADDR_FMT,
+			  peer_id, vdev_id, QDF_MAC_ADDR_REF(mac_addr));
+
+		ol_rx_peer_unmap_handler(pdev->txrx_pdev, peer_id);
+		break;
+	}
+	case HTT_T2H_MSG_TYPE_PEER_MAP_V3:
+	{
+		u_int8_t mac_addr_deswizzle_buf[QDF_MAC_ADDR_SIZE];
+		u_int8_t *peer_mac_addr;
+		u_int16_t peer_id;
+		u_int16_t hw_peer_id;
+		u_int8_t vdev_id;
+
+		peer_id = HTT_RX_PEER_MAP_V3_SW_PEER_ID_GET(*msg_word);
+		vdev_id = HTT_RX_PEER_MAP_V3_VDEV_ID_GET(*msg_word);
+		peer_mac_addr = htt_t2h_mac_addr_deswizzle(
+			(u_int8_t *)(msg_word + 1), &mac_addr_deswizzle_buf[0]);
+		hw_peer_id = HTT_RX_PEER_MAP_V3_HW_PEER_ID_GET(*(msg_word + 3));
+
+		QDF_TRACE(QDF_MODULE_ID_TXRX, QDF_TRACE_LEVEL_DEBUG,
+			  "HTT_T2H_MSG_TYPE_PEER_MAP_V3 msg for peer id %d "
+			  "hw peer id %d vdev id %d peer mac "QDF_MAC_ADDR_FMT,
+			  peer_id, hw_peer_id, vdev_id,
+			  QDF_MAC_ADDR_REF(peer_mac_addr));
+
+		ol_rx_peer_map_handler(pdev->txrx_pdev, peer_id,
+				       vdev_id, peer_mac_addr,
+				       1 /*can tx */);
+		break;
+	}
+#ifdef WLAN_FEATURE_11BE_MLO
+	case HTT_T2H_MSG_TYPE_MLO_RX_PEER_MAP:
+	{
+		uint8_t vdev_id = 0xff;
+		uint16_t mlo_peer_id;
+		uint8_t *mlo_peer_mac_addr;
+		uint8_t mac_addr_deswizzle_buf[QDF_MAC_ADDR_SIZE];
+
+		mlo_peer_id = HTT_RX_MLO_PEER_MAP_MLO_PEER_ID_GET(*msg_word);
+		mlo_peer_mac_addr = htt_t2h_mac_addr_deswizzle(
+			(u_int8_t *)(msg_word + 1), &mac_addr_deswizzle_buf[0]);
+
+		ol_rx_mlo_peer_map_handler(pdev->txrx_pdev, mlo_peer_id,
+					   mlo_peer_mac_addr, vdev_id);
+		break;
+	}
+	case HTT_T2H_MSG_TYPE_MLO_RX_PEER_UNMAP:
+	{
+		uint16_t mlo_peer_id =
+			HTT_RX_MLO_PEER_UNMAP_MLO_PEER_ID_GET(*msg_word);
+		ol_rx_mlo_peer_unmap_handler(pdev->txrx_pdev, mlo_peer_id);
+		break;
+	}
+#endif
 	case HTT_T2H_MSG_TYPE_SEC_IND:
 	{
 		uint16_t peer_id;

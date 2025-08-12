@@ -784,6 +784,7 @@ void ol_txrx_peer_clear_map_peer(ol_txrx_pdev_handle pdev,
  * @pdev: Handle to pdev object
  * @peer_mac_addr: MAC address of peer provided by firmware
  * @peer_id: peer_id provided by firmware
+ * @peer_type: peer type (link or MLD)
  *
  * Search for peer object for the MAC address, add the peer_id to
  * its array of peer_id's and update the peer_id_to_obj map entry
@@ -793,10 +794,11 @@ void ol_txrx_peer_clear_map_peer(ol_txrx_pdev_handle pdev,
  * Peregrine/Rome has two peer id for each peer.
  * iHelium has upto three peer id for each peer.
  *
- * Return: None
+ * Return: peer in success, NULL in failure
  */
-static inline void ol_txrx_peer_find_add_id(struct ol_txrx_pdev_t *pdev,
-				uint8_t *peer_mac_addr, uint16_t peer_id)
+static struct ol_txrx_peer_t *ol_txrx_peer_find_add_id(
+	struct ol_txrx_pdev_t *pdev, uint8_t *peer_mac_addr, uint16_t peer_id,
+	uint8_t vdev_id, enum cdp_peer_type peer_type)
 {
 	struct ol_txrx_peer_t *peer;
 	int status;
@@ -804,48 +806,55 @@ static inline void ol_txrx_peer_find_add_id(struct ol_txrx_pdev_t *pdev,
 	uint32_t peer_id_ref_cnt;
 	uint32_t peer_ref_cnt;
 	u8 check_valid = 0;
+	struct cdp_peer_info peer_info = { 0 };
 
 	if (pdev->enable_peer_unmap_conf_support)
 		check_valid = 1;
 
 	/* check if there's already a peer object with this MAC address */
-	peer = ol_txrx_peer_find_hash_find(pdev, peer_mac_addr,
-					   1 /* is aligned */,
-					   check_valid, CDP_VDEV_ALL,
-					   PEER_DEBUG_ID_OL_PEER_MAP);
-	if (!peer || peer_id == HTT_INVALID_PEER) {
+	DP_PEER_INFO_PARAMS_INIT(&peer_info, vdev_id, peer_mac_addr,
+				 true, peer_type);
+	/* Find peer and inc peer->ref_cnt by peer_map */
+	peer = ol_txrx_peer_find_hash_find_wrapper(pdev, &peer_info,
+						   check_valid,
+						   PEER_DEBUG_ID_OL_PEER_MAP);
+	if (!peer) {
 		/*
 		 * Currently peer IDs are assigned for vdevs as well as peers.
 		 * If the peer ID is for a vdev, then we will fail to find a
 		 * peer with a matching MAC address.
 		 */
-		ol_txrx_err("peer not found or peer ID is %d invalid",
-			    peer_id);
+		ol_txrx_err("peer not found");
 		wlan_roam_debug_log(DEBUG_INVALID_VDEV_ID,
 				    DEBUG_PEER_MAP_EVENT,
 				    peer_id, peer_mac_addr,
 				    peer, 0, 0);
-
-		if (peer)
-			/* Release reference incremented by hash find */
-			ol_txrx_peer_release_ref(peer,
-						 PEER_DEBUG_ID_OL_PEER_MAP);
-
-		return;
+		return NULL;
 	}
+
+	/* peer's ref count was already incremented by peer_find_hash_find */
+	peer_ref_cnt = qdf_atomic_read(&peer->ref_cnt);
+	ol_txrx_dbg("found peer %pK mac " QDF_MAC_ADDR_FMT
+		    " ref cnt %d vdev_id %d to add peer_id %d",
+		    peer, QDF_MAC_ADDR_REF(peer->mac_addr.raw), peer_ref_cnt,
+		    vdev_id, peer_id);
 
 	qdf_spin_lock(&pdev->peer_map_unmap_lock);
-
-	/* peer's ref count was already incremented by
-	 * peer_find_hash_find
-	 */
-	if (!pdev->peer_id_to_obj_map[peer_id].peer) {
-		pdev->peer_id_to_obj_map[peer_id].peer = peer;
-		qdf_atomic_init
-		  (&pdev->peer_id_to_obj_map[peer_id].peer_id_ref_cnt);
+	if (pdev->peer_id_to_obj_map[peer_id].peer) {
+		/* Peer map event came for peer_id which is already mapped,
+		 * this is not expected. TODO: unmap old peer and re-map new one.
+		 */
+		qdf_spin_unlock(&pdev->peer_map_unmap_lock);
+		/* Remove reference incremented by add hash find */
+		ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_PEER_MAP);
+		qdf_assert(0);
+		return NULL;
 	}
-	qdf_atomic_inc
-		(&pdev->peer_id_to_obj_map[peer_id].peer_id_ref_cnt);
+
+	peer->peer_id = peer_id;
+	pdev->peer_id_to_obj_map[peer_id].peer = peer;
+	qdf_atomic_init(&pdev->peer_id_to_obj_map[peer_id].peer_id_ref_cnt);
+	qdf_atomic_inc(&pdev->peer_id_to_obj_map[peer_id].peer_id_ref_cnt);
 
 	status = 1;
 
@@ -866,7 +875,6 @@ static inline void ol_txrx_peer_find_add_id(struct ol_txrx_pdev_t *pdev,
 
 	peer_id_ref_cnt = qdf_atomic_read(&pdev->
 				peer_id_to_obj_map[peer_id].peer_id_ref_cnt);
-	peer_ref_cnt = qdf_atomic_read(&peer->ref_cnt);
 	QDF_TRACE(QDF_MODULE_ID_TXRX, QDF_TRACE_LEVEL_INFO_HIGH,
 	   "%s: peer %pK ID %d peer_id[%d] peer_id_ref_cnt %d peer->ref_cnt %d",
 	   __func__, peer, peer_id, i, peer_id_ref_cnt, peer_ref_cnt);
@@ -881,6 +889,8 @@ static inline void ol_txrx_peer_find_add_id(struct ol_txrx_pdev_t *pdev,
 		/* TBDXXX: assert for now */
 		qdf_assert(0);
 	}
+
+	return peer;
 }
 
 /*=== allocation / deallocation function definitions ========================*/
@@ -956,7 +966,23 @@ ol_rx_peer_map_handler(ol_txrx_pdev_handle pdev,
 		       uint16_t peer_id,
 		       uint8_t vdev_id, uint8_t *peer_mac_addr, int tx_ready)
 {
-	ol_txrx_peer_find_add_id(pdev, peer_mac_addr, peer_id);
+	struct ol_txrx_peer_t *peer;
+
+	if (peer_id > ol_cfg_max_peer_id(pdev->ctrl_pdev)) {
+		ol_txrx_err("rx peer map message with invalid peer_id %d",
+			    peer_id);
+		return;
+	}
+
+	peer = ol_txrx_peer_find_add_id(pdev, peer_mac_addr, peer_id, vdev_id,
+					CDP_LINK_PEER_TYPE);
+	if (!peer) {
+		ol_txrx_err("failed to add peer id %d with vdev_id %d mac "
+			    QDF_MAC_ADDR_FMT, peer_id, vdev_id,
+			    QDF_MAC_ADDR_REF(peer_mac_addr));
+                return;
+	}
+
 	if (!tx_ready) {
 		struct ol_txrx_peer_t *peer;
 
@@ -1021,7 +1047,21 @@ ol_rx_peer_map_handler(ol_txrx_pdev_handle pdev,
 		       uint8_t *peer_mac_addr,
 		       int tx_ready)
 {
-	ol_txrx_peer_find_add_id(pdev, peer_mac_addr, peer_id);
+	struct ol_txrx_peer_t *peer;
+
+	if (peer_id > ol_cfg_max_peer_id(pdev->ctrl_pdev)) {
+		ol_txrx_err("rx peer map message with invalid peer_id %d",
+			    peer_id);
+		return;
+	}
+
+	peer = ol_txrx_peer_find_add_id(pdev, peer_mac_addr, peer_id, vdev_id,
+					CDP_LINK_PEER_TYPE);
+	if (!peer) {
+		ol_txrx_err("failed to add peer id %d with vdev_id %d mac "
+			    QDF_MAC_ADDR_FMT, peer_id, vdev_id,
+			    QDF_MAC_ADDR_REF(peer_mac_addr));
+	}
 }
 
 void ol_txrx_peer_tx_ready_handler(ol_txrx_pdev_handle pdev, uint16_t peer_id)
@@ -1114,6 +1154,7 @@ void ol_rx_peer_unmap_handler(ol_txrx_pdev_handle pdev, uint16_t peer_id)
 
 	if (qdf_atomic_dec_and_test
 		(&pdev->peer_id_to_obj_map[peer_id].peer_id_ref_cnt)) {
+		peer->peer_id = HTT_INVALID_PEER;
 		pdev->peer_id_to_obj_map[peer_id].peer = NULL;
 		for (i = 0; i < MAX_NUM_PEER_ID_PER_PEER; i++) {
 			if (peer->peer_ids[i] == peer_id) {
@@ -1143,6 +1184,65 @@ void ol_rx_peer_unmap_handler(ol_txrx_pdev_handle pdev, uint16_t peer_id)
 		  "%s: peer_id %d peer %pK peer_id_ref_cnt %d",
 		  __func__, peer_id, peer, ref_cnt);
 }
+
+#ifdef WLAN_FEATURE_11BE_MLO
+/**
+ * ol_rx_mlo_peer_map_handler() - handle MLO peer map event from firmware
+ * @pdev: data physical device handle
+ * @peer_id: ML peer_id from firmware
+ * @peer_mac_addr: mac address of the peer
+ *
+ * associate the ML peer_id that firmware provided with peer entry
+ *
+ * Return: QDF_STATUS code
+ */
+QDF_STATUS ol_rx_mlo_peer_map_handler(struct ol_txrx_pdev_t *pdev,
+				      uint16_t peer_id, uint8_t *peer_mac_addr,
+				      uint8_t vdev_id)
+{
+	struct ol_txrx_peer_t *peer;
+
+	if (peer_id > ol_cfg_max_peer_id(pdev->ctrl_pdev)) {
+		ol_txrx_err("rx mlo peer map message with invalid peer_id %d",
+			    peer_id);
+		return QDF_STATUS_E_INVAL;
+	}
+
+	ol_txrx_info("mlo_peer_map_event : ml_peer_id %d, peer_mac "
+		     QDF_MAC_ADDR_FMT, peer_id,
+		     QDF_MAC_ADDR_REF(peer_mac_addr));
+
+	peer = ol_txrx_peer_find_add_id(pdev, peer_mac_addr, peer_id, vdev_id,
+					CDP_MLD_PEER_TYPE);
+	if (!peer) {
+		ol_txrx_err("failed to add mlo peer id %d with vdev_id %d mac "
+			    QDF_MAC_ADDR_FMT, peer_id, vdev_id,
+			    QDF_MAC_ADDR_REF(peer_mac_addr));
+		return QDF_STATUS_E_INVAL;
+	}
+
+	if (wlan_op_mode_sta == peer->vdev->opmode &&
+	    qdf_mem_cmp(peer->mac_addr.raw, peer->vdev->mld_mac_addr.raw,
+			QDF_MAC_ADDR_SIZE) != 0) {
+		ol_txrx_info("STA vdev id %d bss_peer", vdev_id);
+		peer->bss_peer = 1;
+	}
+	return QDF_STATUS_SUCCESS;
+}
+
+/**
+ * ol_rx_mlo_peer_unmap_handler() - handle MLO peer unmap event from firmware
+ * @pdev: data physical device handle
+ * @peer_id: peer_id from firmware
+ *
+ * Return: none
+ */
+void ol_rx_mlo_peer_unmap_handler(struct ol_txrx_pdev_t *pdev,
+				  uint16_t peer_id)
+{
+	ol_rx_peer_unmap_handler(pdev, peer_id);
+}
+#endif
 
 /**
  * ol_txrx_peer_remove_obj_map_entries() - Remove matching pdev peer map entries
