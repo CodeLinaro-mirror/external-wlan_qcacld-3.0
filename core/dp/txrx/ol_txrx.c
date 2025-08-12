@@ -6406,6 +6406,121 @@ ol_txrx_set_peer_txq_flush_config(struct cdp_soc_t *soc_hdl,
 
 #ifdef WLAN_FEATURE_11BE_MLO
 /**
+ * ol_txrx_mld_peer_change_vdev() - change mld_peer->vdev handle
+ * @soc: ol txrx soc handle
+ * @peer: ol txrx mld peer handle
+ * @new_vdev_id: new vdev id
+ */
+static QDF_STATUS ol_txrx_mld_peer_change_vdev(struct ol_txrx_soc_t *soc,
+					       struct ol_txrx_peer_t *mld_peer,
+					       uint8_t new_vdev_id)
+{
+	struct ol_txrx_pdev_t *pdev;
+	struct ol_txrx_vdev_t *prev_vdev, *new_vdev;
+
+	pdev = ol_txrx_get_pdev_from_pdev_id(soc, OL_TXRX_PDEV_ID);
+	if (!pdev) {
+		ol_txrx_err("pdev is NULL");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	new_vdev = ol_txrx_get_vdev_from_soc_vdev_id(soc, new_vdev_id);
+	if (!new_vdev) {
+		ol_txrx_err("invalid vdev id %d", new_vdev_id);
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	prev_vdev = mld_peer->vdev;
+	mld_peer->vdev = new_vdev;
+
+	qdf_spin_lock_bh(&pdev->last_real_peer_mutex);
+	new_vdev->last_real_peer = mld_peer;
+	qdf_spin_unlock_bh(&pdev->last_real_peer_mutex);
+
+	ol_txrx_info("Change vdev for ML peer " QDF_MAC_ADDR_FMT
+		     " old vdev %pK id %d new vdev %pK id %d",
+		     QDF_MAC_ADDR_REF(mld_peer->mac_addr.raw),
+		     prev_vdev, prev_vdev->vdev_id, mld_peer->vdev,
+		     new_vdev_id);
+
+	return QDF_STATUS_SUCCESS;
+}
+
+/**
+ * ol_txrx_set_mld_peer_param: function to set parameters in MLD peer
+ * @soc: ol txrx soc handle
+ * @vdev_id: id of vdev handle
+ * @peer_mac: peer mac address
+ * @param: parameter type to be set
+ * @val: value of parameter to be set
+ *
+ * Return: 0 for success. nonzero for failure.
+ */
+static QDF_STATUS ol_txrx_set_mld_peer_param(struct ol_txrx_soc_t *soc,
+					     uint8_t vdev_id,
+					     uint8_t *mld_peer_mac,
+					     enum cdp_peer_param_type param,
+					     cdp_config_param_type val)
+{
+	struct ol_txrx_pdev_t *pdev;
+	struct ol_txrx_peer_t *mld_peer;
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+
+	pdev = ol_txrx_get_pdev_from_pdev_id(soc, OL_TXRX_PDEV_ID);
+	if (qdf_unlikely(!pdev))
+		return QDF_STATUS_E_FAILURE;
+
+	mld_peer = ol_txrx_mld_peer_find_hash_find(pdev, mld_peer_mac,
+						   0, 1, vdev_id,
+						   PEER_DEBUG_ID_OL_INTERNAL);
+	if (!mld_peer)
+		return QDF_STATUS_E_FAILURE;
+
+	switch (param) {
+	case CDP_CONFIG_MLD_PEER_VDEV:
+		status = ol_txrx_mld_peer_change_vdev(soc, mld_peer,
+						      val.new_vdev_id);
+		break;
+	default:
+		break;
+	}
+
+	ol_txrx_peer_release_ref(mld_peer, PEER_DEBUG_ID_OL_INTERNAL);
+
+	return status;
+}
+
+/**
+ * ol_txrx_set_peer_param: set parameters in legacy/link/MLD peer
+ * @cdp_soc: DP soc handle
+ * @vdev_id: id of vdev handle
+ * @peer_mac: peer mac address
+ * @param: parameter type to be set
+ * @val: value of parameter to be set
+ *
+ * Return: 0 for success. nonzero for failure.
+ */
+static QDF_STATUS ol_txrx_set_peer_param(struct cdp_soc_t *soc_hdl,
+					 uint8_t vdev_id, uint8_t *peer_mac,
+					 enum cdp_peer_param_type param,
+					 cdp_config_param_type val)
+{
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	struct ol_txrx_soc_t *soc = cdp_soc_t_to_ol_txrx_soc_t(soc_hdl);
+
+	switch (param) {
+	case CDP_CONFIG_MLD_PEER_VDEV:
+		status = ol_txrx_set_mld_peer_param(soc, vdev_id, peer_mac,
+						    param, val);
+		break;
+	default:
+		break;
+	}
+
+	return status;
+}
+
+/**
  * ol_txrx_peer_mlo_setup() - create MLD peer and MLO related initialization
  * @soc_hdl: control data path soc handle
  * @pdev: ol txrx pdev handle
@@ -6421,6 +6536,7 @@ QDF_STATUS ol_txrx_peer_mlo_setup(struct cdp_soc_t *soc_hdl,
 {
 	QDF_STATUS status;
 	struct ol_txrx_peer_t *mld_peer;
+	struct ol_txrx_soc_t *soc = cdp_soc_t_to_ol_txrx_soc_t(soc_hdl);
 
 	/* Non-MLO connection */
 	if (!setup_info || !setup_info->mld_peer_mac)
@@ -6461,6 +6577,18 @@ QDF_STATUS ol_txrx_peer_mlo_setup(struct cdp_soc_t *soc_hdl,
 		     QDF_MAC_ADDR_REF(peer->mac_addr.raw), mld_peer,
 		     QDF_MAC_ADDR_REF(setup_info->mld_peer_mac),
 		     peer->first_link, peer->primary_link);
+
+	if (setup_info->is_primary_link && !setup_info->is_first_link) {
+		/*
+		 * if first link is not the primary link,
+		 * then need to change mld_peer->vdev as
+		 * primary link dp_vdev is not same one
+		 * during mld peer creation.
+		 */
+		ol_txrx_info("Primary link is not the first link. vdev: %pK "
+			     "vdev_id %d", mld_peer->vdev, vdev_id);
+		ol_txrx_mld_peer_change_vdev(soc, mld_peer, vdev_id);
+	}
 
 	/* associate mld and link peer */
 	ol_txrx_link_peer_add_mld_peer(peer, mld_peer);
@@ -6926,7 +7054,10 @@ static struct cdp_ctrl_ops ol_ops_ctrl = {
 	.txrx_wdi_event_sub = wdi_event_sub,
 	.txrx_wdi_event_unsub = wdi_event_unsub,
 	.txrx_get_pdev_param = ol_get_pdev_param,
-	.txrx_set_pdev_param = ol_set_pdev_param
+	.txrx_set_pdev_param = ol_set_pdev_param,
+#ifdef WLAN_FEATURE_11BE_MLO
+	.txrx_set_peer_param = ol_txrx_set_peer_param,
+#endif
 };
 
 /* WINplatform specific structures */
