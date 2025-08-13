@@ -109,6 +109,10 @@
 
 #define GET_FIELD(_addr, _f) MS(*((A_UINT32 *)(_addr) + WO(_f)), _f)
 
+#ifndef RX_DATA_BUFFER_SIZE
+#define RX_DATA_BUFFER_SIZE	1664
+#endif
+
 #include <rx_desc.h>
 #include <wal_rx_desc.h>        /* struct rx_attention, etc */
 
@@ -119,6 +123,213 @@ struct htt_host_fw_desc_base {
 	} u;
 };
 
+/* SRNG type to be passed in APIs hal_srng_get_entrysize and hal_srng_setup */
+enum hal_ring_type {
+	REO_DST = 0,
+	REO_EXCEPTION = 1,
+	REO_REINJECT = 2,
+	REO_CMD = 3,
+	REO_STATUS = 4,
+	TCL_DATA = 5,
+	TCL_CMD_CREDIT = 6,
+	TCL_STATUS = 7,
+	CE_SRC = 8,
+	CE_DST = 9,
+	CE_DST_STATUS = 10,
+	WBM_IDLE_LINK = 11,
+	SW2WBM_RELEASE = 12,
+	WBM2SW_RELEASE = 13,
+	RXDMA_BUF = 14,
+	RXDMA_DST = 15,
+	RXDMA_MONITOR_BUF = 16,
+	RXDMA_MONITOR_STATUS = 17,
+	RXDMA_MONITOR_DST = 18,
+	RXDMA_MONITOR_DESC = 19,
+	DIR_BUF_RX_DMA_SRC = 20,
+#ifdef WLAN_FEATURE_CIF_CFR
+	WIFI_POS_SRC,
+#endif
+	REO2PPE,
+	PPE2TCL,
+	PPE_RELEASE,
+	TX_MONITOR_BUF,
+	TX_MONITOR_DST,
+	SW2RXDMA_NEW,
+	SW2RXDMA_LINK_RELEASE,
+	MAX_RING_TYPES
+};
+
+
+/**
+ * struct htt_rx_ring_tlv_filter - Rx ring TLV filter
+ * enable/disable.
+ * @mpdu_start: enable/disable MPDU start TLV
+ * @msdu_start: enable/disable MSDU start TLV
+ * @packet: enable/disable PACKET TLV
+ * @msdu_end: enable/disable MSDU end TLV
+ * @mpdu_end: enable/disable MPDU end TLV
+ * @packet_header: enable/disable PACKET header TLV
+ * @attention: enable/disable ATTENTION TLV
+ * @ppdu_start: enable/disable PPDU start TLV
+ * @ppdu_end: enable/disable PPDU end TLV
+ * @ppdu_end_user_stats: enable/disable PPDU user stats TLV
+ * @ppdu_end_user_stats_ext: enable/disable PPDU user stats ext TLV
+ * @ppdu_end_status_done: enable/disable PPDU end status done TLV
+ * @ppdu_start_user_info:
+ * @header_per_msdu:
+ * @enable_fp: enable/disable FP packet
+ * @enable_md: enable/disable MD packet
+ * @enable_mo: enable/disable MO packet
+ * @enable_fp_packet: enable/disable FP packet config
+ * @enable_md_packet: enable/disable MD packet config
+ * @enable_mo_packet: enable/disable MO packet config
+ * @enable_fpmo_packet: enable/disable FPMO packet config
+ * @offset_valid: Flag to indicate if below offsets are valid
+ * @fp_mgmt_filter:
+ * @mo_mgmt_filter:
+ * @fp_ctrl_filter:
+ * @mo_ctrl_filter:
+ * @fp_data_filter:
+ * @mo_data_filter:
+ * @md_data_filter:
+ * @md_mgmt_filter:
+ * @md_ctrl_filter:
+ * @fp_packet_mgmt_filter:
+ * @mo_packet_mgmt_filter:
+ * @fp_packet_ctrl_filter:
+ * @mo_packet_ctrl_filter:
+ * @fp_packet_data_filter:
+ * @mo_packet_data_filter:
+ * @md_packet_data_filter:
+ * @md_packet_mgmt_filter:
+ * @md_packet_ctrl_filter:
+ * @fpmo_packet_data_filter:
+ * @fpmo_packet_mgmt_filter:
+ * @fpmo_packet_ctrl_filter:
+ * @rx_packet_offset: Offset of packet payload
+ * @rx_header_offset: Offset of rx_header tlv
+ * @rx_mpdu_end_offset: Offset of rx_mpdu_end tlv
+ * @rx_mpdu_start_offset: Offset of rx_mpdu_start tlv
+ * @rx_msdu_end_offset: Offset of rx_msdu_end tlv
+ * @rx_msdu_start_offset: Offset of rx_msdu_start tlv
+ * @rx_attn_offset: Offset of rx_attention tlv
+ * @fp_phy_err: Flag to indicate FP PHY status tlv
+ * @fp_phy_err_buf_src: source ring selection for the FP PHY ERR status tlv
+ * @fp_phy_err_buf_dest: dest ring selection for the FP PHY ERR status tlv
+ * @phy_err_filter_valid:
+ * @phy_err_mask: select the phy errors defined in phyrx_abort_request_reason
+ *  enums 0 to 31.
+ * @phy_err_mask_cont: select the fp phy errors defined in
+ *  phyrx_abort_request_reason enums 32 to 63
+ * @rx_mpdu_start_wmask: word mask for mpdu start tlv
+ * @rx_mpdu_end_wmask: word mask for mpdu end tlv
+ * @rx_msdu_end_wmask: word mask for msdu end tlv
+ * @rx_pkt_tlv_offset: rx pkt tlv offset
+ * @mgmt_dma_length: configure length for mgmt packet
+ * @ctrl_dma_length: configure length for ctrl packet
+ * @data_dma_length: configure length for data packet
+ * @rx_hdr_length: configure length for rx header tlv
+ * @mgmt_mpdu_log: enable mgmt mpdu level logging
+ * @ctrl_mpdu_log: enable ctrl mpdu level logging
+ * @data_mpdu_log: enable data mpdu level logging
+ * @enable: enable rx monitor
+ * @enable_fpmo: enable/disable FPMO packet
+ * @fpmo_data_filter: FPMO mode data filter
+ * @fpmo_mgmt_filter: FPMO mode mgmt filter
+ * @fpmo_ctrl_filter: FPMO mode ctrl filter
+ * @enable_mon_mac_filter: enable/disable mac based filter on scan radio
+ *
+ * NOTE: Do not change the layout of this structure
+ */
+struct htt_rx_ring_tlv_filter {
+	u_int32_t mpdu_start:1,
+		msdu_start:1,
+		packet:1,
+		msdu_end:1,
+		mpdu_end:1,
+		packet_header:1,
+		attention:1,
+		ppdu_start:1,
+		ppdu_end:1,
+		ppdu_end_user_stats:1,
+		ppdu_end_user_stats_ext:1,
+		ppdu_end_status_done:1,
+		ppdu_start_user_info:1,
+		header_per_msdu:1,
+		enable_fp:1,
+		enable_md:1,
+		enable_mo:1,
+		enable_fp_packet:1,
+		enable_md_packet:1,
+		enable_mo_packet:1,
+		enable_fpmo_packet:1,
+		offset_valid:1;
+	u_int32_t fp_mgmt_filter:16,
+		mo_mgmt_filter:16;
+	u_int32_t fp_ctrl_filter:16,
+		mo_ctrl_filter:16;
+	u_int32_t fp_data_filter:16,
+		mo_data_filter:16;
+	u_int16_t md_data_filter;
+	u_int16_t md_mgmt_filter;
+
+	u_int16_t md_ctrl_filter;
+	u_int16_t fp_packet_mgmt_filter;
+
+	u_int16_t mo_packet_mgmt_filter;
+	u_int16_t fp_packet_ctrl_filter;
+
+	u_int16_t mo_packet_ctrl_filter;
+	u_int16_t fp_packet_data_filter;
+
+	u_int16_t mo_packet_data_filter;
+	u_int16_t md_packet_data_filter;
+
+	u_int16_t md_packet_mgmt_filter;
+	u_int16_t md_packet_ctrl_filter;
+
+	u_int16_t fpmo_packet_data_filter;
+	u_int16_t fpmo_packet_mgmt_filter;
+
+	u_int16_t fpmo_packet_ctrl_filter;
+
+	uint16_t rx_packet_offset;
+	uint16_t rx_header_offset;
+	uint16_t rx_mpdu_end_offset;
+	uint16_t rx_mpdu_start_offset;
+	uint16_t rx_msdu_end_offset;
+	uint16_t rx_msdu_start_offset;
+	uint16_t rx_attn_offset;
+#ifdef QCA_UNDECODED_METADATA_SUPPORT
+	u_int32_t fp_phy_err:1,
+		fp_phy_err_buf_src:2,
+		fp_phy_err_buf_dest:2,
+		phy_err_filter_valid:1;
+	u_int32_t phy_err_mask;
+	u_int32_t phy_err_mask_cont;
+#endif
+#if defined(WLAN_PKT_CAPTURE_RX_2_0) || defined(CONFIG_WORD_BASED_TLV) || \
+	defined(CONFIG_MON_WORD_BASED_TLV) || \
+	defined(WLAN_FEATURE_LOCAL_PKT_CAPTURE)
+	uint32_t rx_mpdu_start_wmask;
+	uint16_t rx_mpdu_end_wmask;
+	uint32_t rx_msdu_end_wmask;
+	uint16_t rx_pkt_tlv_offset;
+	uint16_t mgmt_dma_length:3,
+		 ctrl_dma_length:3,
+		 data_dma_length:3,
+		 rx_hdr_length:3,
+		 mgmt_mpdu_log:1,
+		 ctrl_mpdu_log:1,
+		 data_mpdu_log:1,
+		 enable:1;
+	u_int16_t enable_fpmo:1;
+	u_int16_t fpmo_data_filter;
+	u_int16_t fpmo_mgmt_filter;
+	u_int16_t fpmo_ctrl_filter;
+#endif
+	bool enable_mon_mac_filter;
+};
 
 /*
  * This struct defines the basic descriptor information used by host,
@@ -599,6 +810,7 @@ QDF_STATUS htt_h2t_rx_ring_cfg_msg_ll(struct htt_pdev_t *pdev);
 QDF_STATUS htt_h2t_rx_ring_rfs_cfg_msg_ll(struct htt_pdev_t *pdev);
 
 QDF_STATUS htt_h2t_rx_ring_rfs_cfg_msg_hl(struct htt_pdev_t *pdev);
+QDF_STATUS htt_h2t_rxdma_ring_sel_cfg(struct htt_pdev_t *pdev);
 
 QDF_STATUS htt_h2t_rx_ring_cfg_msg_hl(struct htt_pdev_t *pdev);
 

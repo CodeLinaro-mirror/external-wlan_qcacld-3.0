@@ -701,13 +701,23 @@ QDF_STATUS htt_attach_target(htt_pdev_handle pdev)
 		return status;
 	}
 
-	status = htt_h2t_rx_ring_cfg_msg(pdev);
+	status = htt_h2t_rxdma_ring_sel_cfg(pdev);
 	if (status != QDF_STATUS_SUCCESS) {
 		QDF_TRACE(QDF_MODULE_ID_HTT, QDF_TRACE_LEVEL_ERROR,
-			  "%s:%d: could not send h2t_rx_ring_cfg msg",
+			  "%s:%d: could not send htt_h2t_rxdma_ring_sel_cfg msg",
 			  __func__, __LINE__);
 		return status;
 	}
+
+	/** This htt msg type HTT_H2T_MSG_TYPE_RX_RING_CFG is only for legacy platform include Genoa */
+	/** Cologne sdio will ignore this htt type and use HTT_H2T_MSG_TYPE_RX_RING_SELECTION_CFG instead*/
+	/** status = htt_h2t_rx_ring_cfg_msg(pdev); */
+	/** if (status != QDF_STATUS_SUCCESS) { */
+	/**     QDF_TRACE(QDF_MODULE_ID_HTT, QDF_TRACE_LEVEL_ERROR, */
+	/**           "%s:%d: could not send h2t_rx_ring_cfg msg", */
+	/**           __func__, __LINE__); */
+	/**     return status; */
+	/** } */
 
 	status = HTT_IPA_CONFIG(pdev, status);
 	if (status != QDF_STATUS_SUCCESS) {

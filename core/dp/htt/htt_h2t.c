@@ -48,6 +48,7 @@
 
 #include <htt_internal.h>
 #include <wlan_policy_mgr_api.h>
+#include "wlan_init_cfg.h"
 
 #define HTT_MSG_BUF_SIZE(msg_bytes) \
 	((msg_bytes) + HTC_HEADER_LEN + HTC_HDR_ALIGNMENT_PADDING)
@@ -766,6 +767,884 @@ htt_h2t_rx_ring_cfg_msg_hl(struct htt_pdev_t *pdev)
 	return QDF_STATUS_SUCCESS;
 }
 
+static int htt_h2t_rx_ring_cfg(struct htt_pdev_t *pdev, int pdev_id,
+			int hal_ring_type, int ring_buf_size,
+			struct htt_rx_ring_tlv_filter *htt_tlv_filter)
+{
+	struct htt_htc_pkt *pkt;
+	qdf_nbuf_t htt_msg;
+	uint32_t *msg_word;
+	uint32_t *msg_word_data;
+	uint32_t htt_ring_type, htt_ring_id;
+	uint32_t tlv_filter;
+	uint8_t *htt_logger_bufp;
+	uint32_t mon_drop_th = 1;
+	int target_pdev_id;
+	QDF_STATUS status;
+
+	htt_msg = qdf_nbuf_alloc(
+			pdev->osdev,
+			HTT_MSG_BUF_SIZE(HTT_RX_RING_SELECTION_CFG_SZ),
+			/* reserve room for the HTC header */
+			HTC_HEADER_LEN + HTC_HDR_ALIGNMENT_PADDING, 4, TRUE);
+	if (!htt_msg) {
+		dp_err("htt_msg alloc failed ring type %d", hal_ring_type);
+		goto fail0;
+	}
+
+
+	switch (hal_ring_type) {
+	case RXDMA_BUF:
+		htt_ring_id = HTT_RXDMA_HOST_BUF_RING;
+		htt_ring_type = HTT_SW_TO_HW_RING;
+		break;
+	case RXDMA_MONITOR_BUF:
+		htt_ring_id = HTT_RXDMA_MONITOR_BUF_RING;
+		htt_ring_type = HTT_SW_TO_HW_RING;
+		break;
+	case RXDMA_MONITOR_STATUS:
+		htt_ring_id = HTT_RXDMA_MONITOR_STATUS_RING;
+		htt_ring_type = HTT_SW_TO_HW_RING;
+		break;
+	case RXDMA_MONITOR_DST:
+		htt_ring_id = HTT_RXDMA_MONITOR_DEST_RING;
+		htt_ring_type = HTT_HW_TO_SW_RING;
+		break;
+	case RXDMA_MONITOR_DESC:
+		htt_ring_id = HTT_RXDMA_MONITOR_DESC_RING;
+		htt_ring_type = HTT_SW_TO_HW_RING;
+		break;
+	case RXDMA_DST:
+		htt_ring_id = HTT_RXDMA_NON_MONITOR_DEST_RING;
+		htt_ring_type = HTT_HW_TO_SW_RING;
+		break;
+
+	default:
+		QDF_TRACE(QDF_MODULE_ID_TXRX, QDF_TRACE_LEVEL_ERROR,
+			"%s: Ring currently not supported", __func__);
+		goto fail1;
+	}
+
+	dp_info("ring_type %d htt_ring_id %d",
+		hal_ring_type, htt_ring_id);
+
+	/*
+	 * Set the length of the message.
+	 * The contribution from the HTC_HDR_ALIGNMENT_PADDING is added
+	 * separately during the below call to qdf_nbuf_push_head.
+	 * The contribution from the HTC header is added separately inside HTC.
+	 */
+	if (qdf_nbuf_put_tail(htt_msg, HTT_RX_RING_SELECTION_CFG_SZ) == NULL) {
+		QDF_TRACE(QDF_MODULE_ID_TXRX, QDF_TRACE_LEVEL_ERROR,
+			"%s: Failed to expand head for RX Ring Cfg msg",
+			__func__);
+		goto fail1; /* failure */
+	}
+
+	msg_word = (uint32_t *)qdf_nbuf_data(htt_msg);
+
+	/* rewind beyond alignment pad to get to the HTC header reserved area */
+	qdf_nbuf_push_head(htt_msg, HTC_HDR_ALIGNMENT_PADDING);
+
+	/* word 0 */
+	htt_logger_bufp = (uint8_t *)msg_word;
+	*msg_word = 0;
+	HTT_H2T_MSG_TYPE_SET(*msg_word, HTT_H2T_MSG_TYPE_RX_RING_SELECTION_CFG);
+
+	/*
+	 * pdev_id is indexed from 0 whereas mac_id is indexed from 1
+	 * SW_TO_SW and SW_TO_HW rings are unaffected by this
+	 */
+
+	if (htt_ring_type == HTT_SW_TO_SW_RING ||
+			htt_ring_type == HTT_SW_TO_HW_RING ||
+			htt_ring_type == HTT_HW_TO_SW_RING)
+		HTT_RX_RING_SELECTION_CFG_PDEV_ID_SET(*msg_word,
+						      pdev_id);
+
+	/* TODO: Discuss with FW on changing this to unique ID and using
+	 * htt_ring_type to send the type of ring
+	 */
+	HTT_RX_RING_SELECTION_CFG_RING_ID_SET(*msg_word, htt_ring_id);
+
+	HTT_RX_RING_SELECTION_CFG_RX_OFFSETS_VALID_SET(*msg_word,
+						htt_tlv_filter->offset_valid);
+
+	if (mon_drop_th > 0)
+		HTT_RX_RING_SELECTION_CFG_DROP_THRESHOLD_VALID_SET(*msg_word,
+								   1);
+	else
+		HTT_RX_RING_SELECTION_CFG_DROP_THRESHOLD_VALID_SET(*msg_word,
+								   0);
+
+	/* word 1 */
+	msg_word++;
+	*msg_word = 0;
+	HTT_RX_RING_SELECTION_CFG_RING_BUFFER_SIZE_SET(*msg_word,
+		ring_buf_size);
+	HTT_RX_RING_SELECTION_CFG_CONFIG_LENGTH_MGMT_SET(*msg_word, 0);
+	HTT_RX_RING_SELECTION_CFG_CONFIG_LENGTH_CTRL_SET(*msg_word, 0);
+
+	/* word 2 */
+	msg_word++;
+	*msg_word = 0;
+
+	if (htt_tlv_filter->enable_fp) {
+		/* TYPE: MGMT */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			FP, MGMT, 0000,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_ASSOC_REQ) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			FP, MGMT, 0001,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_ASSOC_RES) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			FP, MGMT, 0010,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_REASSOC_REQ) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			FP, MGMT, 0011,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_REASSOC_RES) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			FP, MGMT, 0100,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_PROBE_REQ) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			FP, MGMT, 0101,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_PROBE_RES) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			FP, MGMT, 0110,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_TIM_ADVT) ? 1 : 0);
+		/* reserved */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0, FP,
+			MGMT, 0111,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_RESERVED_7) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			FP, MGMT, 1000,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_BEACON) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			FP, MGMT, 1001,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_ATIM) ? 1 : 0);
+	}
+
+	if (htt_tlv_filter->enable_md) {
+			/* TYPE: MGMT */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MD, MGMT, 0000,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_ASSOC_REQ) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MD, MGMT, 0001,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_ASSOC_RES) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MD, MGMT, 0010,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_REASSOC_REQ) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MD, MGMT, 0011,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_REASSOC_RES) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MD, MGMT, 0100,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_PROBE_REQ) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MD, MGMT, 0101,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_PROBE_RES) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MD, MGMT, 0110,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_TIM_ADVT) ? 1 : 0);
+		/* reserved */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0, MD,
+			MGMT, 0111,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_RESERVED_7) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MD, MGMT, 1000,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_BEACON) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MD, MGMT, 1001,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_ATIM) ? 1 : 0);
+	}
+
+	if (htt_tlv_filter->enable_mo) {
+		/* TYPE: MGMT */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MO, MGMT, 0000,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_ASSOC_REQ) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MO, MGMT, 0001,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_ASSOC_RES) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MO, MGMT, 0010,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_REASSOC_REQ) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MO, MGMT, 0011,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_REASSOC_RES) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MO, MGMT, 0100,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_PROBE_REQ) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MO, MGMT, 0101,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_PROBE_RES) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MO, MGMT, 0110,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_TIM_ADVT) ? 1 : 0);
+		/* reserved */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0, MO,
+			MGMT, 0111,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_RESERVED_7) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MO, MGMT, 1000,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_BEACON) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG0,
+			MO, MGMT, 1001,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_ATIM) ? 1 : 0);
+	}
+
+	/* word 3 */
+	msg_word++;
+	*msg_word = 0;
+
+	if (htt_tlv_filter->enable_fp) {
+		/* TYPE: MGMT */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			FP, MGMT, 1010,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_DISASSOC) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			FP, MGMT, 1011,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_AUTH) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			FP, MGMT, 1100,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_DEAUTH) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			FP, MGMT, 1101,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_ACTION) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			FP, MGMT, 1110,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_ACT_NO_ACK) ? 1 : 0);
+		/* reserved*/
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1, FP,
+			MGMT, 1111,
+			(htt_tlv_filter->fp_mgmt_filter &
+			FILTER_MGMT_RESERVED_15) ? 1 : 0);
+	}
+
+	if (htt_tlv_filter->enable_md) {
+			/* TYPE: MGMT */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			MD, MGMT, 1010,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_DISASSOC) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			MD, MGMT, 1011,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_AUTH) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			MD, MGMT, 1100,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_DEAUTH) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			MD, MGMT, 1101,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_ACTION) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			MD, MGMT, 1110,
+			(htt_tlv_filter->md_mgmt_filter &
+			FILTER_MGMT_ACT_NO_ACK) ? 1 : 0);
+	}
+
+	if (htt_tlv_filter->enable_mo) {
+		/* TYPE: MGMT */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			MO, MGMT, 1010,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_DISASSOC) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			MO, MGMT, 1011,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_AUTH) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			MO, MGMT, 1100,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_DEAUTH) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			MO, MGMT, 1101,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_ACTION) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1,
+			MO, MGMT, 1110,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_ACT_NO_ACK) ? 1 : 0);
+		/* reserved*/
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG1, MO,
+			MGMT, 1111,
+			(htt_tlv_filter->mo_mgmt_filter &
+			FILTER_MGMT_RESERVED_15) ? 1 : 0);
+	}
+
+	/* word 4 */
+	msg_word++;
+	*msg_word = 0;
+
+	if (htt_tlv_filter->enable_fp) {
+		/* TYPE: CTRL */
+		/* reserved */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, FP,
+			CTRL, 0000,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_RESERVED_1) ? 1 : 0);
+		/* reserved */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, FP,
+			CTRL, 0001,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_RESERVED_2) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, FP,
+			CTRL, 0010,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_TRIGGER) ? 1 : 0);
+		/* reserved */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, FP,
+			CTRL, 0011,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_RESERVED_4) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, FP,
+			CTRL, 0100,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_BF_REP_POLL) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, FP,
+			CTRL, 0101,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_VHT_NDP) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, FP,
+			CTRL, 0110,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_FRAME_EXT) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, FP,
+			CTRL, 0111,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_CTRLWRAP) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, FP,
+			CTRL, 1000,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_BA_REQ) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, FP,
+			CTRL, 1001,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_BA) ? 1 : 0);
+	}
+
+	if (htt_tlv_filter->enable_md) {
+		/* TYPE: CTRL */
+		/* reserved */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MD,
+			CTRL, 0000,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_RESERVED_1) ? 1 : 0);
+		/* reserved */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MD,
+			CTRL, 0001,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_RESERVED_2) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MD,
+			CTRL, 0010,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_TRIGGER) ? 1 : 0);
+		/* reserved */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MD,
+			CTRL, 0011,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_RESERVED_4) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MD,
+			CTRL, 0100,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_BF_REP_POLL) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MD,
+			CTRL, 0101,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_VHT_NDP) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MD,
+			CTRL, 0110,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_FRAME_EXT) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MD,
+			CTRL, 0111,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_CTRLWRAP) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MD,
+			CTRL, 1000,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_BA_REQ) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MD,
+			CTRL, 1001,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_BA) ? 1 : 0);
+	}
+
+	if (htt_tlv_filter->enable_mo) {
+		/* TYPE: CTRL */
+		/* reserved */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MO,
+			CTRL, 0000,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_RESERVED_1) ? 1 : 0);
+		/* reserved */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MO,
+			CTRL, 0001,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_RESERVED_2) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MO,
+			CTRL, 0010,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_TRIGGER) ? 1 : 0);
+		/* reserved */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MO,
+			CTRL, 0011,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_RESERVED_4) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MO,
+			CTRL, 0100,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_BF_REP_POLL) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MO,
+			CTRL, 0101,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_VHT_NDP) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MO,
+			CTRL, 0110,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_FRAME_EXT) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MO,
+			CTRL, 0111,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_CTRLWRAP) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MO,
+			CTRL, 1000,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_BA_REQ) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG2, MO,
+			CTRL, 1001,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_BA) ? 1 : 0);
+	}
+
+	/* word 5 */
+	msg_word++;
+	*msg_word = 0;
+	if (htt_tlv_filter->enable_fp) {
+		/* TYPE: CTRL */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, FP,
+			CTRL, 1010,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_PSPOLL) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, FP,
+			CTRL, 1011,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_RTS) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, FP,
+			CTRL, 1100,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_CTS) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, FP,
+			CTRL, 1101,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_ACK) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, FP,
+			CTRL, 1110,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_CFEND) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, FP,
+			CTRL, 1111,
+			(htt_tlv_filter->fp_ctrl_filter &
+			FILTER_CTRL_CFEND_CFACK) ? 1 : 0);
+		/* TYPE: DATA */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, FP,
+			DATA, MCAST,
+			(htt_tlv_filter->fp_data_filter &
+			FILTER_DATA_MCAST) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, FP,
+			DATA, UCAST,
+			(htt_tlv_filter->fp_data_filter &
+			FILTER_DATA_UCAST) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, FP,
+			DATA, NULL,
+			(htt_tlv_filter->fp_data_filter &
+			FILTER_DATA_NULL) ? 1 : 0);
+	}
+
+	if (htt_tlv_filter->enable_md) {
+		/* TYPE: CTRL */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MD,
+			CTRL, 1010,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_PSPOLL) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MD,
+			CTRL, 1011,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_RTS) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MD,
+			CTRL, 1100,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_CTS) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MD,
+			CTRL, 1101,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_ACK) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MD,
+			CTRL, 1110,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_CFEND) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MD,
+			CTRL, 1111,
+			(htt_tlv_filter->md_ctrl_filter &
+			FILTER_CTRL_CFEND_CFACK) ? 1 : 0);
+		/* TYPE: DATA */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MD,
+			DATA, MCAST,
+			(htt_tlv_filter->md_data_filter &
+			FILTER_DATA_MCAST) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MD,
+			DATA, UCAST,
+			(htt_tlv_filter->md_data_filter &
+			FILTER_DATA_UCAST) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MD,
+			DATA, NULL,
+			(htt_tlv_filter->md_data_filter &
+			FILTER_DATA_NULL) ? 1 : 0);
+	}
+
+	if (htt_tlv_filter->enable_mo) {
+		/* TYPE: CTRL */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MO,
+			CTRL, 1010,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_PSPOLL) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MO,
+			CTRL, 1011,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_RTS) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MO,
+			CTRL, 1100,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_CTS) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MO,
+			CTRL, 1101,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_ACK) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MO,
+			CTRL, 1110,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_CFEND) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MO,
+			CTRL, 1111,
+			(htt_tlv_filter->mo_ctrl_filter &
+			FILTER_CTRL_CFEND_CFACK) ? 1 : 0);
+		/* TYPE: DATA */
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MO,
+			DATA, MCAST,
+			(htt_tlv_filter->mo_data_filter &
+			FILTER_DATA_MCAST) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MO,
+			DATA, UCAST,
+			(htt_tlv_filter->mo_data_filter &
+			FILTER_DATA_UCAST) ? 1 : 0);
+		htt_rx_ring_pkt_enable_subtype_set(*msg_word, FLAG3, MO,
+			DATA, NULL,
+			(htt_tlv_filter->mo_data_filter &
+			FILTER_DATA_NULL) ? 1 : 0);
+	}
+
+	/* word 6 */
+	msg_word++;
+	*msg_word = 0;
+	tlv_filter = 0;
+	htt_rx_ring_tlv_filter_in_enable_set(tlv_filter, MPDU_START,
+		htt_tlv_filter->mpdu_start);
+	htt_rx_ring_tlv_filter_in_enable_set(tlv_filter, MSDU_START,
+		htt_tlv_filter->msdu_start);
+	htt_rx_ring_tlv_filter_in_enable_set(tlv_filter, PACKET,
+		htt_tlv_filter->packet);
+	htt_rx_ring_tlv_filter_in_enable_set(tlv_filter, MSDU_END,
+		htt_tlv_filter->msdu_end);
+	htt_rx_ring_tlv_filter_in_enable_set(tlv_filter, MPDU_END,
+		htt_tlv_filter->mpdu_end);
+	htt_rx_ring_tlv_filter_in_enable_set(tlv_filter, PACKET_HEADER,
+		htt_tlv_filter->packet_header);
+	htt_rx_ring_tlv_filter_in_enable_set(tlv_filter, ATTENTION,
+		htt_tlv_filter->attention);
+	htt_rx_ring_tlv_filter_in_enable_set(tlv_filter, PPDU_START,
+		htt_tlv_filter->ppdu_start);
+	htt_rx_ring_tlv_filter_in_enable_set(tlv_filter, PPDU_END,
+		htt_tlv_filter->ppdu_end);
+	htt_rx_ring_tlv_filter_in_enable_set(tlv_filter, PPDU_END_USER_STATS,
+		htt_tlv_filter->ppdu_end_user_stats);
+	htt_rx_ring_tlv_filter_in_enable_set(tlv_filter,
+		PPDU_END_USER_STATS_EXT,
+		htt_tlv_filter->ppdu_end_user_stats_ext);
+	htt_rx_ring_tlv_filter_in_enable_set(tlv_filter, PPDU_END_STATUS_DONE,
+		htt_tlv_filter->ppdu_end_status_done);
+	htt_rx_ring_tlv_filter_in_enable_set(tlv_filter, PPDU_START_USER_INFO,
+		htt_tlv_filter->ppdu_start_user_info);
+	/* RESERVED bit maps to header_per_msdu in htt_tlv_filter*/
+	 htt_rx_ring_tlv_filter_in_enable_set(tlv_filter, RESERVED,
+		 htt_tlv_filter->header_per_msdu);
+
+	HTT_RX_RING_SELECTION_CFG_TLV_FILTER_IN_FLAG_SET(*msg_word, tlv_filter);
+
+	msg_word_data = (uint32_t *)qdf_nbuf_data(htt_msg);
+	dp_info("config_data: [0x%x][0x%x][0x%x][0x%x][0x%x][0x%x][0x%x]",
+		msg_word_data[0], msg_word_data[1], msg_word_data[2],
+		msg_word_data[3], msg_word_data[4], msg_word_data[5],
+		msg_word_data[6]);
+
+	/* word 7 */
+	msg_word++;
+	*msg_word = 0;
+	if (htt_tlv_filter->offset_valid) {
+		HTT_RX_RING_SELECTION_CFG_RX_PACKET_OFFSET_SET(*msg_word,
+					htt_tlv_filter->rx_packet_offset);
+		HTT_RX_RING_SELECTION_CFG_RX_HEADER_OFFSET_SET(*msg_word,
+					htt_tlv_filter->rx_header_offset);
+
+		/* word 8 */
+		msg_word++;
+		*msg_word = 0;
+		HTT_RX_RING_SELECTION_CFG_RX_MPDU_END_OFFSET_SET(*msg_word,
+					htt_tlv_filter->rx_mpdu_end_offset);
+		HTT_RX_RING_SELECTION_CFG_RX_MPDU_START_OFFSET_SET(*msg_word,
+					htt_tlv_filter->rx_mpdu_start_offset);
+
+		/* word 9 */
+		msg_word++;
+		*msg_word = 0;
+		HTT_RX_RING_SELECTION_CFG_RX_MSDU_END_OFFSET_SET(*msg_word,
+					htt_tlv_filter->rx_msdu_end_offset);
+		HTT_RX_RING_SELECTION_CFG_RX_MSDU_START_OFFSET_SET(*msg_word,
+					htt_tlv_filter->rx_msdu_start_offset);
+
+		/* word 10 */
+		msg_word++;
+		*msg_word = 0;
+		HTT_RX_RING_SELECTION_CFG_RX_ATTENTION_OFFSET_SET(*msg_word,
+					htt_tlv_filter->rx_attn_offset);
+
+		/* word 11 */
+		msg_word++;
+		*msg_word = 0;
+	} else {
+		/* word 11 */
+		msg_word += 4;
+		*msg_word = 0;
+	}
+
+	dp_info("offset_valid %d, offset: mpdu_start %d, msdu_end %d, "
+		"rx_pkt_header %d, rx_pkt %d",
+		htt_tlv_filter->offset_valid,
+		htt_tlv_filter->rx_mpdu_start_offset,
+		htt_tlv_filter->rx_msdu_end_offset,
+		htt_tlv_filter->rx_header_offset,
+		htt_tlv_filter->rx_packet_offset);
+
+	/* word 11 */
+	*msg_word = 0;
+	HTT_RX_RING_SELECTION_CFG_RX_DROP_THRESHOLD_SET(*msg_word,
+			0x20);
+	HTT_RX_RING_SELECTION_CFG_WORD_MASK_COMPACTION_ENABLE_SET(*msg_word, 1);
+
+	/* from word 12 to word 27 are mainly different flag/mask */
+	/* follow pcie case as the dummy value */
+	/* word 12 */
+	// dummy value for phy_err_mask
+	msg_word++;
+	*msg_word = 0x2f3d4854;
+
+	/* word 13 */
+	// dummy value for phy_rr_mask_cont
+	msg_word++;
+	*msg_word = 0x69766564;
+
+	/* word 14 */
+	msg_word++;
+	*msg_word = 0x7b8;
+
+	/* word 15 */
+	msg_word++;
+	*msg_word = 0x115ca;
+
+	/* word 16 */
+	msg_word++;
+	*msg_word = 0x0;
+
+	/* word 17 */
+	msg_word++;
+	*msg_word = 0x656b6177;
+
+	/* word 18 */
+	msg_word++;
+	*msg_word = 0x772f7075;
+
+	/* word 19 */
+	msg_word++;
+	*msg_word = 0x75656b61;
+
+	/* word 20 */
+	msg_word++;
+	*msg_word = 0x0;
+
+	/* word 21 */
+	msg_word++;
+	*msg_word = 0x53425553;
+
+	/* word 22 */
+	msg_word++;
+	*msg_word = 0x0;
+
+	/* word 23 */
+	msg_word++;
+	*msg_word = 0x61773d4d;
+
+	/* word 24 */
+	msg_word++;
+	*msg_word = 0x7075656b;
+
+	/* word 25 */
+	msg_word++;
+	*msg_word = 0x51455300;
+
+	/* word 26 */
+	msg_word++;
+	*msg_word = 0x3d4d554e;
+
+	/* word 27 */
+	msg_word++;
+	*msg_word = 0x36383135;
+
+	pkt = htt_htc_pkt_alloc(pdev);
+	if (!pkt) {
+		dp_err("pkt alloc failed, ring_id %d htt_ring_id %d",
+			   0, htt_ring_id);
+		goto fail1;
+	}
+
+	pkt->msdu_id = HTT_TX_COMPL_INV_MSDU_ID;
+	pkt->pdev_ctxt = NULL; /* not used during send-done callback */
+
+	SET_HTC_PACKET_INFO_TX(&pkt->htc_pkt,
+				   htt_h2t_send_complete_free_netbuf,
+				   qdf_nbuf_data(htt_msg),
+				   qdf_nbuf_len(htt_msg),
+				   pdev->htc_tx_endpoint,
+				   HTC_TX_PACKET_TAG_RUNTIME_PUT);
+
+	SET_HTC_PACKET_NET_BUF_CONTEXT(&pkt->htc_pkt, htt_msg);
+
+	HTT_SEND_HTC_PKT(pdev, pkt);
+	return QDF_STATUS_SUCCESS;
+
+fail1:
+	qdf_nbuf_free(htt_msg);
+fail0:
+	return QDF_STATUS_E_FAILURE;
+}
+
+QDF_STATUS
+htt_h2t_rxdma_ring_sel_cfg(struct htt_pdev_t *pdev)
+{
+	int i;
+	int mac_id;
+	struct htt_rx_ring_tlv_filter htt_tlv_filter = {0};
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	uint16_t buf_size;
+
+	buf_size = RX_DATA_BUFFER_SIZE;
+
+	/*
+	 * In Beryllium chipset msdu_start, mpdu_end
+	 * and rx_attn are part of msdu_end/mpdu_start
+	 */
+	htt_tlv_filter.msdu_start = 0;
+	htt_tlv_filter.mpdu_end = 0;
+	htt_tlv_filter.attention = 0;
+	htt_tlv_filter.mpdu_start = 1;
+	htt_tlv_filter.msdu_end = 1;
+	htt_tlv_filter.packet = 1;
+	htt_tlv_filter.packet_header = 0;
+
+	htt_tlv_filter.ppdu_start = 0;
+	htt_tlv_filter.ppdu_end = 0;
+	htt_tlv_filter.ppdu_end_user_stats = 0;
+	htt_tlv_filter.ppdu_end_user_stats_ext = 0;
+	htt_tlv_filter.ppdu_end_status_done = 0;
+	htt_tlv_filter.enable_fp = 1;
+	htt_tlv_filter.enable_md = 0;
+	htt_tlv_filter.enable_md = 0;
+	htt_tlv_filter.enable_mo = 0;
+
+	htt_tlv_filter.fp_mgmt_filter = 0;
+	htt_tlv_filter.fp_ctrl_filter = FILTER_CTRL_BA_REQ;
+	htt_tlv_filter.fp_data_filter = (FILTER_DATA_UCAST |
+					 FILTER_DATA_DATA);
+	htt_tlv_filter.fp_data_filter |= FILTER_DATA_MCAST;
+	htt_tlv_filter.mo_mgmt_filter = 0;
+	htt_tlv_filter.mo_ctrl_filter = 0;
+	htt_tlv_filter.mo_data_filter = 0;
+	htt_tlv_filter.md_data_filter = 0;
+
+	htt_tlv_filter.offset_valid = true;
+
+	/* Not subscribing to mpdu_end, msdu_start and rx_attn */
+	htt_tlv_filter.rx_mpdu_end_offset = 0;
+	htt_tlv_filter.rx_msdu_start_offset = 0;
+	htt_tlv_filter.rx_attn_offset = 0;
+
+	/*
+	 * For monitor mode, the packet hdr tlv is enabled later during
+	 * filter update
+	 */
+		htt_tlv_filter.rx_packet_offset = 0xd;
+
+	/*Not subscribing rx_pkt_header*/
+	htt_tlv_filter.rx_header_offset = 0;
+	htt_tlv_filter.rx_mpdu_start_offset = 0x40;
+	htt_tlv_filter.rx_msdu_end_offset = 0x0;
+
+	for (mac_id = 0; mac_id < NUM_RXDMA_RINGS_PER_PDEV; mac_id++) {
+		int mac_for_pdev = WMI_PDEV_ID_1ST + mac_id;
+
+		htt_h2t_rx_ring_cfg(pdev, mac_for_pdev,
+					RXDMA_BUF, buf_size,
+					&htt_tlv_filter);
+	}
+	return status;
+}
+
 /**
  * htt_h2t_rx_ring_rfs_cfg_msg_hl() - Configure receive flow steering
  * @pdev: handle to the HTT instance
@@ -776,7 +1655,7 @@ htt_h2t_rx_ring_cfg_msg_hl(struct htt_pdev_t *pdev)
 QDF_STATUS htt_h2t_rx_ring_rfs_cfg_msg_hl(struct htt_pdev_t *pdev)
 {
 	QDF_TRACE(QDF_MODULE_ID_HTT, QDF_TRACE_LEVEL_INFO,
-		  "Does not support Receive flow steering configuration\n");
+		"Does not support Receive flow steering configuration\n");
 	return QDF_STATUS_SUCCESS;
 }
 
