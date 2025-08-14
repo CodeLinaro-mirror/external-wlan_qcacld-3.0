@@ -5252,3 +5252,19 @@ OBJS_DIRS += $(dir $(OBJS)) \
 CLEAN_DIRS := $(addsuffix *.o,$(sort $(OBJS_DIRS))) \
 	      $(addsuffix .*.o.cmd,$(sort $(OBJS_DIRS)))
 clean-files := $(CLEAN_DIRS)
+
+ifeq ($(CONFIG_HTT_DBG), y)
+	ccflags-y += -DHTT_DBG
+endif
+
+ifeq ($(CONFIG_DEBUG_CREDIT), y)
+	ccflags-y += -DDEBUG_CREDIT=1
+endif
+
+ifeq ($(CONFIG_DEBUG_HTT_CREDIT), y)
+    ccflags-y += -DDEBUG_HTT_CREDIT=1
+endif
+
+ifeq ($(CONFIG_HOST_TX_SCHED_DEBUG), y)
+    ccflags-y += -DHOST_TX_SCHED_DEBUG
+endif
