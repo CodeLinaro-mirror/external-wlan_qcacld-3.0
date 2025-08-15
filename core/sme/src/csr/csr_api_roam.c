@@ -12692,9 +12692,9 @@ csr_roam_get_bss_start_parms(struct mac_context *mac,
 	 * ignore basic and extended rates from hostapd.conf and should
 	 * populate default rates.
 	 */
-	if (!cds_is_sub_20_mhz_enabled() && !skip_hostapd_rate &&
-			(pProfile->supported_rates.numRates ||
-			pProfile->extended_rates.numRates)) {
+	if (!skip_hostapd_rate &&
+	    (pProfile->supported_rates.numRates ||
+	    pProfile->extended_rates.numRates)) {
 		csr_populate_supported_rates_from_hostapd(opr_rates,
 				ext_rates, pProfile);
 		pParam->operation_chan_freq = tmp_opr_ch_freq;
