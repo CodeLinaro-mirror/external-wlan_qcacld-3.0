@@ -174,6 +174,30 @@ struct ol_txrx_peer_t *ol_txrx_get_tgt_peer_from_peer(
 }
 #endif /* WLAN_FEATURE_11BE_MLO */
 
+/**
+ * ol_txrx_peer_vdev_list_add() - add peer into vdev's peer list
+ * @pdev: ol txrx pdev handle
+ * @vdev: ol txrx vdev handle
+ * @peer: ol txrx peer handle
+ *
+ * Return: none
+ */
+void ol_txrx_peer_vdev_list_add(struct ol_txrx_pdev_t *pdev,
+				struct ol_txrx_vdev_t *vdev,
+				struct ol_txrx_peer_t *peer);
+
+/**
+ * ol_txrx_peer_vdev_list_remove() - remove peer from vdev's peer list
+ * @pdev: ol txrx pdev handle
+ * @vdev: ol txrx vdev handle
+ * @peer: ol txrx peer handle
+ *
+ * Return: none
+ */
+void ol_txrx_peer_vdev_list_remove(struct ol_txrx_pdev_t *pdev,
+				   struct ol_txrx_vdev_t *vdev,
+				   struct ol_txrx_peer_t *peer);
+
 #if 0
 /**
  * dp_peer_cleanup() - Cleanup peer information

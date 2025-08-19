@@ -100,7 +100,7 @@ ol_tx_queue_vdev_flush(struct ol_txrx_pdev_t *pdev, struct ol_txrx_vdev_t *vdev)
 	do {
 		peer_count = 0;
 		/* select candidate peers */
-		qdf_spin_lock_bh(&pdev->peer_ref_mutex);
+		qdf_spin_lock_bh(&vdev->peer_list_lock);
 		TAILQ_FOREACH(peer, &vdev->peer_list, peer_list_elem) {
 			for (i = 0; i < OL_TX_NUM_TIDS; i++) {
 				txq = &peer->txqs[i];
@@ -115,7 +115,7 @@ ol_tx_queue_vdev_flush(struct ol_txrx_pdev_t *pdev, struct ol_txrx_vdev_t *vdev)
 			if (peer_count >= PEER_ARRAY_COUNT)
 				break;
 		}
-		qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
+		qdf_spin_unlock_bh(&vdev->peer_list_lock);
 		/* flush TX queues of candidate peers */
 		for (i = 0; i < peer_count; i++) {
 			for (j = 0; j < OL_TX_NUM_TIDS; j++) {
@@ -603,9 +603,8 @@ ol_txrx_vdev_pause(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 
 	pdev = vdev->pdev;
 
-	/* use peer_ref_mutex before accessing peer_list */
-	qdf_spin_lock_bh(&pdev->peer_ref_mutex);
 	qdf_spin_lock_bh(&pdev->tx_queue_spinlock);
+	qdf_spin_lock_bh(&vdev->peer_list_lock);
 	TAILQ_FOREACH(peer, &vdev->peer_list, peer_list_elem) {
 		if (pause_type == PAUSE_TYPE_CHOP) {
 			if (!(peer->is_tdls_peer && peer->tdls_offchan_enabled))
@@ -617,8 +616,8 @@ ol_txrx_vdev_pause(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 			ol_txrx_peer_pause_base(pdev, peer);
 		}
 	}
+	qdf_spin_unlock_bh(&vdev->peer_list_lock);
 	qdf_spin_unlock_bh(&pdev->tx_queue_spinlock);
-	qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
 
 	TX_SCHED_DEBUG_PRINT("Leave");
 }
@@ -642,10 +641,8 @@ void ol_txrx_vdev_unpause(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 
 	pdev = vdev->pdev;
 
-	/* take peer_ref_mutex before accessing peer_list */
-	qdf_spin_lock_bh(&pdev->peer_ref_mutex);
 	qdf_spin_lock_bh(&pdev->tx_queue_spinlock);
-
+	qdf_spin_lock_bh(&vdev->peer_list_lock);
 	TAILQ_FOREACH(peer, &vdev->peer_list, peer_list_elem) {
 		if (pause_type == PAUSE_TYPE_CHOP) {
 			if (!(peer->is_tdls_peer && peer->tdls_offchan_enabled))
@@ -657,8 +654,8 @@ void ol_txrx_vdev_unpause(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 			ol_txrx_peer_unpause_base(pdev, peer);
 		}
 	}
+	qdf_spin_unlock_bh(&vdev->peer_list_lock);
 	qdf_spin_unlock_bh(&pdev->tx_queue_spinlock);
-	qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
 
 	TX_SCHED_DEBUG_PRINT("Leave");
 }
@@ -1960,7 +1957,7 @@ ol_tx_set_vdev_group_ptr(
 				for (j = 0; j < OL_TX_MAX_GROUPS_PER_QUEUE; j++)
 					vdev->txqs[i].group_ptrs[j] = grp_ptr;
 			}
-			qdf_spin_lock_bh(&pdev->peer_ref_mutex);
+			qdf_spin_lock_bh(&vdev->peer_list_lock);
 			/* Update peer queue group pointers */
 			TAILQ_FOREACH(peer, &vdev->peer_list, peer_list_elem) {
 				for (i = 0; i < OL_TX_NUM_TIDS; i++) {
@@ -1971,7 +1968,7 @@ ol_tx_set_vdev_group_ptr(
 							grp_ptr;
 				}
 			}
-			qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
+			qdf_spin_unlock_bh(&vdev->peer_list_lock);
 			break;
 		}
 	}

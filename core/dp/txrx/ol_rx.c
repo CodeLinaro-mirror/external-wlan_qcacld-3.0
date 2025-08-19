@@ -1650,9 +1650,9 @@ ol_rx_in_order_indication_handler(ol_txrx_pdev_handle pdev,
 		if (peer) {
 			vdev = peer->vdev;
 			if (peer->vdev) {
-				qdf_spin_lock_bh(&pdev->peer_ref_mutex);
+				qdf_spin_lock_bh(&vdev->peer_list_lock);
 				peer_head = TAILQ_FIRST(&vdev->peer_list);
-				qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
+				qdf_spin_unlock_bh(&vdev->peer_list_lock);
 				if (peer_head) {
 					qdf_spin_lock_bh(
 						&peer_head->peer_info_lock);

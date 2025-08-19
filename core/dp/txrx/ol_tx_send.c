@@ -652,9 +652,9 @@ ol_tx_pkt_capture_tx_completion_process(
 		nbuf_len = qdf_nbuf_len(tx_desc->netbuf) - extra_frag_len;
 	}
 
-	qdf_spin_lock_bh(&pdev->peer_ref_mutex);
+	qdf_spin_lock_bh(&tx_desc->vdev->peer_list_lock);
 	peer = TAILQ_FIRST(&tx_desc->vdev->peer_list);
-	qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
+	qdf_spin_unlock_bh(&tx_desc->vdev->peer_list_lock);
 	if (!peer)
 		return;
 

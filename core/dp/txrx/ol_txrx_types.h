@@ -1224,6 +1224,8 @@ struct ol_txrx_vdev_t {
 						     * of vdevs
 						     */
 	TAILQ_HEAD(peer_list_t, ol_txrx_peer_t) peer_list;
+	qdf_spinlock_t peer_list_lock;
+	uint32_t num_peers;
 	struct ol_txrx_peer_t *last_real_peer; /* last real peer created for
 						* this vdev (not "self"
 						* pseudo-peer)

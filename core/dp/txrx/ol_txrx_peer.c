@@ -16,6 +16,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "ol_txrx.h"
 #include "ol_txrx_peer.h"
 #include "ol_txrx_peer_find.h"
 
@@ -161,3 +162,81 @@ uint8_t ol_txrx_mld_peer_del_link_peer(struct ol_txrx_peer_t *mld_peer,
 	return num_links;
 }
 #endif /* WLAN_FEATURE_11BE_MLO */
+
+/**
+ * ol_txrx_peer_vdev_list_add() - add peer into vdev's peer list
+ * @pdev: ol txrx pdev handle
+ * @vdev: ol txrx vdev handle
+ * @peer: ol txrx peer handle
+ *
+ * Return: none
+ */
+void ol_txrx_peer_vdev_list_add(struct ol_txrx_pdev_t *pdev,
+				struct ol_txrx_vdev_t *vdev,
+				struct ol_txrx_peer_t *peer)
+{
+	/* only link peer will be added to vdev peer list */
+	if (IS_MLO_OL_TXRX_MLD_PEER(peer))
+		return;
+
+	qdf_spin_lock_bh(&vdev->peer_list_lock);
+
+	/* Inc peer ref count when it is added to vdev's peer list */
+	if (ol_txrx_peer_get_ref(peer, PEER_DEBUG_ID_OL_INTERNAL) < 0) {
+		ol_txrx_err("unable to get peer ref at MAP mac: "
+			    QDF_MAC_ADDR_FMT,
+			    QDF_MAC_ADDR_REF(peer->mac_addr.raw));
+		qdf_spin_unlock_bh(&vdev->peer_list_lock);
+		return;
+	}
+
+	/* add this peer into the vdev's list */
+	if (wlan_op_mode_sta == vdev->opmode)
+		TAILQ_INSERT_HEAD(&vdev->peer_list, peer, peer_list_elem);
+	else
+		TAILQ_INSERT_TAIL(&vdev->peer_list, peer, peer_list_elem);
+	vdev->num_peers++;
+
+        qdf_spin_unlock_bh(&vdev->peer_list_lock);
+}
+
+/**
+ * ol_txrx_peer_vdev_list_remove() - remove peer from vdev's peer list
+ * @pdev: ol txrx pdev handle
+ * @vdev: ol txrx vdev handle
+ * @peer: ol txrx peer handle
+ *
+ * Return: none
+ */
+void ol_txrx_peer_vdev_list_remove(struct ol_txrx_pdev_t *pdev,
+				   struct ol_txrx_vdev_t *vdev,
+				   struct ol_txrx_peer_t *peer)
+{
+	bool found = false;
+	struct ol_txrx_peer_t *tmp_peer;
+
+	/* only link peer was added to vdev peer list */
+	if (IS_MLO_OL_TXRX_MLD_PEER(peer))
+		return;
+
+	qdf_spin_lock_bh(&vdev->peer_list_lock);
+
+	TAILQ_FOREACH(tmp_peer, &vdev->peer_list, peer_list_elem) {
+		if (tmp_peer == peer) {
+			found = true;
+			break;
+		}
+	}
+
+	if (found) {
+		TAILQ_REMOVE(&vdev->peer_list, peer, peer_list_elem);
+		/* Release peer ref cnt inc by vdev list add */
+		ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);
+		vdev->num_peers--;
+	} else {
+		/*Ignoring the remove operation as peer not found*/
+		ol_txrx_dbg("peer:%pK not found in vdev:%pK vdev_id %d",
+			    peer, vdev, vdev->vdev_id);
+	}
+	qdf_spin_unlock_bh(&vdev->peer_list_lock);
+}

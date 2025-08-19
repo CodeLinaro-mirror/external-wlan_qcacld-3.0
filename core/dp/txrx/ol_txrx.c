@@ -59,6 +59,7 @@
 #include <ol_tx_queue.h>
 #include <ol_tx_sched.h>           /* ol_tx_sched_attach, etc. */
 #include <ol_txrx.h>
+#include <ol_txrx_peer.h>
 #include <ol_txrx_types.h>
 #include <ol_cfg.h>
 #include <cdp_txrx_flow_ctrl_legacy.h>
@@ -1999,6 +2000,8 @@ ol_txrx_vdev_attach(struct cdp_soc_t *soc_hdl, uint8_t pdev_id,
 	ol_txrx_vdev_save_mld_addr(vdev, vdev_info);
 
 	TAILQ_INIT(&vdev->peer_list);
+	qdf_spinlock_create(&vdev->peer_list_lock);
+	vdev->num_peers = 0;
 	vdev->last_real_peer = NULL;
 
 #ifdef QCA_IBSS_SUPPORT
@@ -2272,7 +2275,7 @@ ol_txrx_vdev_detach(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 	 * Use peer_ref_mutex while accessing peer_list, in case
 	 * a peer is in the process of being removed from the list.
 	 */
-	qdf_spin_lock_bh(&pdev->peer_ref_mutex);
+	qdf_spin_lock_bh(&vdev->peer_list_lock);
 	/* check that the vdev has no peers allocated */
 	if (!TAILQ_EMPTY(&vdev->peer_list)) {
 		/* debug print - will be removed later */
@@ -2284,10 +2287,10 @@ ol_txrx_vdev_detach(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 		vdev->delete.pending = 1;
 		vdev->delete.callback = callback;
 		vdev->delete.context = context;
-		qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
+		qdf_spin_unlock_bh(&vdev->peer_list_lock);
 		return QDF_STATUS_E_FAILURE;
 	}
-	qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
+	qdf_spin_unlock_bh(&vdev->peer_list_lock);
 	qdf_event_destroy(&vdev->wait_delete_comp);
 
 	ol_txrx_dbg(
@@ -2476,7 +2479,7 @@ ol_txrx_peer_attach(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 				QDF_MAC_ADDR_SIZE))
 		cmp_wait_mac = true;
 
-	qdf_spin_lock_bh(&pdev->peer_ref_mutex);
+	qdf_spin_lock_bh(&vdev->peer_list_lock);
 	/* check for duplicate existing peer */
 	TAILQ_FOREACH(temp_peer, &vdev->peer_list, peer_list_elem) {
 		if (!ol_txrx_peer_find_mac_addr_cmp(&temp_peer->mac_addr,
@@ -2492,7 +2495,7 @@ ol_txrx_peer_attach(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 				wait_on_deletion = true;
 				break;
 			} else {
-				qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
+				qdf_spin_unlock_bh(&vdev->peer_list_lock);
 				return QDF_STATUS_E_FAILURE;
 			}
 		}
@@ -2511,13 +2514,13 @@ ol_txrx_peer_attach(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 				wait_on_deletion = true;
 				break;
 			} else {
-				qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
+				qdf_spin_unlock_bh(&vdev->peer_list_lock);
 				ol_txrx_err("peer not found");
 				return QDF_STATUS_E_FAILURE;
 			}
 		}
 	}
-	qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
+	qdf_spin_unlock_bh(&vdev->peer_list_lock);
 
 	qdf_mem_zero(&vdev->last_peer_mac_addr,
 			sizeof(union ol_txrx_align_mac_addr_t));
@@ -2546,13 +2549,15 @@ ol_txrx_peer_attach(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 	qdf_mem_copy(&peer->mac_addr.raw[0], peer_mac_addr,
 		     QDF_MAC_ADDR_SIZE);
 
+	OL_TXRX_PEER_SET_TYPE(peer, peer_type);
+	if (IS_MLO_OL_TXRX_MLD_PEER(peer)) {
+		peer->is_mld_peer = 1;
+		ol_txrx_mld_peer_init_link_peers_info(peer);
+	}
+
 	ol_txrx_peer_txqs_init(pdev, peer);
 
 	INIT_LIST_HEAD(&peer->bufq_info.cached_bufq);
-	qdf_spin_lock_bh(&pdev->peer_ref_mutex);
-	/* add this peer into the vdev's list */
-	TAILQ_INSERT_TAIL(&vdev->peer_list, peer, peer_list_elem);
-	qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
 	/* check whether this is a real peer (peer mac addr != vdev mac addr) */
 	if (ol_txrx_peer_find_mac_addr_cmp(&vdev->mac_addr, &peer->mac_addr)) {
 		qdf_spin_lock_bh(&pdev->last_real_peer_mutex);
@@ -2592,6 +2597,10 @@ ol_txrx_peer_attach(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 	qdf_timer_init(pdev->osdev, &peer->peer_unmap_timer,
 		       peer_unmap_timer_handler, peer, QDF_TIMER_TYPE_SW);
 
+	/* add this peer into the vdev's list */
+	ol_txrx_peer_vdev_list_add(pdev, vdev, peer);
+
+	/* add this peer into peer find hash */
 	ol_txrx_peer_find_hash_add(pdev, peer);
 
 	QDF_TRACE(QDF_MODULE_ID_TXRX, QDF_TRACE_LEVEL_INFO_HIGH,
@@ -3349,12 +3358,6 @@ int ol_txrx_peer_release_ref(ol_txrx_peer_handle peer,
 		/* Drop all pending frames in the rx thread queue */
 		ol_txrx_peer_drop_pending_frames(peer);
 
-		/* remove the reference to the peer from the hash table */
-		ol_txrx_peer_find_hash_remove(pdev, peer);
-
-		/* remove the peer from its parent vdev's list */
-		TAILQ_REMOVE(&peer->vdev->peer_list, peer, peer_list_elem);
-
 		/* cleanup the Rx reorder queues for this peer */
 		ol_rx_peer_cleanup(vdev, peer);
 
@@ -3578,17 +3581,29 @@ static QDF_STATUS ol_txrx_peer_detach(struct cdp_soc_t *soc_hdl,
 				      enum cdp_peer_type peer_type)
 {
 	ol_txrx_peer_handle peer;
+	struct ol_txrx_pdev_t *pdev;
+	struct cdp_peer_info peer_info = { 0 };
 	struct ol_txrx_soc_t *soc = cdp_soc_t_to_ol_txrx_soc_t(soc_hdl);
 	ol_txrx_vdev_handle vdev = ol_txrx_get_vdev_from_soc_vdev_id(soc,
 								     vdev_id);
 
-	if (!vdev)
+	if (!vdev || !vdev->pdev)
 		return QDF_STATUS_E_FAILURE;
 
-	peer = ol_txrx_find_peer_by_addr((struct cdp_pdev *)vdev->pdev,
-					 peer_mac);
+	pdev = vdev->pdev;
+	DP_PEER_INFO_PARAMS_INIT(&peer_info, vdev_id, peer_mac,
+				 false, peer_type);
+	peer = ol_txrx_peer_find_hash_find_wrapper(pdev, &peer_info, 1,
+						   PEER_DEBUG_ID_OL_INTERNAL);
 	if (!peer)
 		return QDF_STATUS_E_FAILURE;
+
+	if (!peer->valid) {
+		ol_txrx_err("Invalid peer: "QDF_MAC_ADDR_FMT,
+			    QDF_MAC_ADDR_REF(peer_mac));
+		ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);
+		return QDF_STATUS_E_ALREADY;
+	}
 
 	ol_txrx_info_high("peer %pK, peer->ref_cnt %d",
 			  peer, qdf_atomic_read(&peer->ref_cnt));
@@ -3614,6 +3629,12 @@ static QDF_STATUS ol_txrx_peer_detach(struct cdp_soc_t *soc_hdl,
 		vdev->last_real_peer = NULL;
 	qdf_spin_unlock_bh(&vdev->pdev->last_real_peer_mutex);
 	htt_rx_reorder_log_print(peer->vdev->pdev->htt_pdev);
+
+	/* remove the reference to the peer from the hash table */
+	ol_txrx_peer_find_hash_remove(pdev, peer);
+
+	/* remove the peer from its parent vdev's list */
+	ol_txrx_peer_vdev_list_remove(pdev, vdev, peer);
 
 	/*
 	 * set delete_in_progress to identify that wma
@@ -3646,6 +3667,7 @@ static QDF_STATUS ol_txrx_peer_detach(struct cdp_soc_t *soc_hdl,
 	 * reference, added by the PEER_MAP message.
 	 */
 	peer->state = OL_TXRX_PEER_STATE_INVALID;
+	ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);
 	ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_PEER_ATTACH);
 
 	return QDF_STATUS_SUCCESS;
