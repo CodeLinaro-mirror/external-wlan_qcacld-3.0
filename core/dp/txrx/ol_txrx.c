@@ -2570,6 +2570,7 @@ ol_txrx_peer_attach(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 	ol_rx_peer_init(pdev, peer);
 
 	/* initialize the peer_id */
+	peer->peer_id = HTT_INVALID_PEER;
 	for (i = 0; i < MAX_NUM_PEER_ID_PER_PEER; i++)
 		peer->peer_ids[i] = HTT_INVALID_PEER;
 
@@ -3635,6 +3636,8 @@ static QDF_STATUS ol_txrx_peer_detach(struct cdp_soc_t *soc_hdl,
 
 	/* remove the peer from its parent vdev's list */
 	ol_txrx_peer_vdev_list_remove(pdev, vdev, peer);
+
+	ol_txrx_peer_mlo_delete(peer);
 
 	/*
 	 * set delete_in_progress to identify that wma
@@ -6401,8 +6404,162 @@ ol_txrx_set_peer_txq_flush_config(struct cdp_soc_t *soc_hdl,
 }
 #endif
 
+#ifdef WLAN_FEATURE_11BE_MLO
+/**
+ * ol_txrx_peer_mlo_setup() - create MLD peer and MLO related initialization
+ * @soc_hdl: control data path soc handle
+ * @pdev: ol txrx pdev handle
+ * @peer: ol txrx peer handle
+ * @vdev_id: Vdev ID
+ * @setup_info: peer setup information for MLO
+ */
+QDF_STATUS ol_txrx_peer_mlo_setup(struct cdp_soc_t *soc_hdl,
+				  struct ol_txrx_pdev_t *pdev,
+				  struct ol_txrx_peer_t *peer,
+				  uint8_t vdev_id,
+				  struct cdp_peer_setup_info *setup_info)
+{
+	QDF_STATUS status;
+	struct ol_txrx_peer_t *mld_peer;
+
+	/* Non-MLO connection */
+	if (!setup_info || !setup_info->mld_peer_mac)
+		/* To handle downgrade scenarios */
+		return QDF_STATUS_SUCCESS;
+
+	peer->first_link = setup_info->is_first_link;
+	peer->primary_link = setup_info->is_primary_link;
+
+	/* if this is the first link peer */
+	if (setup_info->is_first_link) {
+		/* create MLD peer */
+		status = ol_txrx_peer_attach(soc_hdl, vdev_id,
+					     setup_info->mld_peer_mac,
+					     CDP_MLD_PEER_TYPE);
+		if (QDF_IS_STATUS_ERROR(status)) {
+			ol_txrx_err("peer mlo setup failed for link mac : "
+				    QDF_MAC_ADDR_FMT "MLD Mac : "
+				    QDF_MAC_ADDR_FMT,
+				    QDF_MAC_ADDR_REF(peer->mac_addr.raw),
+				    QDF_MAC_ADDR_REF(setup_info->mld_peer_mac));
+			return status;
+		}
+	}
+
+	mld_peer = ol_txrx_mld_peer_find_hash_find(pdev,
+						   setup_info->mld_peer_mac,
+						   0, 1, vdev_id,
+						   PEER_DEBUG_ID_OL_INTERNAL);
+	if (!mld_peer) {
+		ol_txrx_err("mld peer " QDF_MAC_ADDR_FMT " not found!",
+			    QDF_MAC_ADDR_REF(setup_info->mld_peer_mac));
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	ol_txrx_info("Peer %pK MAC " QDF_MAC_ADDR_FMT " mld peer %pK MAC "
+		     QDF_MAC_ADDR_FMT " first_link %d, primary_link %d", peer,
+		     QDF_MAC_ADDR_REF(peer->mac_addr.raw), mld_peer,
+		     QDF_MAC_ADDR_REF(setup_info->mld_peer_mac),
+		     peer->first_link, peer->primary_link);
+
+	/* associate mld and link peer */
+	ol_txrx_link_peer_add_mld_peer(peer, mld_peer);
+	ol_txrx_mld_peer_add_link_peer(mld_peer, peer,
+				       setup_info->is_bridge_peer);
+
+	ol_txrx_peer_release_ref(mld_peer, PEER_DEBUG_ID_OL_INTERNAL);
+
+	return QDF_STATUS_SUCCESS;
+}
+
+/**
+ * ol_txrx_peer_mlo_delete() - peer MLO related delete operation
+ * @peer: ol txrx peer handle
+ * Return: None
+ */
+void ol_txrx_peer_mlo_delete(struct ol_txrx_peer_t *peer)
+{
+	struct ol_txrx_peer_t *mld_peer;
+	struct ol_txrx_soc_t *soc = cds_get_context(QDF_MODULE_ID_SOC);
+
+	ol_txrx_info("peer " QDF_MAC_ADDR_FMT " type %d",
+		     QDF_MAC_ADDR_REF(peer->mac_addr.raw), peer->peer_type);
+
+	/* MLO connection link peer */
+	if (IS_MLO_OL_TXRX_LINK_PEER(peer)) {
+		mld_peer = peer->mld_peer;
+		if (ol_txrx_mld_peer_del_link_peer(mld_peer, peer) == 0)
+			ol_txrx_peer_detach(ol_txrx_soc_t_to_cdp_soc_t(soc),
+					    mld_peer->vdev->vdev_id,
+					    mld_peer->mac_addr.raw,
+					    0, mld_peer->peer_type);
+	}
+}
+#endif /* WLAN_FEATURE_11BE_MLO */
 
 #ifdef DP_COLOGNE_HL
+static QDF_STATUS ol_peer_rx_reorder_multi_queue_setup(
+	struct ol_txrx_soc_t *soc, struct ol_txrx_peer_t *peer)
+{
+	int tid;
+	uint16_t ba_win_size;
+	struct mac_context *mac_ctx;
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	struct multi_rx_reorder_queue_setup_params tid_params = {0};
+
+	if (!soc || !peer)
+		return QDF_STATUS_E_INVAL;
+
+	mac_ctx = cds_get_context(QDF_MODULE_ID_PE);
+	if (!mac_ctx)
+		return QDF_STATUS_E_INVAL;
+
+	if (!soc->cdp_soc.ol_ops ||
+	    !soc->cdp_soc.ol_ops->peer_multi_rx_reorder_queue_setup) {
+		ol_txrx_dbg("peer multi rx reo q setup callback is null");
+		return QDF_STATUS_SUCCESS;
+	}
+
+	/* Setup parameters for multiple reorder queues */
+	tid_params.vdev_id = peer->vdev->vdev_id;
+	tid_params.peer_macaddr = peer->mac_addr.raw;
+
+	/* Set up TID bitmap and queue parameters */
+	ba_win_size = cfg_get(mac_ctx->psoc, CFG_DP_ADDBA_BUFSIZE);
+	for (tid = 0; tid < OL_TX_NUM_QOS_TIDS; tid++) {
+		/* hw_qdesc_paddr will be set by firmware */
+		tid_params.queue_params_list[tid].hw_qdesc_paddr = 0;
+		tid_params.queue_params_list[tid].queue_no = tid;
+		tid_params.queue_params_list[tid].ba_window_size_valid = 1;
+		tid_params.queue_params_list[tid].ba_window_size = ba_win_size;
+	}
+
+	if (soc->cdp_soc.ol_ops->peer_multi_rx_reorder_queue_setup(
+		soc->psoc, peer->vdev->pdev->id, &tid_params)) {
+		ol_txrx_err("multi_reorder_q_setup fail. tid_bitmap 0x%x",
+			    tid_params.tid_bitmap);
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	return QDF_STATUS_SUCCESS;
+}
+
+static QDF_STATUS ol_peer_rx_reorder_multi_queue_remove(
+	struct ol_txrx_soc_t *soc, struct ol_txrx_peer_t *peer)
+{
+	uint32_t tid_mask = OL_TXRX_TID_FULL_BITMASK(OL_TX_NUM_QOS_TIDS);
+
+	if (!soc->cdp_soc.ol_ops ||
+	    !soc->cdp_soc.ol_ops->peer_rx_reorder_queue_remove) {
+		ol_txrx_dbg("peer multi rx reo q remove callback is null");
+		return QDF_STATUS_SUCCESS;
+	}
+
+	return soc->cdp_soc.ol_ops->peer_rx_reorder_queue_remove(
+		soc->psoc, peer->vdev->pdev->id, peer->vdev->vdev_id,
+		peer->mac_addr.raw, tid_mask);
+}
+
 /**
  * ol_txrx_peer_setup_hl() - Setup peer for HL datapath
  * @soc_hdl: datapath soc handle
@@ -6418,52 +6575,61 @@ static QDF_STATUS ol_txrx_peer_setup_hl(struct cdp_soc_t *soc_hdl,
                                        struct cdp_peer_setup_info *peer_info)
 {
 	struct ol_txrx_soc_t *soc = cdp_soc_t_to_ol_txrx_soc_t(soc_hdl);
-	ol_txrx_pdev_handle pdev = ol_txrx_get_pdev_from_pdev_id(soc, OL_TXRX_PDEV_ID);
+	ol_txrx_pdev_handle pdev =
+		ol_txrx_get_pdev_from_pdev_id(soc, OL_TXRX_PDEV_ID);
+	struct ol_txrx_vdev_t *vdev =
+		ol_txrx_get_vdev_from_soc_vdev_id(soc, vdev_id);
 	QDF_STATUS status = QDF_STATUS_SUCCESS;
-	struct mac_context *mac_ctx;
+	struct ol_txrx_peer_t *peer;
+	u8 check_valid = 0;
 
 	if (!pdev) {
 		ol_txrx_err("Pdev is NULL");
 		return QDF_STATUS_E_INVAL;
 	}
 
-	mac_ctx = cds_get_context(QDF_MODULE_ID_PE);
-	if (!mac_ctx) {
-		ol_txrx_err("mac context is NULL");
+	if (!vdev || !peer_mac) {
+		ol_txrx_err("Invalid vdev or peer mac");
 		return QDF_STATUS_E_INVAL;
 	}
 
-	/* Send WMI_PEER_MULTIPLE_REORDER_QUEUE_SETUP_CMDID for HL datapath */
-	if (soc->cdp_soc.ol_ops && soc->cdp_soc.ol_ops->peer_multi_rx_reorder_queue_setup) {
-		struct multi_rx_reorder_queue_setup_params tid_params = {0};
+	if (pdev->enable_peer_unmap_conf_support)
+		check_valid = 1;
 
-		/* Setup parameters for multiple reorder queues */
-		tid_params.vdev_id = vdev_id;
-		tid_params.peer_macaddr = peer_mac;
-
-		/* Set up TID bitmap and queue parameters */
-		tid_params.tid_bitmap = OL_TXRX_TID_FULL_BITMASK(OL_TX_NUM_QOS_TIDS); /* All TIDs */
-		tid_params.tid_num = OL_TX_NUM_QOS_TIDS; /* Number of TIDs */
-
-		/* Set up queue parameters for each TID */
-		int tid;
-		for (tid = 0; tid < OL_TX_NUM_QOS_TIDS; tid++) {
-			tid_params.queue_params_list[tid].hw_qdesc_paddr = 0; /* Will be set by firmware */
-			tid_params.queue_params_list[tid].queue_no = tid;
-			tid_params.queue_params_list[tid].ba_window_size_valid = 1;
-			tid_params.queue_params_list[tid].ba_window_size = cfg_get(mac_ctx->psoc, CFG_DP_ADDBA_BUFSIZE);
-		}
-
-		status = soc->cdp_soc.ol_ops->peer_multi_rx_reorder_queue_setup(
-				soc->psoc,
-				pdev->id,
-				&tid_params);
-
-		if (QDF_IS_STATUS_ERROR(status)) {
-			ol_txrx_err("Failed to setup multiple reorder queues for HL peer");
-		}
+	peer = ol_txrx_peer_find_hash_find(pdev, peer_mac, 0,
+					   check_valid, vdev->vdev_id,
+					   PEER_DEBUG_ID_OL_INTERNAL);
+	if (!peer) {
+		ol_txrx_err("peer with mac " QDF_MAC_ADDR_FMT "not found",
+			    QDF_MAC_ADDR_REF(peer_mac));
+		return QDF_STATUS_E_FAILURE;
 	}
 
+	if (peer->bss_peer && vdev->opmode == wlan_op_mode_ap) {
+		status = QDF_STATUS_E_FAILURE;
+		goto exit;
+	}
+
+	status = ol_txrx_peer_mlo_setup(soc_hdl, pdev, peer, vdev_id,
+					peer_info);
+	if (QDF_IS_STATUS_ERROR(status)) {
+		ol_txrx_err("peer mlo setup failed for link mac : "
+			    QDF_MAC_ADDR_FMT,
+			    QDF_MAC_ADDR_REF(peer->mac_addr.raw));
+		status = QDF_STATUS_E_FAILURE;
+		goto exit;
+	}
+
+	/*
+	 * Send WMI_PEER_MULTIPLE_REORDER_QUEUE_SETUP_CMDID to setup
+	 * peer rx reorder multi queue for legacy peer or mld peer.
+	 **/
+	status = ol_peer_rx_reorder_multi_queue_setup(soc, peer);
+	if (QDF_IS_STATUS_ERROR(status))
+		ol_txrx_err("Failed to setup multiple reorder queues");
+
+exit:
+	ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);
 	return status;
 }
 
@@ -6479,13 +6645,15 @@ static QDF_STATUS ol_txrx_peer_setup_hl(struct cdp_soc_t *soc_hdl,
  * Return: QDF_STATUS_SUCCESS on success, error code on failure
  */
 static QDF_STATUS ol_txrx_peer_teardown_hl(struct cdp_soc_t *soc_hdl,
-		                                   uint8_t vdev_id,
-		                                   uint8_t *peer_mac)
+					   uint8_t vdev_id,
+					   uint8_t *peer_mac)
 {
 	struct ol_txrx_soc_t *soc = cdp_soc_t_to_ol_txrx_soc_t(soc_hdl);
-	ol_txrx_pdev_handle pdev = ol_txrx_get_pdev_from_pdev_id(soc, OL_TXRX_PDEV_ID);
+	ol_txrx_pdev_handle pdev =
+		ol_txrx_get_pdev_from_pdev_id(soc, OL_TXRX_PDEV_ID);
+	struct ol_txrx_peer_t *peer;
 	QDF_STATUS status;
-	uint32_t tid_mask = OL_TXRX_TID_FULL_BITMASK(OL_TX_NUM_QOS_TIDS);  /* Remove all TIDs (0-15) */
+	u8 check_valid = 0;
 
 	if (!soc || !peer_mac) {
 		ol_txrx_err("Invalid parameters: soc=%pK, peer_mac=%pK",
@@ -6498,29 +6666,28 @@ static QDF_STATUS ol_txrx_peer_teardown_hl(struct cdp_soc_t *soc_hdl,
 		return QDF_STATUS_E_INVAL;
 	}
 
+	if (pdev->enable_peer_unmap_conf_support)
+		check_valid = 1;
 
-	if (soc->cdp_soc.ol_ops && soc->cdp_soc.ol_ops->peer_rx_reorder_queue_remove) {
-
-		status = soc->cdp_soc.ol_ops->peer_rx_reorder_queue_remove(
-				soc->psoc,
-				pdev->id,
-				vdev_id,
-				peer_mac,
-				tid_mask);
-
-		if (QDF_IS_STATUS_ERROR(status)) {
-			ol_txrx_err("Failed to setup multiple reorder queues for HL peer");
-			return status;
-		}
-
+	peer = ol_txrx_peer_find_hash_find(pdev, peer_mac, 0,
+					   check_valid, vdev_id,
+					   PEER_DEBUG_ID_OL_INTERNAL);
+	if (!peer) {
+		ol_txrx_err("peer with mac " QDF_MAC_ADDR_FMT "not found",
+			    QDF_MAC_ADDR_REF(peer_mac));
+		return QDF_STATUS_E_FAILURE;
 	}
 
-	ol_txrx_info("Successfully sent peer reorder queue remove for peer " QDF_MAC_ADDR_FMT,
-			QDF_MAC_ADDR_REF(peer_mac));
+	status = ol_peer_rx_reorder_multi_queue_remove(soc, peer);
+	if (QDF_IS_STATUS_ERROR(status))
+		ol_txrx_err("Failed to setup multiple reorder queues "
+			    "for HL peer ("QDF_MAC_ADDR_FMT")",
+			    QDF_MAC_ADDR_REF(peer_mac));
 
-	return QDF_STATUS_SUCCESS;
+	ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);
+
+	return status;
 }
-
 #endif
 
 static struct cdp_cmn_ops ol_ops_cmn = {

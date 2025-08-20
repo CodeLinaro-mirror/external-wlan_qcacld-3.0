@@ -49,6 +49,27 @@
 	((link_peer)->mld_peer)
 
 /**
+ * ol_txrx_peer_mlo_setup() - create MLD peer and MLO related initialization
+ * @soc_hdl: cdp soc handle
+ * @pdev: ol txrx pdev handle
+ * @peer: ol txrx peer handle
+ * @vdev_id: Vdev ID
+ * @setup_info: peer setup information for MLO
+ */
+QDF_STATUS ol_txrx_peer_mlo_setup(struct cdp_soc_t *soc_hdl,
+				  struct ol_txrx_pdev_t *pdev,
+				  struct ol_txrx_peer_t *peer,
+				  uint8_t vdev_id,
+				  struct cdp_peer_setup_info *setup_info);
+
+/**
+ * ol_txrx_peer_mlo_delete() - peer MLO related delete operation
+ * @peer: ol txrx peer handle
+ * Return: None
+ */
+void ol_txrx_peer_mlo_delete(struct ol_txrx_peer_t *peer);
+
+/**
  * ol_txrx_link_peer_add_mld_peer() - add mld peer pointer to link peer,
  *				      increase mld peer ref_cnt
  * @link_peer: link peer pointer
@@ -130,6 +151,21 @@ struct ol_txrx_peer_t *ol_txrx_get_tgt_peer_from_peer(
 #define IS_MLO_OL_TXRX_LINK_PEER(_peer) false
 #define IS_MLO_OL_TXRX_MLD_PEER(_peer) false
 #define OL_TXRX_GET_MLD_PEER_FROM_PEER(link_peer) NULL
+
+static inline
+QDF_STATUS ol_txrx_peer_mlo_setup(struct cdp_soc_t *soc_hdl,
+				  struct ol_txrx_pdev_t *pdev,
+				  struct ol_txrx_peer_t *peer,
+				  uint8_t vdev_id,
+				  struct cdp_peer_setup_info *setup_info)
+{
+	return QDF_STATUS_SUCCESS;
+}
+
+static inline
+void ol_txrx_peer_mlo_delete(struct ol_txrx_peer_t *peer)
+{
+}
 
 static inline
 void ol_txrx_link_peer_add_mld_peer(struct ol_txrx_peer_t *link_peer,
