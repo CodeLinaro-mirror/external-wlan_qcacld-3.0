@@ -5141,6 +5141,26 @@ ccflags-$(CONFIG_FEATURE_SMEM_MAILBOX) += -DCONFIG_FEATURE_SMEM_MAILBOX
 # CPU Boosting for roaming
 ccflags-$(CONFIG_WLAN_BOOST_CPU_FREQ_IN_ROAM) += -DWLAN_BOOST_CPU_FREQ_IN_ROAM
 
+ifeq ($(CONFIG_HTT_DBG), y)
+	ccflags-y += -DHTT_DBG
+endif
+
+ifeq ($(CONFIG_DEBUG_CREDIT), y)
+	ccflags-y += -DDEBUG_CREDIT=1
+endif
+
+ifeq ($(CONFIG_DEBUG_HTT_CREDIT), y)
+    ccflags-y += -DDEBUG_HTT_CREDIT=1
+endif
+
+ifeq ($(CONFIG_HOST_TX_SCHED_DEBUG), y)
+    ccflags-y += -DHOST_TX_SCHED_DEBUG
+endif
+
+ifeq ($(CONFIG_DP_COLOGNE_HL), y)
+    ccflags-y += -DDP_COLOGNE_HL
+endif
+
 # Currently, for versions of gcc which support it, the kernel Makefile
 # is disabling the maybe-uninitialized warning.  Re-enable it for the
 # WLAN driver.  Note that we must use ccflags-y here so that it
@@ -5253,18 +5273,3 @@ CLEAN_DIRS := $(addsuffix *.o,$(sort $(OBJS_DIRS))) \
 	      $(addsuffix .*.o.cmd,$(sort $(OBJS_DIRS)))
 clean-files := $(CLEAN_DIRS)
 
-ifeq ($(CONFIG_HTT_DBG), y)
-	ccflags-y += -DHTT_DBG
-endif
-
-ifeq ($(CONFIG_DEBUG_CREDIT), y)
-	ccflags-y += -DDEBUG_CREDIT=1
-endif
-
-ifeq ($(CONFIG_DEBUG_HTT_CREDIT), y)
-    ccflags-y += -DDEBUG_HTT_CREDIT=1
-endif
-
-ifeq ($(CONFIG_HOST_TX_SCHED_DEBUG), y)
-    ccflags-y += -DHOST_TX_SCHED_DEBUG
-endif

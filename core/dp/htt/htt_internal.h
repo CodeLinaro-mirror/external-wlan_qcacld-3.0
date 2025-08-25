@@ -113,6 +113,16 @@
 #define RX_DATA_BUFFER_SIZE	1664
 #endif
 
+#ifdef DP_COLOGNE_HL
+	/* No extra hardware rx desc for cologne hl dp rx */
+	/* Point directly to the rx payload */
+	/* target rx payload has a fix extra 2 bytes offset */
+#define DP_RX_EXTRA_OFFSET 2
+#else
+#define DP_RX_EXTRA_OFFSET 0
+#endif
+
+
 #include <rx_desc.h>
 #include <wal_rx_desc.h>        /* struct rx_attention, etc */
 

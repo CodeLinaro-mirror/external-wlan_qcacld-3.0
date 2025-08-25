@@ -323,7 +323,7 @@ static void htt_t2h_lp_msg_handler(void *context, qdf_nbuf_t htt_t2h_msg,
 			rx_pkt_len = qdf_nbuf_len(htt_t2h_msg);
 
 			if (rx_pkt_len < (HTT_RX_FRAG_IND_BYTES +
-				sizeof(struct hl_htt_rx_ind_base)+
+				sizeof(struct hl_htt_rx_ind_base) + DP_RX_EXTRA_OFFSET +
 				sizeof(struct ieee80211_frame))) {
 
 				qdf_print("invalid packet len, %u", rx_pkt_len);

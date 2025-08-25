@@ -42,7 +42,7 @@
 static inline bool
 htt_rx_msdu_first_msdu_flag_hl(htt_pdev_handle pdev, void *msdu_desc)
 {
-	return ((u_int8_t *)msdu_desc - sizeof(struct hl_htt_rx_ind_base))
+	return ((u_int8_t *)msdu_desc - (sizeof(struct hl_htt_rx_ind_base) + DP_RX_EXTRA_OFFSET))
 		[HTT_ENDIAN_BYTE_IDX_SWAP(HTT_RX_IND_HL_FLAG_OFFSET)] &
 		HTT_RX_IND_HL_FLAG_FIRST_MSDU ? true : false;
 }
@@ -63,7 +63,7 @@ htt_set_checksum_result_hl(qdf_nbuf_t msdu,
 			   struct htt_host_rx_desc_base *rx_desc)
 {
 	u_int8_t flag = ((u_int8_t *)rx_desc -
-				sizeof(struct hl_htt_rx_ind_base))[
+				(sizeof(struct hl_htt_rx_ind_base) + DP_RX_EXTRA_OFFSET))[
 					HTT_ENDIAN_BYTE_IDX_SWAP(
 						HTT_RX_IND_HL_FLAG_OFFSET)];
 
@@ -300,7 +300,7 @@ htt_rx_amsdu_pop_hl(
 
 	/* point to the rx desc */
 	qdf_nbuf_pull_head(rx_ind_msg,
-			   sizeof(struct hl_htt_rx_ind_base));
+			   sizeof(struct hl_htt_rx_ind_base) + DP_RX_EXTRA_OFFSET);
 	*head_msdu = *tail_msdu = rx_ind_msg;
 
 	htt_set_checksum_result_hl(rx_ind_msg,
@@ -327,7 +327,7 @@ htt_rx_frag_pop_hl(
 
 	/* point to the rx desc */
 	qdf_nbuf_pull_head(frag_msg,
-			   sizeof(struct hl_htt_rx_ind_base));
+			sizeof(struct hl_htt_rx_ind_base) + DP_RX_EXTRA_OFFSET);
 	*head_msdu = *tail_msdu = frag_msg;
 
 	qdf_nbuf_set_next(*tail_msdu, NULL);
@@ -474,7 +474,7 @@ static inline bool
 htt_rx_msdu_desc_completes_mpdu_hl(htt_pdev_handle pdev, void *msdu_desc)
 {
 	return (
-		((u_int8_t *)(msdu_desc) - sizeof(struct hl_htt_rx_ind_base))
+		((u_int8_t *)(msdu_desc) - (sizeof(struct hl_htt_rx_ind_base) + DP_RX_EXTRA_OFFSET))
 		[HTT_ENDIAN_BYTE_IDX_SWAP(HTT_RX_IND_HL_FLAG_OFFSET)]
 		& HTT_RX_IND_HL_FLAG_LAST_MSDU)
 		? true : false;
