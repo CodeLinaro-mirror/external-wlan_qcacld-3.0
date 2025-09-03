@@ -173,7 +173,11 @@ static void dp_softap_inspect_tx_eap_pkt(struct wlan_dp_link *dp_link,
 		qdf_event_reset(&dp_intf->qdf_sta_eap_frm_done_event);
 		qdf_atomic_set_bit(DP_PENDING_TYPE_EAP_FAILURE,
 				   &sta_info->pending_eap_frm_type);
+#ifdef DP_COLOGNE_HL
+		QDF_NBUF_CB_TX_EXTRA_FRAG_FLAGS_NOTIFY_COMP(nbuf) = 0;
+#else
 		QDF_NBUF_CB_TX_EXTRA_FRAG_FLAGS_NOTIFY_COMP(nbuf) = 1;
+#endif
 	}
 	wlan_objmgr_peer_release_ref(peer, WLAN_DP_ID);
 }
@@ -386,7 +390,11 @@ int dp_softap_inspect_dhcp_packet(struct wlan_dp_link *dp_link,
 			if (sta_info->dhcp_nego_status ==
 				DHCP_NEGO_IN_PROGRESS) {
 				dp_debug("Setting NOTIFY_COMP Flag");
+#ifdef DP_COLOGNE_HL
+				QDF_NBUF_CB_TX_EXTRA_FRAG_FLAGS_NOTIFY_COMP(nbuf) = 0;
+#else
 				QDF_NBUF_CB_TX_EXTRA_FRAG_FLAGS_NOTIFY_COMP(nbuf) = 1;
+#endif
 			}
 			sta_info->dhcp_nego_status = DHCP_NEGO_STOP;
 			break;

@@ -609,7 +609,12 @@ dp_start_xmit(struct wlan_dp_link *dp_link, qdf_nbuf_t nbuf)
 		goto drop_pkt;
 	}
 
+#ifdef DP_COLOGNE_HL
+	QDF_NBUF_CB_TX_EXTRA_FRAG_FLAGS_NOTIFY_COMP(nbuf) = 0;
+#else
 	QDF_NBUF_CB_TX_EXTRA_FRAG_FLAGS_NOTIFY_COMP(nbuf) = 1;
+#endif
+
 
 	pkt_type = QDF_NBUF_CB_GET_PACKET_TYPE(nbuf);
 
