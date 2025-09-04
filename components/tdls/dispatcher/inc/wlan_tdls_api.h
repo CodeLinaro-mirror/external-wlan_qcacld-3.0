@@ -397,7 +397,8 @@ bool wlan_tdls_is_addba_request_allowed(struct wlan_objmgr_vdev *vdev,
 }
 
 static inline
-void wlan_tdls_delete_all_peers(struct wlan_objmgr_vdev *vdev)
+void wlan_tdls_delete_all_peers(struct wlan_objmgr_vdev *vdev,
+				enum wlan_tdls_peer_delete_reason)
 {}
 
 static inline
@@ -407,6 +408,7 @@ QDF_STATUS wlan_tdls_update_peer_kickout_count(struct wlan_objmgr_vdev *vdev,
 	return QDF_STATUS_SUCCESS;
 }
 
+static inline
 bool wlan_tdls_is_key_install_allowed(struct wlan_objmgr_vdev *vdev,
 				      struct qdf_mac_addr *mac_addr)
 {

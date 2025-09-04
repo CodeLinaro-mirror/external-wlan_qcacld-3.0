@@ -1098,16 +1098,32 @@ void lim_update_tdls_set_state_for_fw(struct pe_session *session_entry,
 void lim_update_tdls_2g_bw(struct pe_session *session);
 
 #else
+static inline QDF_STATUS lim_send_sme_tdls_add_sta_rsp(struct mac_context *mac,
+					 uint8_t vdev_id, tSirMacAddr peer_mac,
+					 uint8_t update, tDphHashNode *sta,
+					 uint8_t status)
+{
+	return QDF_STATUS_SUCCESS;
+}
+
 static inline QDF_STATUS lim_delete_tdls_peers(struct mac_context *mac_ctx,
 					       struct pe_session *session_entry,
 					       enum wlan_tdls_peer_delete_reason reason)
 {
 	return QDF_STATUS_SUCCESS;
 }
+
 static inline void lim_init_tdls_data(struct mac_context *mac,
 					struct pe_session *pe_session)
 {
 
+}
+
+static inline QDF_STATUS lim_process_tdls_add_sta_rsp(struct mac_context *mac,
+						      void *msg,
+						      struct pe_session *)
+{
+	return QDF_STATUS_SUCCESS;
 }
 
 static inline void lim_update_tdls_set_state_for_fw(struct pe_session
