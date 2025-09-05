@@ -14421,6 +14421,7 @@ static int hdd_set_t2lm_negotiation_support(struct wlan_hdd_link_info *link_info
 	struct hdd_context *hdd_ctx = NULL;
 	uint8_t cfg_val;
 	enum wlan_t2lm_negotiation_support t2lm_support;
+	struct mac_context *mac_ctx;
 
 	if (!attr)
 		return -EINVAL;
@@ -14431,9 +14432,16 @@ static int hdd_set_t2lm_negotiation_support(struct wlan_hdd_link_info *link_info
 	hdd_debug("T2LM negotiation support: %d", t2lm_support);
 
 	hdd_ctx = WLAN_HDD_GET_CTX(link_info->adapter);
+	mac_ctx = MAC_CONTEXT(hdd_ctx->mac_handle);
 
 	wlan_mlme_set_t2lm_negotiation_supported(hdd_ctx->psoc,
 						 t2lm_support);
+	if (mac_ctx->usr_eht_testbed_cfg &&
+	    t2lm_support != T2LM_NEGOTIATION_DISABLED) {
+		hdd_debug("clear user disabled roaming for eht testbed");
+		ucfg_clear_user_disabled_roaming(hdd_ctx->psoc,
+						 link_info->vdev_id);
+	}
 
 	return 0;
 }
@@ -14443,6 +14451,7 @@ static int hdd_set_link_reconfig_support(struct wlan_hdd_link_info *link_info,
 {
 	struct hdd_context *hdd_ctx = NULL;
 	uint8_t cfg_val;
+	struct mac_context *mac_ctx;
 
 	if (!attr)
 		return -EINVAL;
@@ -14452,8 +14461,14 @@ static int hdd_set_link_reconfig_support(struct wlan_hdd_link_info *link_info,
 	hdd_debug("Multi-link reconfiguration support: %d", cfg_val);
 
 	hdd_ctx = WLAN_HDD_GET_CTX(link_info->adapter);
+	mac_ctx = MAC_CONTEXT(hdd_ctx->mac_handle);
 
 	wlan_mlme_set_link_recfg_support(hdd_ctx->psoc, cfg_val);
+	if (mac_ctx->usr_eht_testbed_cfg && cfg_val) {
+		hdd_debug("clear user disabled roaming for eht testbed");
+		ucfg_clear_user_disabled_roaming(hdd_ctx->psoc,
+						 link_info->vdev_id);
+	}
 
 	return 0;
 }
