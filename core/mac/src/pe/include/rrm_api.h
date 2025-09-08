@@ -175,4 +175,22 @@ rrm_process_rrm_sta_stats_request_failure(struct mac_context *mac,
 					  struct pe_session *pe_session,
 					  tSirMacAddr peer,
 					  tRrmRetStatus status, uint8_t index);
+
+/**
+ * lim_prepare_n_send_dar_rsp_frame - Prepare and send a Directed
+ *                                    Address Response (DAR) frame.
+ * @mac_ctx: Pointer to mac context.
+ * @session: Pointer to PE session.
+ * @dar_status: Status of the DAR operation to be included in the response.
+ *
+ * This function prepares the necessary frame elements and sends a
+ * Directed Address Response (DAR) frame over the air, indicating the
+ * status of the previously received DAR request.
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+lim_prepare_n_send_dar_rsp_frame(struct mac_context *mac_ctx,
+				 struct pe_session *session,
+				 uint8_t dar_status);
 #endif

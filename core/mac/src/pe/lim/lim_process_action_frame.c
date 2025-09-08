@@ -64,6 +64,7 @@
 #include "wlan_tdls_api.h"
 #include "wlan_mlo_link_recfg.h"
 #include "wlan_nan_api_i.h"
+#include "../../core/src/wlan_cp_stats_obj_mgr_handler.h"
 
 #define SA_QUERY_REQ_MIN_LEN \
 (DOT11F_FF_CATEGORY_LEN + DOT11F_FF_ACTION_LEN + DOT11F_FF_TRANSACTIONID_LEN)
@@ -1961,6 +1962,50 @@ lim_prepare_n_send_ttlm_action_rsp_frame(struct wlan_objmgr_peer *peer,
 }
 #endif
 
+static enum dar_status_codes
+lim_handle_dar_req_frame(struct mac_context *mac_ctx,
+			 struct pe_session *session,
+			 uint8_t *frame, uint32_t frame_len)
+{
+	return DAR_REQ_ACCEPTED;
+}
+
+static QDF_STATUS
+lim_process_dar_frame(struct mac_context *mac_ctx, struct pe_session *session,
+		      uint8_t *rx_frm, uint32_t frame_len)
+{
+	struct qos_mgmt_frame_hdr *qos_hdr;
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	uint8_t oui[4] = {0x50, 0x6f, 0x9a, 0x1a};
+	enum dar_status_codes dar_status;
+
+	qos_hdr = (struct qos_mgmt_frame_hdr *)(rx_frm +
+						sizeof(tSirMacMgmtHdr));
+	/* Don't process non-DAR frames */
+	if (qdf_mem_cmp(qos_hdr->action_header.Oui, oui,
+			SIR_MAC_QOS_MGMT_OUI_SIZE))
+		 return QDF_STATUS_E_INVAL;
+
+	QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+			   rx_frm, frame_len);
+
+	switch(qos_hdr->qos_mgmt_frame) {
+		case DAR_REQ_FRAME:
+			pe_debug("Received DAR req frame");
+			dar_status = lim_handle_dar_req_frame(mac_ctx, session,
+							      rx_frm,
+							      frame_len);
+			if (dar_status != DAR_REQ_NO_STATUS)
+				status = lim_prepare_n_send_dar_rsp_frame(
+						mac_ctx, session, dar_status);
+			break;
+		default:
+			pe_debug("Unsupported DAR frame");
+	}
+
+	return status;
+}
+
 /**
  * lim_process_action_frame() - to process action frames
  * @mac_ctx: Pointer to Global MAC structure
@@ -2253,6 +2298,12 @@ void lim_process_action_frame(struct mac_context *mac_ctx,
 				vendor_specific->Oui[0],
 				vendor_specific->Oui[1],
 				vendor_specific->Oui[2]);
+
+			if (QDF_IS_STATUS_SUCCESS(
+				lim_process_dar_frame(mac_ctx, session,
+						      (uint8_t *)mac_hdr,
+					frame_len + sizeof(tSirMacMgmtHdr))))
+				return;
 			/*
 			 * Forward to the SME to HDD to wpa_supplicant
 			 * type is ACTION

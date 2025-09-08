@@ -192,6 +192,12 @@ static const uint32_t vht_supported_datarate_bw80_gi800ns[] = {
 /* min size of wme oui header: oui(3) + type + subtype + version */
 #define SIR_MAC_OUI_WME_HDR_MIN       6
 
+/* QoS Management action frames OUI definitions */
+#define SIR_MAC_QOS_MGMT_OUI_STR "\x50\x6f\x9a\x1a"
+#define SIR_MAC_QOS_MGMT_OUI 0x506f9a1a
+#define SIR_MAC_QOS_MGMT_OUI_TYPE "\x1a"
+#define SIR_MAC_QOS_MGMT_OUI_SIZE 4
+
 /* Multi-AP OUI definitions */
 #define SIR_MAC_MULTI_AP_OUI "\x50\x6f\x9a\x1b"
 #define SIR_MAC_MULTI_AP_OUI_SIZE 4
@@ -1196,6 +1202,234 @@ typedef struct sSirMacMeasReqActionFrame {
 	tSirMacMeasReqIE measReqIE;
 } tSirMacMeasReqActionFrame, *tpSirMacMeasReqActionFrame;
 #endif
+
+#define DAR_FRAME_SIZE_MAX 1536
+
+/**
+ * enum qos_mgmt_frame_type - enum indicating QoS management frame type
+ * @DAR_REQ_FRAME: QoS mgmt frame of type DAR request
+ * @DAR_RSP_FRAME: QoS mgmt frame of type DAR response frame
+ * @DAR_REPORT_FRAME: QoS mgmt frame of type DAR report frame
+ */
+enum qos_mgmt_frame_type {
+	DAR_REQ_FRAME = 3,
+	DAR_RSP_FRAME = 4,
+	DAR_REPORT_FRAME = 5,
+};
+
+/**
+ * struct qos_mgmt_frame_hdr - QoS management frame header
+ * @action_header: Action Header
+ * @qos_mgmt_frame: QoS mgmt frame type
+ */
+struct qos_mgmt_frame_hdr {
+	tSirMacVendorSpecificFrameHdr action_header;
+	uint8_t qos_mgmt_frame;
+} qdf_packed;
+
+enum param_presence_bitmap {
+	THRESHOLD_FIELD_PRESENT = 1 << 0,
+	LATENCY_STATS_FIELD_PRESENT = 1 << 1,
+};
+
+/**
+ * struct latency_stats_attr - QoS management DAR latency stats attribute
+ * @attr_id: Attribute id
+ * @length: Length of the attribute
+ * @report_type: Report type indicating
+ * @report_granularity:
+ * @report_gran_bitmap:
+ * @link_granularity:
+ * @link_gran_bitmap:
+ */
+struct latency_stats_attr {
+	uint8_t attr_id;
+	uint8_t length;
+	uint8_t param_presence_bitmap;
+	uint8_t report_type;
+	uint8_t report_granularity;
+	uint16_t report_gran_bitmap;
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
+} qdf_packed;
+
+/**
+ * struct latency_stats_entry_hist - Represents a single entry in a latency
+ * histogram for QoS Management DAR.
+ * @lower_bound: The lower bound of the latency bin for this entry.
+ * @msdu_count: The count of MSDUs (MAC Service Data Units) whose latency
+ *              falls within this bin.
+ */
+struct latency_stats_entry_hist {
+	uint8_t lower_bound;
+	uint32_t msdu_count;
+} qdf_packed;
+
+/**
+ * struct latency_stats_entry_perc - Represents a single entry in a latency
+ * percentile array for QoS Management DAR.
+ * @percentile: The percentile value (e.g., 50 for 50th percentile).
+ * @latency: The latency value corresponding to the specified percentile,
+ *           in units of 100 microseconds.
+ */
+struct latency_stats_entry_perc {
+	uint8_t percentile;
+	uint16_t latency;
+} qdf_packed;
+
+union latency_stats_entry {
+	struct latency_stats_entry_hist hist_stats[CDP_HIST_BUCKET_SIZE];
+	struct latency_stats_entry_perc perc_stats[CDP_PERC_BUCKET_SIZE];
+} qdf_packed;
+
+/*
+A*B*C*D:
+A = as per Report gran bitmap, Calculate when bit is set, TID 0 and TID 2 are set, then 2
+							  for VI and VO, then 2
+B = 1 link gran bitmap
+C = No.of latency stats entries, i.e. 2 when we report only two AC stats, like VO and VI
+D = Length of each entry, i.e. 5 for histogram, 3 for percentile
+*/
+struct latency_stats_payload {
+	uint8_t num_latency_stats;
+} qdf_packed;
+
+/**
+ * struct dar_attr_cmn_hdr - Common header for DAR attributes.
+ * @attr_id: Identifier for the attribute.
+ * @length: Length of the attribute, excluding this header.
+ * @request_id: Identifier for a specific request.
+ */
+struct dar_attr_cmn_hdr {
+	uint8_t attr_id;
+	uint8_t length;
+	uint8_t request_id;
+} qdf_packed;
+
+/**
+ * struct dar_req_attr - Attributes for a DAR Request.
+ * @hdr: Common header for DAR attributes, including attribute ID, length, and request ID.
+ * @req_type: Specifies the type of the DAR request.
+ * @meas_dur: The requested measurement duration for the DAR report.
+ * @num_of_meas: The number of measurements to be performed.
+ */
+struct dar_req_attr {
+	struct dar_attr_cmn_hdr hdr;
+	uint8_t req_type;
+	uint16_t meas_dur;
+	uint16_t num_of_meas;
+} qdf_packed;
+
+/**
+ * enum dar_status_codes - Enumerates possible status codes for DAR Responses.
+ * @DAR_REQ_ACCEPTED: The DAR request has been successfully accepted.
+ * @DAR_REQ_ACCEPTED_WITH_SUGGESTED_CHANGES: The DAR request was accepted, but with some suggested modifications.
+ * @DAR_REQ_DECLINED: The DAR request has been declined.
+ * @DAR_REQ_INSUFFICIENT_PROCESSING_RESOURCES: The request was declined due to insufficient processing resources.
+ * @DAR_REQ_TERMINATE: Indicates a request to terminate an existing DAR session or report.
+ * @DAR_REQ_NO_STATUS: No specific status available or applicable (e.g., for certain types of reports).
+ */
+enum dar_status_codes {
+	DAR_REQ_ACCEPTED = 0,
+	DAR_REQ_ACCEPTED_WITH_SUGGESTED_CHANGES = 1,
+	DAR_REQ_DECLINED = 2,
+	DAR_REQ_INSUFFICIENT_PROCESSING_RESOURCES = 3,
+	DAR_REQ_TERMINATE = 255,
+	DAR_REQ_NO_STATUS = 0xFFFF,
+};
+
+/**
+ * struct dar_rsp_attr - Attributes for a DAR Response
+ * @hdr: Common header for DAR attributes, including attribute ID, length, and request ID.
+ * @status_code: DAR attribute rsp status code as per @enum dar_status_codes
+ */
+struct dar_rsp_attr {
+	struct dar_attr_cmn_hdr hdr;
+	uint8_t status_code;
+} qdf_packed;
+
+/**
+ * struct vendor_el - Vendor element format
+ * @element_id: Vendor element ID as per <section in spec>
+ * @len: Length of the vendor element data, i.e. total length after len field
+ * @oui: Vendor OUI as per <section in spec>
+ * @oui_type: Vendor OUI type as per <section in spec>
+ */
+struct vendor_el {
+	uint8_t element_id;
+	uint8_t len;
+	uint8_t oui[3];
+	uint8_t oui_type;
+} qdf_packed;
+
+/**
+ * enum dar_stats_report_granularity - DAR stats report granularity
+ * @REPORT_GRAN_TID: Report of granularity TID
+ * @REPORT_GRAN_AC: Report of granularity AC(Access Category)
+ * @REPORT_GRAN_AGGR: Report to carry aggregated data
+ */
+enum dar_stats_report_granularity {
+	REPORT_GRAN_TID,
+	REPORT_GRAN_AC,
+	REPORT_GRAN_AGGR,
+};
+
+/**
+ * enum qos_mgmt_attr_id- enum indicating QoS management attr id
+ */
+enum qos_mgmt_attr_id {
+	PORT_RANGE_ATTR = 1,
+	DSCP_POLICY_ATTR = 2,
+	TCLAS_ATTR = 3,
+	DOMAIN_NAME_ATTR = 4,
+	QOS_5G_IDENTIFIER_ATTR = 5,
+	PRIORITY_LEVEL_ATTR = 6,
+	DAR_REQUEST_ATTR = 7,
+	DAR_RESPONSE_ATTR = 8,
+	DAR_REPORT_ATTR = 9,
+	DAR_LATENCY_STATISTICS_ATTR = 10,
+	DAR_RADIO_COUNTERS_ATTR = 11,
+	DAR_CONTROL_PLANE_EVENTS_ATTR = 12,
+	DAR_FRAGMENT_ATTR = 255,
+};
+
+/**
+ * union qos_mgmt_attr - Union of various QoS management attributes.
+ * Allows a single memory location to be interpreted as different attribute structures.
+ * @cmn_hdr: Common header for DAR attributes.
+ * @req_attr: DAR request attributes.
+ * @rsp_attr: DAR response attributes.
+ * @latency_stats: Latency statistics attributes.
+ */
+union qos_mgmt_attr {
+	struct dar_attr_cmn_hdr cmn_hdr;
+	struct dar_req_attr req_attr;
+	struct dar_rsp_attr rsp_attr;
+	struct latency_stats_attr latency_stats;
+} qdf_packed;
+
+/**
+ * struct qos_mgmt_elements - Structure representing QoS Management Elements.
+ * @qos_mgmt_el_hdr: Vendor element header for QoS management.
+ * @attr: Array of QoS management attributes. Can contain one or more attributes.
+ */
+struct qos_mgmt_elements {
+	struct vendor_el qos_mgmt_el_hdr;
+	union qos_mgmt_attr attr[1];
+} qdf_packed;
+
+/**
+ * struct dar_req_rsp_action_frame - DAR Request/Response Action Frame.
+ * This structure defines the format for DAR request and response action frames.
+ * @dar_header: QoS management frame header.
+ * @dialog_token: A dialog token to match requests with responses.
+ * @qos_elements: Array of QoS management elements, containing the specific DAR request/response attributes.
+ */
+struct dar_req_rsp_action_frame {
+	struct qos_mgmt_frame_hdr dar_header;
+	uint8_t dialog_token;
+	struct qos_mgmt_elements qos_elements[1];
+} qdf_packed;
 
 typedef struct sSirMacNeighborReportReq {
 	uint8_t dialogToken;

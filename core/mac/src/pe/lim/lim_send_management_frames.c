@@ -9269,3 +9269,125 @@ void lim_send_mgmt_frame_tx(struct mac_context *mac_ctx,
 	mac_ctx->auth_ack_status = LIM_ACK_NOT_RCD;
 	lim_send_frame(mac_ctx, vdev_id, mb_msg->data, msg_len);
 }
+
+static void
+lim_populate_dar_frame_cmn_fields(struct mac_context *mac_ctx,
+				  struct pe_session *session,
+				  uint8_t *frame, enum qos_mgmt_frame_type type,
+				  enum wfa_capa_qos_mgmt_features stats_type,
+				  uint16_t size)
+{
+	struct qos_mgmt_elements *payload;
+	uint16_t attr_size, tag_size = 0;
+	tSirMacMgmtHdr *mac_hdr = (tSirMacMgmtHdr *)frame;
+	struct dar_req_rsp_action_frame *req_frm;
+	struct qos_mgmt_frame_hdr *dar_header;
+	tSirMacAddr da;
+
+	qdf_mem_copy(da, session->bssId, 6);
+	lim_populate_mac_header(mac_ctx, frame, WLAN_FC0_TYPE_MGMT,
+				SIR_MAC_MGMT_ACTION, da,
+				session->self_mac_addr);
+	lim_set_protected_bit(mac_ctx, session, da, mac_hdr);
+
+	if (type == DAR_REQ_FRAME || type == DAR_RSP_FRAME) {
+		req_frm = (struct dar_req_rsp_action_frame *)(frame + sizeof(*mac_hdr));
+		dar_header = &req_frm->dar_header;
+		payload = &req_frm->qos_elements[0];
+	}
+
+	dar_header->action_header.category =
+				ACTION_CATEGORY_VENDOR_SPECIFIC_PROTECTED;
+/*
+	qdf_mem_copy(dar_header->action_header.Oui,
+		     SIR_MAC_QOS_MGMT_OUI, SIR_MAC_QOS_MGMT_OUI_SIZE);
+*/
+	dar_header->action_header.Oui[0] = 0x50;
+	dar_header->action_header.Oui[1] = 0x6f;
+	dar_header->action_header.Oui[2] = 0x9a;
+	dar_header->action_header.Oui[3] = 0x1a;
+	dar_header->qos_mgmt_frame = type;
+
+	payload->qos_mgmt_el_hdr.element_id = WLAN_ELEMID_VENDOR;
+	if (stats_type & WFA_CAPA_RADIO_COUNTER_STATS ||
+	    stats_type & WFA_CAPA_CONTROL_PLANE_STATS)
+		tag_size = size;
+
+	if (type == DAR_REQ_FRAME)
+		attr_size = sizeof(struct qos_mgmt_elements) - 2
+			- sizeof(union qos_mgmt_attr)
+			+ sizeof(struct dar_req_attr)
+			+ tag_size;
+	if (type == DAR_RSP_FRAME)
+		attr_size = sizeof(struct qos_mgmt_elements) - 2
+			- sizeof(union qos_mgmt_attr)
+			+ sizeof(struct dar_rsp_attr);
+
+	//payload->qos_mgmt_el_hdr.len = 4 + attr_size; //4 is for below data
+	payload->qos_mgmt_el_hdr.len = attr_size;
+	payload->qos_mgmt_el_hdr.oui[0] = 0x50;
+	payload->qos_mgmt_el_hdr.oui[1] = 0x6f;
+	payload->qos_mgmt_el_hdr.oui[2] = 0x9a;
+	payload->qos_mgmt_el_hdr.oui_type = 0x22;
+}
+
+QDF_STATUS
+lim_prepare_n_send_dar_rsp_frame(struct mac_context *mac_ctx,
+				 struct pe_session *session, uint8_t dar_status)
+{
+	tSirMacMgmtHdr *mac_hdr;
+	uint8_t *frame, tx_flag = 0, request_id = 0;
+	void *pkt_ptr;
+	uint16_t frame_len;
+	QDF_STATUS status;
+	struct dar_req_rsp_action_frame *rsp_frm;
+	struct qos_mgmt_elements *payload;
+	union qos_mgmt_attr *attr;
+
+	frame_len = sizeof(*mac_hdr) + sizeof(struct dar_req_rsp_action_frame) -
+			sizeof(union qos_mgmt_attr) +
+			sizeof(struct dar_rsp_attr);
+
+	status = cds_packet_alloc((uint16_t)frame_len, (void **)&frame,
+				  (void **)&pkt_ptr);
+	if (!QDF_IS_STATUS_SUCCESS(status)) {
+		pe_err("Failed to allocate %d bytes for a TDLS Setup Confirm",
+			frame_len);
+		return QDF_STATUS_E_NOMEM;
+	}
+
+	/* zero out the memory */
+	qdf_mem_zero(frame, frame_len);
+	mac_hdr = (tSirMacMgmtHdr *)frame;
+
+	lim_populate_dar_frame_cmn_fields(mac_ctx, session, frame,
+					  DAR_RSP_FRAME, 0, 0);
+
+	rsp_frm = (struct dar_req_rsp_action_frame *)(frame + sizeof(*mac_hdr));
+	rsp_frm->dialog_token = 1;
+
+	payload = &rsp_frm->qos_elements[0];
+
+	attr = &payload->attr[0];
+	attr->rsp_attr.hdr.attr_id = DAR_RESPONSE_ATTR;
+	attr->rsp_attr.hdr.length = 2;
+	attr->rsp_attr.hdr.request_id = request_id;
+	attr->rsp_attr.status_code = dar_status;
+
+	tx_flag |= HAL_USE_BD_RATE2_FOR_MANAGEMENT_FRAME;
+
+	pe_debug("DAR Response frame");
+	QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+			   frame, frame_len);
+	status = wma_tx_frame(mac_ctx, pkt_ptr, frame_len,
+			      TXRX_FRM_802_11_MGMT, ANI_TXDIR_TODS, 7,
+			      lim_tx_complete, frame, tx_flag,
+			      session->vdev_id,
+			      0, RATEID_DEFAULT, 0);
+	if (!QDF_IS_STATUS_SUCCESS(status)) {
+		pe_err("could not send DAR rsp action frame!");
+		status = QDF_STATUS_E_FAILURE;
+	}
+
+	return status;
+}
