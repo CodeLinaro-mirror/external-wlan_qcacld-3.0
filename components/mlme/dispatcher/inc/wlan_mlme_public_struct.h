@@ -2865,6 +2865,8 @@ enum mlme_reg_srd_master_modes {
  * @coex_unsafe_chan_reg_disable: To disable reg channels for received coex
  * unsafe channels list
  * @enable_c2c_support: Enable C2C support flag
+ * @sta_indoor_ch_peer_scc : Support STA connected indoor channel for
+ * peer-to-peer connections and from SCC.
  */
 struct wlan_mlme_reg {
 	uint32_t self_gen_frm_pwr;
@@ -2899,6 +2901,7 @@ struct wlan_mlme_reg {
 #ifdef CONFIG_BAND_6GHZ
 	bool enable_c2c_support;
 #endif
+	bool sta_indoor_ch_peer_scc;
 };
 
 #define IOT_AGGR_INFO_MAX_NUM 32
