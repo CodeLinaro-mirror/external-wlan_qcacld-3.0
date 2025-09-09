@@ -416,6 +416,18 @@ int pld_sdio_wlan_enable(struct device *dev, struct pld_wlan_enable_cfg *config,
 	return cnss_wlan_enable(dev, &cfg, cnss_mode, host_version);
 }
 
+int pld_sdio_athdiag_read(struct device *dev, uint32_t offset,
+			  uint32_t memtype, uint32_t datalen,
+			  uint8_t *output)
+{
+	return cnss_athdiag_read(dev, offset, memtype, datalen, output);
+}
+int pld_sdio_athdiag_write(struct device *dev, uint32_t offset,
+			   uint32_t memtype, uint32_t datalen,
+			   uint8_t *input)
+{
+	return cnss_athdiag_write(dev, offset, memtype, datalen, input);
+}
 #else
 
 #ifdef CONFIG_PM

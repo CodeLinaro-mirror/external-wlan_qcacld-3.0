@@ -292,11 +292,51 @@ struct sdio_al_channel_handle *ch_handle
  */
 int pld_sdio_wlan_enable(struct device *dev, struct pld_wlan_enable_cfg *config,
 			 enum pld_driver_mode mode, const char *host_version);
+/**
+ * pld_sdio_athdiag_read() - Read data from WLAN FW through SDIO interface
+ * @dev: pointer of device
+ * @offset: address offset
+ * @memtype: memory type
+ * @datalen: data length
+ * @output: pointer of output buffer
+ *
+ * Return: 0 for success
+ *         Non zero failure code for errors
+ */
+int pld_sdio_athdiag_read(struct device *dev, uint32_t offset,
+			  uint32_t memtype, uint32_t datalen,
+			  uint8_t *output);
+/**
+ * pld_sdio_athdiag_write() - Write data to WLAN FW through SDIO interface
+ * @dev: pointer of device
+ * @offset: address offset
+ * @memtype: memory type
+ * @datalen: data length
+ * @input: pointer of input buffer
+ *
+ * Return: 0 for success
+ *         Non zero failure code for errors
+ */
+int pld_sdio_athdiag_write(struct device *dev, uint32_t offset,
+			  uint32_t memtype, uint32_t datalen,
+			  uint8_t *input);
 #else
 static inline int pld_sdio_wlan_enable(struct device *dev,
 				       struct pld_wlan_enable_cfg *config,
 				       enum pld_driver_mode mode,
 				       const char *host_version)
+{
+	return 0;
+}
+static inline int pld_sdio_athdiag_read(struct device *dev, uint32_t offset,
+					uint32_t memtype, uint32_t datalen,
+					uint8_t *output)
+{
+	return 0;
+}
+static inline int pld_sdio_athdiag_write(struct device *dev, uint32_t offset,
+					 uint32_t memtype, uint32_t datalen,
+					 uint8_t *input)
 {
 	return 0;
 }
