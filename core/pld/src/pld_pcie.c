@@ -137,7 +137,7 @@ out:
  *
  * Return: 0 for success
  * Non zero failure code for errors
- */
+
 static int pld_pcie_set_thermal_state(struct pci_dev *pdev,
 				      unsigned long thermal_state,
 				      int mon_id)
@@ -155,7 +155,7 @@ static int pld_pcie_set_thermal_state(struct pci_dev *pdev,
 
 	return -ENOTSUPP;
 }
-
+*/
 #ifdef CONFIG_PLD_PCIE_CNSS
 /**
  * pld_pcie_idle_restart_cb() - Perform idle restart
@@ -771,7 +771,6 @@ struct cnss_wlan_driver pld_pcie_ops = {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
 	.chip_version = CHIP_VERSION,
 #endif
-	.set_therm_cdev_state = pld_pcie_set_thermal_state,
 };
 
 int pld_pcie_register_driver(void)
@@ -973,8 +972,6 @@ int pld_pcie_get_soc_info(struct device *dev, struct pld_soc_info *info)
 		info->dev_mem_info[i].start = cnss_info.dev_mem_info[i].start;
 		info->dev_mem_info[i].size = cnss_info.dev_mem_info[i].size;
 	}
-	strscpy(info->fw_build_id, cnss_info.fw_build_id,
-		sizeof(info->fw_build_id));
 
 	return 0;
 }
@@ -989,7 +986,7 @@ void pld_pcie_schedule_recovery_work(struct device *dev,
 		cnss_reason = CNSS_REASON_LINK_DOWN;
 		break;
 	case PLD_REASON_FW_ASSERTION_FAIL:
-		cnss_reason = CNSS_REASON_FW_ASSERTION_FAIL;
+		//cnss_reason = CNSS_REASON_FW_ASSERTION_FAIL;
 		break;
 	default:
 		cnss_reason = CNSS_REASON_DEFAULT;
@@ -1018,22 +1015,19 @@ void pld_pcie_device_self_recovery(struct device *dev,
 int pld_pcie_set_wfc_mode(struct device *dev,
 			  enum pld_wfc_mode wfc_mode)
 {
-	struct cnss_wfc_cfg cfg;
 	int ret;
 
 	switch (wfc_mode) {
 	case PLD_WFC_MODE_OFF:
-		cfg.mode = CNSS_WFC_MODE_OFF;
 		break;
 	case PLD_WFC_MODE_ON:
-		cfg.mode = CNSS_WFC_MODE_ON;
 		break;
 	default:
 		ret = -EINVAL;
 		goto out;
 	}
 
-	ret = cnss_set_wfc_mode(dev, cfg);
+	ret = 0;
 out:
 	return ret;
 }
