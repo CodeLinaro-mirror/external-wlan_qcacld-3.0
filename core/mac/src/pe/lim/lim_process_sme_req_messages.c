@@ -9955,7 +9955,12 @@ lim_process_dar_frame_req(struct mac_context *mac_ctx, uint32_t *msg)
 		return;
 	}
 
-	lim_prepare_n_send_dar_req_frame(mac_ctx, session, dar_frame_req);
+	if (dar_frame_req->info.operation == DAR_OP_TERMINATE)
+		lim_prepare_n_send_dar_rsp_frame(mac_ctx, session,
+						 DAR_REQ_TERMINATE);
+	else
+		lim_prepare_n_send_dar_req_frame(mac_ctx, session,
+						 dar_frame_req);
 }
 
 /**

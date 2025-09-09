@@ -24574,6 +24574,11 @@ __wlan_hdd_cfg80211_dar_request(struct wiphy *wiphy,
 	}
 
 	info.req_attr.req_type = nla_get_u8(tb[DAR_OP_TYPE]);
+	if (info.req_attr.req_type == QCA_WLAN_DAR_OP_TYPE_RESPONSE_TERMINATE) {
+		info.operation = DAR_OP_TERMINATE ;
+		wlan_hdd_dar_timers_deinit(hdd_ctx);
+		goto send_cmd;
+	}
 
 	if (tb[MEASUREMENT_DURATION])
 		info.req_attr.meas_dur = nla_get_u16(tb[MEASUREMENT_DURATION]);
