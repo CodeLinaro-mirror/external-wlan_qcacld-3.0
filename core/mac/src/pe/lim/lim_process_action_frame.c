@@ -2055,6 +2055,34 @@ lim_send_sme_dar_timer_req(struct mac_context *mac, uint8_t vdev_id,
 	return;
 }
 
+static void
+lim_process_dar_rsp_frame(struct mac_context *mac,
+			  uint16_t vdev_id,
+			  union qos_mgmt_attr *attr)
+{
+	struct scheduler_msg msg = {0};
+	struct sir_qos_stats_req_msg *params;
+	struct dar_rsp_attr *rsp_attr;
+
+	rsp_attr = &attr->rsp_attr;
+	if (rsp_attr->status_code != 0xFF)
+		return;
+
+	params = qdf_mem_malloc(sizeof(struct sir_qos_latency_stats));
+	if (!params)
+		return;
+
+	params->vdev_id = vdev_id;
+	params->req.enable = 0; //0-Add, 1-Remove
+
+	msg.type = eWNI_SME_DAR_TIMER_REQ;
+	msg.bodyptr = params;
+	msg.bodyval = 0;
+
+	lim_sys_process_mmh_msg_api(mac, &msg);
+	return;
+}
+
 static enum dar_status_codes
 lim_handle_dar_req_frame(struct mac_context *mac_ctx,
 			 struct pe_session *session,
@@ -2157,6 +2185,7 @@ lim_process_dar_frame(struct mac_context *mac_ctx, struct pe_session *session,
 		      uint8_t *rx_frm, uint32_t frame_len)
 {
 	struct qos_mgmt_frame_hdr *qos_hdr;
+	struct dar_req_rsp_action_frame *frame;
 	QDF_STATUS status = QDF_STATUS_SUCCESS;
 	uint8_t oui[4] = {0x50, 0x6f, 0x9a, 0x1a};
 	enum dar_status_codes dar_status;
@@ -2180,6 +2209,13 @@ lim_process_dar_frame(struct mac_context *mac_ctx, struct pe_session *session,
 			if (dar_status != DAR_REQ_NO_STATUS)
 				status = lim_prepare_n_send_dar_rsp_frame(
 						mac_ctx, session, dar_status);
+			break;
+		case DAR_RSP_FRAME:
+			pe_debug("Received DAR rsp frame");
+			frame = (struct dar_req_rsp_action_frame *)qos_hdr;
+			lim_process_dar_rsp_frame(mac_ctx,
+					session->smeSessionId,
+					&frame->qos_elements[0].attr[0]);
 			break;
 		default:
 			pe_debug("Unsupported DAR frame");
