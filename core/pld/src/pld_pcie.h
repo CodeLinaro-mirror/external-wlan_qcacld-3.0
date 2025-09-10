@@ -1034,12 +1034,14 @@ static inline bool pld_pcie_is_direct_link_supported(struct device *dev)
 
 static inline bool pld_pcie_audio_is_direct_link_supported(struct device *dev)
 {
-	return cnss_audio_is_direct_link_supported(dev);
+	//return cnss_audio_is_direct_link_supported(dev);
+	return false;
 }
 
 static inline bool pld_pcie_is_audio_shared_iommu_group(struct device *dev)
 {
-	return cnss_get_audio_shared_iommu_group_cap(dev);
+	//return cnss_get_audio_shared_iommu_group_cap(dev);
+	return false;
 }
 
 static inline bool pld_pcie_is_ipa_shared_smmu_enable(struct device *dev)
@@ -1065,7 +1067,8 @@ static inline
 int pld_pcie_get_fw_lpass_shared_mem(struct device *dev, dma_addr_t *iova,
 				     size_t *size)
 {
-	return cnss_get_fw_lpass_shared_mem(dev, iova, size);
+	//return cnss_get_fw_lpass_shared_mem(dev, iova, size);
+	return 0;
 }
 #else
 static inline bool pld_pcie_is_direct_link_supported(struct device *dev)
