@@ -1121,7 +1121,7 @@ static inline void lim_init_tdls_data(struct mac_context *mac,
 
 static inline QDF_STATUS lim_process_tdls_add_sta_rsp(struct mac_context *mac,
 						      void *msg,
-						      struct pe_session *)
+						      struct pe_session * pe_session)
 {
 	return QDF_STATUS_SUCCESS;
 }

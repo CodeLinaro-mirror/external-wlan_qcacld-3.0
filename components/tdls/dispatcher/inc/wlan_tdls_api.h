@@ -398,7 +398,7 @@ bool wlan_tdls_is_addba_request_allowed(struct wlan_objmgr_vdev *vdev,
 
 static inline
 void wlan_tdls_delete_all_peers(struct wlan_objmgr_vdev *vdev,
-				enum wlan_tdls_peer_delete_reason)
+				enum wlan_tdls_peer_delete_reason reason)
 {}
 
 static inline
