@@ -7007,7 +7007,6 @@ QDF_STATUS lim_send_addba_response_frame(struct mac_context *mac_ctx,
 					 uint16_t calc_buff_size,
 					 tSirMacAddr bssid)
 {
-
 	tDot11faddba_rsp frm;
 	uint8_t *frame_ptr;
 	tpSirMacMgmtHdr mgmt_hdr;
@@ -7106,6 +7105,17 @@ QDF_STATUS lim_send_addba_response_frame(struct mac_context *mac_ctx,
 			frm_buff_size = buff_size;
 		}
 	}
+
+
+#ifdef DP_COLOGNE_HL
+	/*
+	 * There is less memory on Cologne SDIO so the ADDBA buffer has less size limitation.
+	 */
+	if (frm_buff_size > cfg_get(mac_ctx->psoc, CFG_DP_ADDBA_BUFSIZE)) {
+		frm_buff_size = cfg_get(mac_ctx->psoc, CFG_DP_ADDBA_BUFSIZE);
+		pr_info("ADDBA reponse: buf set to: %d\n", frm_buff_size);
+	}
+#endif
 
 	/* In case where AP advertizes BA window size which is different
 	 * than our max supported BA window size.

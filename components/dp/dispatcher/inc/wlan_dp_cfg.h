@@ -1549,6 +1549,23 @@
 		     16, \
 		     0, \
 		     CFG_VALUE_OR_DEFAULT, "IPA debug support")
+/*
+ * <ini>
+ * addba_bufsize - Max number of buffer in ADDBA response
+ *
+ * @Min: 0
+ * @Max: 1024
+ *
+ * This is for sdio HL which has less memory in target side.
+ * Usage: Internal
+ *
+ * </ini>
+ */
+#define CFG_DP_ADDBA_BUFSIZE \
+		CFG_INI_UINT("addba_bufsize", \
+		0, 1024, 256, \
+		CFG_VALUE_OR_DEFAULT, \
+		"max limitation for buffer size in ADDBA response")
 
 #define CFG_DP_ALL \
 	CFG(CFG_DP_RX_THREAD_CPU_MASK) \
@@ -1583,6 +1600,7 @@
 	CFG_DP_STC \
 	CFG_DP_DYNAMIC_RESOURCE_MGMT \
 	CFG(CFG_DP_IPA_DEBUG_ENABLE) \
-	CFG(CFG_DP_IRQ_AFFINITY_MASK)
+	CFG(CFG_DP_IRQ_AFFINITY_MASK) \
+	CFG(CFG_DP_ADDBA_BUFSIZE)
 
 #endif /* WLAN_DP_CFG_H__ */
