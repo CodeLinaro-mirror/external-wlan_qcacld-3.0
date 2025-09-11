@@ -886,6 +886,8 @@ int wlan_hdd_cm_connect(struct wiphy *wiphy,
 	struct hdd_context *hdd_ctx;
 	struct hdd_station_ctx *hdd_sta_ctx;
 	qdf_freq_t ch_freq = 0;
+	uint32_t dar_config = 0;
+	struct wlan_hdd_link_info *link_info;
 
 	hdd_enter();
 
@@ -961,6 +963,27 @@ int wlan_hdd_cm_connect(struct wiphy *wiphy,
 	hdd_update_scan_ie_for_connect(adapter, &params);
 	hdd_update_action_oui_for_connect(hdd_ctx, req);
 
+	ucfg_mlme_get_dar_config_bitmap(hdd_ctx->psoc,
+					adapter->deflink->vdev_id,
+					&dar_config);
+	if (!dar_config) {
+		dar_config = WFA_CAPA_DATA_PLANE_STATS;
+		if (hdd_ctx->dar_data.dar_stats_support_by_fw)
+			dar_config |= WFA_CAPA_RADIO_COUNTER_STATS |
+						WFA_CAPA_CONTROL_PLANE_STATS;
+
+		ucfg_mlme_set_dar_config_bitmap(hdd_ctx->psoc,
+						adapter->deflink->vdev_id,
+						dar_config);
+		link_info = hdd_get_link_info_by_vdev(hdd_ctx,
+						adapter->deflink->vdev_id);
+		if (!link_info) {
+			hdd_err("adapter is NULL vdev %d",
+				adapter->deflink->vdev_id);
+			hdd_objmgr_put_vdev_by_user(vdev, WLAN_OSIF_CM_ID);
+			return -EINVAL;
+		}
+	}
 	status = osif_cm_connect(ndev, vdev, req, &params);
 
 	if (status || ucfg_cm_is_vdev_roaming(vdev)) {
