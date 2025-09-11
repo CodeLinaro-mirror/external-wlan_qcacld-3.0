@@ -844,6 +844,14 @@ struct enhance_roam_info {
 };
 
 /**
+ * struct dar_config - Dynamic Analytics Report (DAR) configuration and state
+ * @dar_feature_bitmap: Bitmap indicating enabled DAR features.
+ */
+struct dar_config {
+	uint16_t dar_feature_bitmap;
+};
+
+/**
  * struct mlme_legacy_priv - VDEV MLME legacy priv object
  * @chan_switch_in_progress: flag to indicate that channel switch is in progress
  * @hidden_ssid_restart_in_progress: flag to indicate hidden ssid restart is
@@ -908,6 +916,7 @@ struct enhance_roam_info {
  * @peer_set_key_wakelock: wakelock to protect peer set key op with firmware
  * @peer_set_key_rt_wakelock: runtime pm wakelock for set key
  * @set_key_wakelock_counter: Counter for runtime pm wakelock
+ * @dar_info: DAR feature info, e.g. DAR feature bitmap
  */
 struct mlme_legacy_priv {
 	bool chan_switch_in_progress;
@@ -987,6 +996,7 @@ struct mlme_legacy_priv {
 	qdf_wake_lock_t peer_set_key_wakelock;
 	qdf_runtime_lock_t peer_set_key_rt_wakelock;
 	qdf_atomic_t set_key_wakelock_counter;
+	struct dar_config dar_info;
 };
 
 /**

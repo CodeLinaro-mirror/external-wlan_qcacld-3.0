@@ -433,11 +433,18 @@ struct punc_chan_info {
 	bool present;
 };
 
-#define WFA_CAPABILITIES_IE_LENGTH		0x0B
-#define WFA_CAPABILITIES_OUI			"\x50\x6F\x9A"
-#define WFA_CAPABILITIES_OUI_LENGTH		0x03
-#define WFA_CAPABILITIES_OUI_TYPE		0x23
-#define WFA_CAPABILITIES_LENGTH			0x00
+/*
+ * Capabilities is a variable length field based on the number of supported
+ * features where each feature is represented by a bit.
+ * As one byte is sufficient for current features(mentioned above), the
+ * capabilities length is defined as 1.
+ */
+#define WFA_CAPABILITIES_LENGTH			0x1
+#define WFA_CAPABILITIES_IE_LENGTH		(0x0B + WFA_CAPABILITIES_LENGTH)
+#define WFA_CAPABILITIES_OUI			"\x50\x6F\x9A\x23"
+#define WFA_CAPABILITIES_OUI_LENGTH		0x04
+/* Fixed field: OUI length + 1 byte for length of bitmap */
+#define WFA_CAPABILITIES_FIXED_FIELD_LENGTH	5
 #define WIFI_GENERATION_CAPABILITY_ATTR_ID	0x01
 #define WIFI_GENERATION_CAPABILITY_ATTR_LENGTH	0x04
 #define WIFI_SUPPORTED_GENERATIONS_LENGTH	0x01

@@ -5630,4 +5630,28 @@ wlan_mlme_get_c2c_support(struct wlan_objmgr_psoc *psoc, bool *value)
 void wlan_mlme_update_ch_width_from_ap(struct mlme_legacy_priv *mlme_priv,
 				       bool value);
 
+/*
+ * wlan_mlme_set_dar_config_bitmap() - Cache DAR feature bitmap to vdev priv obj
+ * @psoc: pointer to psoc object
+ * @vdev_id: Vdev id on which the DAR is configured
+ * @bitmap: DAR feature bitmap
+ *
+ * Return: QDF Status
+ */
+QDF_STATUS
+wlan_mlme_set_dar_config_bitmap(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+				uint32_t bitmap);
+
+/*
+ * wlan_mlme_get_dar_config_bitmap() - Get DAR feature bitmap from vdev priv obj
+ * @psoc: pointer to psoc object
+ * @vdev_id: Fetch DAR bitmap from vdev priv object corresponds to vdev_id
+ * @bitmap: Buffer to hold the DAR feature bitmap
+ *
+ * Return: QDF Status
+ */
+QDF_STATUS
+wlan_mlme_get_dar_config_bitmap(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+				uint32_t *bitmap);
+
 #endif /* _WLAN_MLME_API_H_ */

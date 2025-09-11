@@ -5813,4 +5813,28 @@ static inline bool ucfg_mlme_is_dual_sap_sta_supported(
 {
 	return wlan_mlme_is_dual_sap_sta_enabled(psoc);
 }
+
+/*
+ * ucfg_mlme_set_dar_config_bitmap() - ucfg wrapper for mlme API
+ * @psoc: pointer to psoc object
+ * @vdev_id: Vdev id on which the DAR is configured
+ * @bitmap: DAR feature bitmap
+ *
+ * Return: QDF Status
+ */
+QDF_STATUS
+ucfg_mlme_set_dar_config_bitmap(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+				uint32_t bitmap);
+
+/*
+ * ucfg_mlme_get_dar_config_bitmap() - ucfg wrapper for mlme API
+ * @psoc: pointer to psoc object
+ * @vdev_id: Vdev id on which the DAR is configured
+ * @bitmap: Buffer to get DAR feature bitmap
+ *
+ * Return: QDF Status
+ */
+QDF_STATUS
+ucfg_mlme_get_dar_config_bitmap(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+				uint32_t *bitmap);
 #endif /* _WLAN_MLME_UCFG_API_H_ */

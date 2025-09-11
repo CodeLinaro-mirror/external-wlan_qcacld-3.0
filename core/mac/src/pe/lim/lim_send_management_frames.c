@@ -3181,6 +3181,8 @@ QDF_STATUS lim_fill_wifi_gen_cap_ie(struct pe_session *pe_session,
 	uint8_t *cap_ie = NULL, *buf = NULL;
 	uint8_t supp_gen = 0, cert_gen = 0;
 	QDF_STATUS status = QDF_STATUS_E_FAILURE;
+	uint8_t cap_bitmap[WFA_CAPABILITIES_LENGTH] = {0};
+	uint32_t cap_bitmap_configured = 0;
 
 	/*
 	 * EID		0xDD
@@ -3190,7 +3192,9 @@ QDF_STATUS lim_fill_wifi_gen_cap_ie(struct pe_session *pe_session,
 	 * OUI_TYPE	0x23
 	 */
 
-	cap_ie = qdf_mem_malloc(WFA_CAPABILITIES_IE_LENGTH + 2);
+	pe_debug("Preparing wfa IE");
+	cap_ie = qdf_mem_malloc(WFA_CAPABILITIES_IE_LENGTH +
+				sizeof(cap_bitmap) + 2);
 	if (!cap_ie) {
 		pe_err("no mem for cap_ie");
 		return status;
@@ -3200,20 +3204,27 @@ QDF_STATUS lim_fill_wifi_gen_cap_ie(struct pe_session *pe_session,
 	*buf = WLAN_ELEMID_VENDOR;
 	buf++;
 
-	*buf = WFA_CAPABILITIES_IE_LENGTH;
+	*buf = WFA_CAPABILITIES_IE_LENGTH + sizeof(cap_bitmap);
 	buf++;
 
-	/* Fill the WFA Vendor specific OUI(0x50 0x6F 0x9A) */
+	/* Fill the WFA Vendor specific OUI and Type (0x50 0x6F 0x9A 0x23) */
 	qdf_mem_copy(buf, WFA_CAPABILITIES_OUI, WFA_CAPABILITIES_OUI_LENGTH);
 	buf += WFA_CAPABILITIES_OUI_LENGTH;
 
-	/* Fill the WFA Vendor specific OUI Type (0x23) */
-	*buf = WFA_CAPABILITIES_OUI_TYPE;
+	/* Fill WFA Capabilities length. */
+	*buf = sizeof(cap_bitmap);
 	buf++;
 
-	/* Fill WFA Capabilities length. Currently no capabilities for WFA. */
-	*buf = WFA_CAPABILITIES_LENGTH;
-	buf++;
+	if (QDF_IS_STATUS_ERROR(wlan_mlme_get_dar_config_bitmap(
+		wlan_vdev_get_psoc(pe_session->vdev),
+		wlan_vdev_get_id(pe_session->vdev),
+		&cap_bitmap_configured)))
+		return QDF_STATUS_E_FAILURE;
+	/* Fill WFA Capabilities */
+	cap_bitmap[0] |= cap_bitmap_configured & 0xFF;
+
+	qdf_mem_copy(buf, cap_bitmap, sizeof(cap_bitmap));
+	buf += sizeof(cap_bitmap);
 
 	/* Fill WFA Capabilities Attribute Info
 	 * attribute - WiFi generation indication
@@ -3256,6 +3267,59 @@ QDF_STATUS lim_fill_wifi_gen_cap_ie(struct pe_session *pe_session,
 	*ie_buf = cap_ie;
 
 	return status;
+}
+
+static QDF_STATUS
+lim_update_wfa_capa_ie(struct wlan_objmgr_vdev *vdev,
+		       const uint8_t *wfa_cap_ie)
+{
+	uint8_t *cap_bitmap = NULL;
+	uint8_t bmap_attr_idx;
+	uint32_t cap_bitmap_configured = 0;
+	QDF_STATUS status;
+	uint8_t ie_hdr_size;
+	struct ie_header *ie = (struct ie_header *)wfa_cap_ie;
+
+	if (!wfa_cap_ie || !wfa_cap_ie[1])
+		return QDF_STATUS_E_FAILURE;
+
+	status = wlan_mlme_get_dar_config_bitmap(wlan_vdev_get_psoc(vdev),
+						 wlan_vdev_get_id(vdev),
+						 &cap_bitmap_configured);
+	if (QDF_IS_STATUS_ERROR(status))
+		return QDF_STATUS_E_FAILURE;
+
+	if (!cap_bitmap_configured)
+		return QDF_STATUS_SUCCESS;
+
+	pe_debug("Updating existing WFA IE");
+
+	/*
+	 * First byte represents Type and Second byte represents
+	 * Length of the IE
+	 */
+	ie_hdr_size = sizeof(struct ie_header);
+	bmap_attr_idx = ie_hdr_size + WFA_CAPABILITIES_OUI_LENGTH;
+
+	qdf_trace_hex_dump(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+			   (void *)(wfa_cap_ie + ie_hdr_size), ie->ie_len);
+
+	if (ie->ie_len <= WFA_CAPABILITIES_FIXED_FIELD_LENGTH)
+		return QDF_STATUS_E_FAILURE;
+
+	if (ie->ie_len <
+		WFA_CAPABILITIES_FIXED_FIELD_LENGTH + wfa_cap_ie[bmap_attr_idx])
+		return QDF_STATUS_E_FAILURE;
+
+	if (wfa_cap_ie[bmap_attr_idx]) {
+		cap_bitmap = (uint8_t *)&wfa_cap_ie[bmap_attr_idx + 1];
+
+		*cap_bitmap |= cap_bitmap_configured;
+	}
+	qdf_trace_hex_dump(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+			   (void *)(wfa_cap_ie + ie_hdr_size), ie->ie_len);
+
+	return QDF_STATUS_SUCCESS;
 }
 
 /**
@@ -3312,6 +3376,7 @@ lim_send_assoc_req_mgmt_frame(struct mac_context *mac_ctx,
 	struct cm_roam_values_copy mdie_cfg = {0};
 	uint8_t *wfa_gen_cap_ie = NULL, wfa_gen_cap_ie_len = 0;
 	uint8_t rsn_sel_ie[] = {0xdd, 0x5, 0x50, 0x6f, 0x9a, 0x2c, 0x00};
+	const uint8_t *wfa_cap_ie = NULL;
 
 	if (!pe_session) {
 		pe_err("pe_session is NULL");
@@ -3824,11 +3889,18 @@ lim_send_assoc_req_mgmt_frame(struct mac_context *mac_ctx,
 		goto end;
 	}
 
-	qdf_status = lim_fill_wifi_gen_cap_ie(pe_session, &wfa_gen_cap_ie,
-					      &wfa_gen_cap_ie_len);
-	if (QDF_IS_STATUS_ERROR(qdf_status)) {
-		pe_err("Failed to fill WFA Generation Capability IE");
-		goto end;
+	wfa_cap_ie =
+		wlan_get_vendor_ie_ptr_from_oui(WFA_CAPABILITIES_OUI,
+						WFA_CAPABILITIES_OUI_LENGTH,
+						add_ie, add_ie_len);
+	if (!wfa_cap_ie) {
+		qdf_status = lim_fill_wifi_gen_cap_ie(pe_session,
+						      &wfa_gen_cap_ie,
+						      &wfa_gen_cap_ie_len);
+		if (QDF_IS_STATUS_ERROR(qdf_status)) {
+			pe_err("Failed to fill WFA Generation Capability IE");
+			goto end;
+		}
 	}
 
 	if (pe_session->lim_join_req->bssDescription.is_ml_ap &&
@@ -3966,10 +4038,35 @@ lim_send_assoc_req_mgmt_frame(struct mac_context *mac_ctx,
 		payload = payload + rsn_sel_ie_len;
 	}
 
+	/*
+	 * 1. Update the WFA_CAPA IE if it's present in the Assoc req IEs
+	 * 2. If it's not present, copy the WFA Vendor specific WiFi generation
+	 *    capability IE to the end of the vendor IEs in assoc request frame
+	 */
+	wfa_cap_ie =
+		wlan_get_vendor_ie_ptr_from_oui(WFA_CAPABILITIES_OUI,
+						WFA_CAPABILITIES_OUI_LENGTH,
+						vendor_ies, vendor_ie_len);
+	if (wfa_cap_ie) {
+		qdf_status = lim_update_wfa_capa_ie(pe_session->vdev,
+						    wfa_cap_ie);
+		if (QDF_IS_STATUS_ERROR(qdf_status)) {
+			pe_debug("failed to update WFA CAPA IE");
+			cds_packet_free((void *)packet);
+			goto end;
+		}
+	}
+
 	/* Copy the vendor IEs to the end of the frame */
 	qdf_mem_copy(frame + sizeof(tSirMacMgmtHdr) + payload,
 		     vendor_ies, vendor_ie_len);
 	payload = payload + vendor_ie_len;
+
+	if (!wfa_cap_ie && wfa_gen_cap_ie_len) {
+		qdf_mem_copy(frame + sizeof(tSirMacMgmtHdr) + payload,
+			     wfa_gen_cap_ie, wfa_gen_cap_ie_len);
+		payload += wfa_gen_cap_ie_len;
+	}
 
 	/* Copy the MBO IE to the end of the frame */
 	qdf_mem_copy(frame + sizeof(tSirMacMgmtHdr) + payload,
@@ -3992,16 +4089,6 @@ lim_send_assoc_req_mgmt_frame(struct mac_context *mac_ctx,
 			mlo_ie_len = 0;
 		}
 		payload = payload + mlo_ie_len;
-	}
-
-	/*
-	 * Copy the WFA Vendor specific WiFi generation capability IE
-	 * to the end of the assoc request frame
-	 */
-	if (wfa_gen_cap_ie_len) {
-		qdf_mem_copy(frame + sizeof(tSirMacMgmtHdr) + payload,
-			     wfa_gen_cap_ie, wfa_gen_cap_ie_len);
-		payload += wfa_gen_cap_ie_len;
 	}
 
 	if (pe_session->assoc_req) {

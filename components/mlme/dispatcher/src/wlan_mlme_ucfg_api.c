@@ -2226,3 +2226,17 @@ ucfg_mlme_get_mrsno_support(struct wlan_objmgr_psoc *psoc, bool *val)
 
 	return QDF_STATUS_SUCCESS;
 }
+
+QDF_STATUS
+ucfg_mlme_set_dar_config_bitmap(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+				uint32_t bitmap)
+{
+	return wlan_mlme_set_dar_config_bitmap(psoc, vdev_id, bitmap);
+}
+
+QDF_STATUS
+ucfg_mlme_get_dar_config_bitmap(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+				uint32_t *bitmap)
+{
+	return wlan_mlme_get_dar_config_bitmap(psoc, vdev_id, bitmap);
+}
