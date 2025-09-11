@@ -12746,11 +12746,31 @@ wlan_hdd_handle_dar_timer_req(struct hdd_context *hdd_ctx,
 	if (stats->enable) {
 		hdd_ctx->dar_data.num_of_meas = stats->num_of_meas;
 		hdd_ctx->dar_data.config_meas_dur = stats->timeout;
+		hdd_ctx->dar_data.stats_type = stats->stats_type;
+		if (stats->stats_type & WFA_CAPA_DATA_PLANE_STATS) {
+			req.method = SOLICITED_PERIODIC;
+			hdd_ctx->dar_data.granularity = stats->granularity;
+			hdd_ctx->dar_data.report_gran_bitmap = stats->report_gran_bitmap;
+			hdd_ctx->dar_data.link_granularity = stats->link_granularity;
+			hdd_ctx->dar_data.link_gran_bitmap = stats->link_gran_bitmap;
+			req.type = stats->report_type;
+		}
 		wlan_hdd_dar_timer_start(hdd_ctx);
 	} else {
 		hdd_ctx->dar_data.num_of_meas = 0;
 		hdd_ctx->dar_data.config_meas_dur = 0;
+		if (stats->stats_type & WFA_CAPA_DATA_PLANE_STATS) {
+			hdd_ctx->dar_data.granularity = 0;
+			hdd_ctx->dar_data.report_gran_bitmap = 0;
+			hdd_ctx->dar_data.link_granularity = 0;
+			hdd_ctx->dar_data.link_gran_bitmap = 0;
+		}
+		hdd_ctx->dar_data.stats_type = 0;
 		wlan_hdd_dar_timer_reset(hdd_ctx);
+	}
+	if (stats->stats_type & WFA_CAPA_DATA_PLANE_STATS) {
+		req.enable = stats->enable;
+		ucfg_dp_qos_latency_stats_request(vdev, &req);
 	}
 
 	hdd_objmgr_put_vdev_by_user(vdev, WLAN_OSIF_STATS_ID);

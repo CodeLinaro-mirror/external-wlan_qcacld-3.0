@@ -5654,4 +5654,61 @@ QDF_STATUS
 wlan_mlme_get_dar_config_bitmap(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
 				uint32_t *bitmap);
 
+/**
+ * wlan_mlme_dar_set_peer_config() - Set DAR peer configuration.
+ * @psoc: pointer to psoc object
+ * @vdev_id: VDEV identifier
+ * @peer_mac: MAC address of the peer
+ * @request_id: Request identifier
+ * @ie: Pointer to information element data
+ * @len: Length of the information element data
+ * @stats_type: Type of QoS Management features/statistics
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+wlan_mlme_dar_set_peer_config(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+			      tSirMacAddr peer_mac, uint8_t request_id,
+			      uint8_t *ie, uint16_t len,
+			      enum wfa_capa_qos_mgmt_features stats_type);
+
+/**
+ * wlan_mlme_dar_get_peer_config() - Get DAR peer configuration.
+ * @psoc: pointer to psoc object
+ * @vdev_id: VDEV identifier
+ * @peer_mac: MAC address of the peer
+ * @request_id: Pointer to store the request identifier
+ * @req_ies: Pointer to a pointer to fill with requested IEs for the peer
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+wlan_mlme_dar_get_peer_config(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+			      tSirMacAddr peer_mac, uint8_t *request_id,
+			      struct dar_req_ies_peer **req_ies);
+
+/**
+ * wlan_mlme_dar_set_requested_stats_bitmap() - Set the bitmap for requested DAR statistics.
+ * @psoc: pointer to psoc object
+ * @vdev_id: VDEV identifier
+ * @bitmap: Bitmap representing the WFA Capacity QoS Management features requested
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+wlan_mlme_dar_set_requested_stats_bitmap(struct wlan_objmgr_psoc *psoc,
+				 uint8_t vdev_id,
+				 enum wfa_capa_qos_mgmt_features bitmap);
+
+/**
+ * wlan_mlme_dar_get_requested_stats_bitmap() - Get the bitmap for requested DAR statistics.
+ * @psoc: pointer to psoc object
+ * @vdev_id: VDEV identifier
+ *
+ * Return: A bitmap representing the WFA Capacity QoS Management features requested.
+ */
+enum wfa_capa_qos_mgmt_features
+wlan_mlme_dar_get_requested_stats_bitmap(struct wlan_objmgr_psoc *psoc,
+					 uint8_t vdev_id);
+
 #endif /* _WLAN_MLME_API_H_ */

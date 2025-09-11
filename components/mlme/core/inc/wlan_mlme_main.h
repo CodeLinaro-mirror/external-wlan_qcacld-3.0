@@ -844,11 +844,37 @@ struct enhance_roam_info {
 };
 
 /**
+ * struct dar_req_ies_peer - Requested IEs from peer for DAR
+ * @latency_stats_req_ie_peer: Buffer to store latency stats request IE from peer.
+ * @latency_stats_req_ie_len: Length of the latency stats request IE.
+ * @radio_stats_req_ie_peer: Buffer to store radio stats request IE from peer.
+ * @radio_stats_req_ie_len: Length of the radio stats request IE.
+ * @control_plane_stats_req_ie_peer: Buffer to store control plane stats request IE from peer.
+ * @control_plane_stats_req_ie_len: Length of the control plane stats request IE.
+ */
+struct dar_req_ies_peer {
+	uint8_t latency_stats_req_ie_peer[WLAN_MAX_IE_LEN];
+	uint8_t latency_stats_req_ie_len;
+	uint8_t radio_stats_req_ie_peer[WLAN_MAX_IE_LEN];
+	uint8_t radio_stats_req_ie_len;
+	uint8_t control_plane_stats_req_ie_peer[WLAN_MAX_IE_LEN];
+	uint8_t control_plane_stats_req_ie_len;
+};
+
+/**
  * struct dar_config - Dynamic Analytics Report (DAR) configuration and state
  * @dar_feature_bitmap: Bitmap indicating enabled DAR features.
+ * @dar_requested_bitmap_peer: Bitmap of QoS management features requested by the peer.
+ * @peer_mac: MAC address of the peer for which DAR is configured.
+ * @request_id: Identifier for the current DAR request.
+ * @req_ies: Information elements requested from the peer.
  */
 struct dar_config {
 	uint16_t dar_feature_bitmap;
+	enum wfa_capa_qos_mgmt_features dar_requested_bitmap_peer;
+	tSirMacAddr peer_mac;
+	uint8_t request_id;
+	struct dar_req_ies_peer req_ies;
 };
 
 /**

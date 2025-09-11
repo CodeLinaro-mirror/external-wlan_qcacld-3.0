@@ -291,6 +291,7 @@ typedef enum {
 	eCSR_ROAM_CHANNEL_INFO_EVENT_IND = 50,
 	/* Channel switch started indication from lower layers */
 	eCSR_ROAM_CHANNEL_SWITCH_STARTED_IND = 51,
+	eCSR_DAR_TIMER_REQ = 52,
 } eRoamCmdStatus;
 
 /* comment inside indicates what roaming callback gets */
@@ -548,6 +549,7 @@ struct csr_roam_info {
 	bool is_fils_connection;
 	uint8_t vht_mcs_10_11_supp;
 	uint16_t he_mcs_12_13_map;
+	struct sir_qos_stats_req_msg qos_stats_req;
 };
 
 typedef struct sSirSmeAssocIndToUpperLayerCnf {

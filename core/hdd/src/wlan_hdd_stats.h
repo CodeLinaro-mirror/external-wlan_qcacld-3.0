@@ -299,12 +299,27 @@ struct index_data_rate_type {
  * @enable: Flag to enable or disable the timer.
  * @timeout: Timeout value for the statistics timer in milliseconds.
  * @num_of_meas: Number of measurements to take before stopping or reporting.
+ * @stats_type: Type of QoS management features for which stats are collected.
+ * @report_type: Type of report requested for the statistics.
+ * @granularity: Specifies the granularity of the report (e.g., per-TID, per-AC).
+ * @report_gran_bitmap: Bitmap indicating which granularities are enabled for
+ *	reporting (e.g., for different traffic classes).
+ * @link_granularity: Specifies the granularity of the report specific to links
+ *	(e.g., for MLO links).
+ * @link_gran_bitmap: Bitmap indicating which link granularities are enabled
+ *	for reporting.
  */
 struct dar_stats_timer_iface {
 	uint8_t vdev_id;
 	uint8_t enable;
 	uint16_t timeout;
 	uint16_t num_of_meas;
+	enum wfa_capa_qos_mgmt_features stats_type;
+	enum cdp_report_type report_type;
+	enum cdp_report_granularity granularity;
+	uint16_t report_gran_bitmap;
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
 };
 
 #ifdef WLAN_FEATURE_LINK_LAYER_STATS

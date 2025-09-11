@@ -2854,6 +2854,44 @@ sme_process_tsf_each_link(struct mac_context *mac, struct stsf *tsfmsg)
 }
 #endif /* WLAN_FEATURE_MULTI_LINK_SAP */
 
+static QDF_STATUS
+sme_dar_timer_req(struct mac_context *mac,
+		  struct sir_qos_stats_req_msg *params)
+{
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	struct csr_roam_info *roam_info;
+
+	roam_info = qdf_mem_malloc(sizeof(*roam_info));
+	if (!roam_info)
+		return QDF_STATUS_E_NOMEM;
+
+	roam_info->qos_stats_req.req.enable = params->req.enable;
+	if (params->req.enable) {
+		roam_info->qos_stats_req.meas_dur = params->meas_dur;
+		roam_info->qos_stats_req.num_of_meas = params->num_of_meas;
+		roam_info->qos_stats_req.stats_type = params->stats_type;
+		if (params->stats_type & WFA_CAPA_DATA_PLANE_STATS) {
+			roam_info->qos_stats_req.req.type = params->req.type;
+			roam_info->qos_stats_req.req.granularity =
+				params->req.granularity;
+			roam_info->qos_stats_req.req.report_gran_bitmap =
+				params->req.report_gran_bitmap;
+			roam_info->qos_stats_req.req.link_granularity =
+				params->req.link_granularity;
+			roam_info->qos_stats_req.req.link_gran_bitmap =
+				params->req.link_gran_bitmap;
+		}
+	}
+
+	/* forward the mgmt frame to HDD */
+	csr_roam_call_callback(mac, params->vdev_id, roam_info,
+			       eCSR_DAR_TIMER_REQ, 0);
+
+	qdf_mem_free(roam_info);
+
+	return status;
+}
+
 QDF_STATUS sme_process_msg(struct mac_context *mac, struct scheduler_msg *pMsg)
 {
 	QDF_STATUS status = QDF_STATUS_E_FAILURE;
@@ -3190,6 +3228,14 @@ QDF_STATUS sme_process_msg(struct mac_context *mac, struct scheduler_msg *pMsg)
 		status = sme_process_sap_ch_width_update_rsp(mac,
 							     pMsg->bodyptr);
 		qdf_mem_free(pMsg->bodyptr);
+		break;
+	case eWNI_SME_DAR_TIMER_REQ:
+		if (pMsg->bodyptr) {
+			sme_dar_timer_req(mac, pMsg->bodyptr);
+			qdf_mem_free(pMsg->bodyptr);
+		} else {
+			sme_err("Empty message for: %d", pMsg->type);
+		}
 		break;
 	default:
 

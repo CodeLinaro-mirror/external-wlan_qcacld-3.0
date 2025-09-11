@@ -2025,6 +2025,15 @@ enum wlan_state_ctrl_str_id {
  * @num_of_meas: Number of measurements to be included in the report.
  * @config_meas_dur: Configured duration for the measurement period in ms.
  * @start_ts: Timestamp when the DAR measurement period started.
+ * @stats_type: Type of QoS measurement statistics being requested (e.g.,
+ *              throughput, latency), as defined by wfa_capa_qos_mgmt_features.
+ * @granularity: Specifies the granularity of the measurement report (e.g.,
+ *               interval length).
+ * @report_gran_bitmap: Bitmap indicating which granularities are enabled
+ *                      for reporting.
+ * @link_granularity: Specifies the granularity of the measurement report per link.
+ * @link_gran_bitmap: Bitmap indicating which link granularities are enabled
+ *                    for reporting.
  */
 struct qos_dar_data {
 	bool dar_stats_support_by_fw;
@@ -2034,6 +2043,11 @@ struct qos_dar_data {
 	uint16_t num_of_meas;
 	uint16_t config_meas_dur;
 	qdf_time_t start_ts;
+	enum wfa_capa_qos_mgmt_features stats_type;
+	uint8_t granularity;
+	uint16_t report_gran_bitmap;
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
 };
 
 #define MAX_TGT_HW_NAME_LEN 32

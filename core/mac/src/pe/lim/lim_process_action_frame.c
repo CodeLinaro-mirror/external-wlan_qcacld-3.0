@@ -2013,11 +2013,142 @@ lim_fetch_ml_vdev_id_info(struct mac_context *mac,
 	}
 }
 
+static void
+lim_send_sme_dar_timer_req(struct mac_context *mac, uint8_t vdev_id,
+			   struct latency_stats_attr *latency_attr,
+			   struct sir_qos_stats_peer_data *peer_data,
+			   enum wfa_capa_qos_mgmt_features stats_type)
+{
+	struct scheduler_msg msg = {0};
+	struct sir_qos_stats_req_msg *params;
+
+	params = qdf_mem_malloc(sizeof(struct sir_qos_latency_stats));
+	if (!params)
+		return;
+
+	params->vdev_id = vdev_id;
+	if (peer_data->req_type == DAR_OP_START) {
+		params->req.enable = 1;
+		params->meas_dur = peer_data->meas_dur;
+		params->num_of_meas = peer_data->num_of_meas;
+		params->stats_type = stats_type;
+		if (stats_type & WFA_CAPA_DATA_PLANE_STATS) {
+			params->req.type = latency_attr->report_type;
+			params->req.granularity =
+				latency_attr->report_granularity;
+			params->req.report_gran_bitmap =
+				latency_attr->report_gran_bitmap;
+			params->req.link_granularity =
+				latency_attr->link_granularity;
+			params->req.link_gran_bitmap =
+				latency_attr->link_gran_bitmap;
+		}
+	} else {
+		params->req.enable = 0;
+	}
+
+	msg.type = eWNI_SME_DAR_TIMER_REQ;
+	msg.bodyptr = params;
+	msg.bodyval = 0;
+
+	lim_sys_process_mmh_msg_api(mac, &msg);
+	return;
+}
+
 static enum dar_status_codes
 lim_handle_dar_req_frame(struct mac_context *mac_ctx,
 			 struct pe_session *session,
 			 uint8_t *frame, uint32_t frame_len)
 {
+	tpSirMacMgmtHdr mac_addr = (tpSirMacMgmtHdr)frame;
+	struct dar_req_rsp_action_frame *payload;
+	struct dar_attr_cmn_hdr *dar_hdr;
+	union qos_mgmt_attr *qos_attr;
+	struct dar_req_attr *req_attr;
+	struct latency_stats_attr *latency_attr = NULL;
+	uint8_t *buf;
+	struct sir_qos_stats_peer_data peer_data = {0};
+	enum wfa_capa_qos_mgmt_features stats_requested = 0;
+
+	payload = (struct dar_req_rsp_action_frame *)(frame +
+						sizeof(tSirMacMgmtHdr));
+	qos_attr = &payload->qos_elements[0].attr[0];
+
+	if (frame_len <
+		sizeof(struct dar_req_rsp_action_frame) -
+		sizeof(union qos_mgmt_attr) +
+		sizeof(struct dar_req_attr)) {
+		pe_debug("DAR req frame with insufficient length");
+		return DAR_REQ_DECLINED;
+	}
+
+	dar_hdr = &qos_attr->cmn_hdr;
+	if (dar_hdr->attr_id != DAR_REQUEST_ATTR) {
+		pe_debug("DAR req frame should carry Req attr first");
+		return DAR_REQ_DECLINED;
+	}
+
+	buf = (uint8_t *)qos_attr;
+	while (buf + sizeof(struct dar_attr_cmn_hdr) < frame + frame_len) {
+		dar_hdr = (struct dar_attr_cmn_hdr *)buf;
+		switch (dar_hdr->attr_id) {
+		case DAR_REQUEST_ATTR:
+			pe_debug("DAR req attr");
+			if (buf + sizeof(struct dar_req_attr) >
+			    frame + frame_len) {
+				pe_debug("DAR req attr with insufficient length");
+				return DAR_REQ_DECLINED;
+			}
+			req_attr = (struct dar_req_attr *)buf;
+
+			peer_data.request_id = req_attr->hdr.request_id;
+			peer_data.req_type = req_attr->req_type;
+			if (peer_data.req_type == DAR_OP_TERMINATE) {
+				//Check for request_id match also
+				lim_send_sme_dar_timer_req(mac_ctx,
+					session->smeSessionId,
+					NULL, &peer_data, 0xFF);
+				return DAR_REQ_NO_STATUS;
+			}
+			peer_data.meas_dur = req_attr->meas_dur;
+			peer_data.num_of_meas = req_attr->num_of_meas;
+			sir_copy_mac_addr(peer_data.peer_mac, mac_addr->sa);
+		break;
+
+		case DAR_LATENCY_STATISTICS_ATTR:
+			pe_debug("DAR latency attr");
+//			if (buf + sizeof(struct latency_stats_attr) > TODO: WAR for WIN
+			if (buf + sizeof(struct latency_stats_attr) - 1 >
+			    frame + frame_len) {
+				pe_debug("DAR latency stats attr with insufficient length");
+				//Abort all stats and cleanup local data
+				return DAR_REQ_DECLINED;
+			}
+			latency_attr = (struct latency_stats_attr *)buf;
+			stats_requested |= WFA_CAPA_DATA_PLANE_STATS;
+
+			wlan_mlme_dar_set_peer_config(mac_ctx->psoc,
+						   session->vdev_id,
+						   mac_addr->sa,
+						   req_attr->hdr.request_id,
+						   (uint8_t *)latency_attr, latency_attr->length+2,
+						   WFA_CAPA_DATA_PLANE_STATS);
+		break;
+		default:
+			pe_debug("skip Unsupported attr: %d", dar_hdr->attr_id);
+		}
+		buf += dar_hdr->length + 2;
+	}
+	if (stats_requested) {
+		wlan_mlme_dar_set_requested_stats_bitmap(mac_ctx->psoc,
+							 session->smeSessionId,
+							 stats_requested);
+		lim_send_sme_dar_timer_req(mac_ctx,
+					session->smeSessionId,
+					latency_attr, &peer_data,
+					stats_requested);
+	}
+
 	return DAR_REQ_ACCEPTED;
 }
 

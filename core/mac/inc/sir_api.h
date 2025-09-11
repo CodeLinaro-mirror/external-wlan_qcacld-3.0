@@ -5237,4 +5237,21 @@ struct sir_sme_dar_frame_req {
 	tSirMacAddr peer_mac;
 	struct dar_msg_info info;
 };
+
+/**
+ * struct sir_qos_stats_peer_data - QoS statistics data per peer.
+ * @req_type: Type of request.
+ * @meas_dur: Measurement duration.
+ * @num_of_meas: Number of measurements.
+ * @peer_mac: MAC address of the peer.
+ * @request_id: Unique request identifier.
+ */
+struct sir_qos_stats_peer_data {
+	uint8_t req_type;
+	uint16_t meas_dur;
+	uint16_t num_of_meas;
+	tSirMacAddr peer_mac;
+	uint8_t request_id;
+};
+
 #endif /* __SIR_API_H */

@@ -2608,6 +2608,7 @@ QDF_STATUS hdd_sme_roam_callback(void *context,
 	struct hdd_adapter *adapter = link_info->adapter;
 	struct hdd_station_ctx *sta_ctx = NULL;
 	struct hdd_context *hdd_ctx;
+	struct dar_stats_timer_iface stats = {0};
 
 	/* Sanity check */
 	if (WLAN_HDD_ADAPTER_MAGIC != adapter->magic) {
@@ -2668,6 +2669,25 @@ QDF_STATUS hdd_sme_roam_callback(void *context,
 	case eCSR_ROAM_SAE_COMPUTE:
 		if (roam_info)
 			wlan_hdd_sae_callback(link_info, roam_info);
+		break;
+	case eCSR_DAR_TIMER_REQ:
+		if (roam_info) {
+			stats.enable = roam_info->qos_stats_req.req.enable;
+			stats.vdev_id = roam_info->qos_stats_req.vdev_id;
+			if (stats.enable) {
+				stats.timeout =	roam_info->qos_stats_req.meas_dur;
+				stats.num_of_meas = roam_info->qos_stats_req.num_of_meas;
+				stats.stats_type = roam_info->qos_stats_req.stats_type;
+				if (roam_info->qos_stats_req.stats_type & WFA_CAPA_DATA_PLANE_STATS) {
+					stats.report_type = roam_info->qos_stats_req.req.type;
+					stats.granularity = roam_info->qos_stats_req.req.granularity;
+					stats.report_gran_bitmap = roam_info->qos_stats_req.req.report_gran_bitmap;
+					stats.link_granularity = roam_info->qos_stats_req.req.link_granularity;
+					stats.link_gran_bitmap = roam_info->qos_stats_req.req.link_gran_bitmap;
+				}
+			}
+			wlan_hdd_handle_dar_timer_req(hdd_ctx, &stats);
+		}
 		break;
 	default:
 		break;

@@ -9410,3 +9410,143 @@ done:
 	wlan_objmgr_vdev_release_ref(vdev, WLAN_MLME_OBJMGR_ID);
 	return status;
 }
+
+QDF_STATUS
+wlan_mlme_dar_set_requested_stats_bitmap(struct wlan_objmgr_psoc *psoc,
+					 uint8_t vdev_id,
+					 enum wfa_capa_qos_mgmt_features bitmap)
+{
+	struct mlme_legacy_priv *mlme_priv;
+	struct wlan_objmgr_vdev *vdev;
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id,
+						    WLAN_MLME_OBJMGR_ID);
+	if (!vdev)
+		return QDF_STATUS_E_INVAL;
+
+	mlme_priv = wlan_vdev_mlme_get_ext_hdl(vdev);
+	if (!mlme_priv) {
+		mlme_legacy_err("vdev legacy private object is NULL");
+		status = QDF_STATUS_E_INVAL;
+		goto done;
+	}
+
+	mlme_priv->dar_info.dar_requested_bitmap_peer = bitmap;
+	mlme_debug("Peer stats bitmap: 0x%x", bitmap);
+
+done:
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_MLME_OBJMGR_ID);
+	return status;
+}
+
+enum wfa_capa_qos_mgmt_features
+wlan_mlme_dar_get_requested_stats_bitmap(struct wlan_objmgr_psoc *psoc,
+					 uint8_t vdev_id)
+{
+	struct mlme_legacy_priv *mlme_priv;
+	struct wlan_objmgr_vdev *vdev;
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	enum wfa_capa_qos_mgmt_features bitmap = 0;
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id,
+						    WLAN_MLME_OBJMGR_ID);
+	if (!vdev)
+		return bitmap;
+
+	mlme_priv = wlan_vdev_mlme_get_ext_hdl(vdev);
+	if (!mlme_priv) {
+		mlme_legacy_err("vdev legacy private object is NULL");
+		status = QDF_STATUS_E_INVAL;
+		goto done;
+	}
+
+	bitmap = mlme_priv->dar_info.dar_requested_bitmap_peer;
+	mlme_debug("Peer stats bitmap: 0x%x", bitmap);
+
+done:
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_MLME_OBJMGR_ID);
+	return bitmap;
+}
+
+QDF_STATUS
+wlan_mlme_dar_set_peer_config(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+			      tSirMacAddr peer_mac, uint8_t request_id,
+			      uint8_t *ie, uint16_t len,
+			      enum wfa_capa_qos_mgmt_features stats_type)
+{
+	struct mlme_legacy_priv *mlme_priv;
+	struct wlan_objmgr_vdev *vdev;
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id,
+						    WLAN_MLME_OBJMGR_ID);
+	if (!vdev)
+		return QDF_STATUS_E_INVAL;
+
+	mlme_priv = wlan_vdev_mlme_get_ext_hdl(vdev);
+	if (!mlme_priv) {
+		mlme_legacy_err("vdev legacy private object is NULL");
+		status = QDF_STATUS_E_INVAL;
+		goto done;
+	}
+
+	qdf_mem_copy(mlme_priv->dar_info.peer_mac, peer_mac, ETH_ALEN);
+	mlme_priv->dar_info.request_id = request_id;
+	if (stats_type & WFA_CAPA_DATA_PLANE_STATS) {
+		qdf_mem_copy(mlme_priv->dar_info.req_ies.latency_stats_req_ie_peer, ie, len);
+		mlme_priv->dar_info.req_ies.latency_stats_req_ie_len = len;
+	}
+	if (stats_type & WFA_CAPA_RADIO_COUNTER_STATS) {
+		qdf_mem_copy(mlme_priv->dar_info.req_ies.radio_stats_req_ie_peer, ie, len);
+		mlme_priv->dar_info.req_ies.radio_stats_req_ie_len = len;
+	}
+	if (stats_type & WFA_CAPA_CONTROL_PLANE_STATS) {
+		qdf_mem_copy(mlme_priv->dar_info.req_ies.control_plane_stats_req_ie_peer, ie, len);
+		mlme_priv->dar_info.req_ies.control_plane_stats_req_ie_len = len;
+	}
+
+	mlme_debug("Peer req id: %d, mac addr: "QDF_MAC_ADDR_FMT, request_id,
+		   QDF_MAC_ADDR_REF(peer_mac));
+
+done:
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_MLME_OBJMGR_ID);
+	return status;
+}
+
+QDF_STATUS
+wlan_mlme_dar_get_peer_config(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+			      tSirMacAddr peer_mac, uint8_t *request_id,
+			      struct dar_req_ies_peer **req_ies)
+{
+	struct mlme_legacy_priv *mlme_priv;
+	struct wlan_objmgr_vdev *vdev;
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id,
+						    WLAN_MLME_OBJMGR_ID);
+	if (!vdev)
+		return QDF_STATUS_E_INVAL;
+
+	mlme_priv = wlan_vdev_mlme_get_ext_hdl(vdev);
+	if (!mlme_priv) {
+		mlme_legacy_err("vdev legacy private object is NULL");
+		status = QDF_STATUS_E_INVAL;
+		goto done;
+	}
+
+	if (peer_mac)
+		qdf_mem_copy(peer_mac, mlme_priv->dar_info.peer_mac, ETH_ALEN);
+	if (request_id)
+		*request_id = mlme_priv->dar_info.request_id;
+	if (req_ies)
+		*req_ies = &mlme_priv->dar_info.req_ies;
+
+	mlme_debug("Peer req id: %d, mac addr: "QDF_MAC_ADDR_FMT,
+		   mlme_priv->dar_info.request_id,
+		   QDF_MAC_ADDR_REF(mlme_priv->dar_info.peer_mac));
+
+done:
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_MLME_OBJMGR_ID);
+	return status;
+}
