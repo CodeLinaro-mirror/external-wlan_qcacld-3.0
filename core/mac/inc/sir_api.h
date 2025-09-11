@@ -5042,4 +5042,199 @@ enum wfa_capa_qos_mgmt_features {
 	WFA_CAPA_CONTROL_PLANE_STATS		= 0x40,
 	WFA_CAPA_UNSOLICITED_STATS		= 0x80,
 };
+
+/* Define constants for DAR Latency Statistics bucket sizes */
+#define DAR_LATENCY_STATS_PERC_BUCKET_SIZE	5
+#define DAR_LATENCY_STATS_HIST_BUCKET_SIZE	8
+#define DAR_LATENCY_STATS_MAX_DATA_AC		4
+
+/**
+ * struct sir_qos_latency_stats_req - Request parameters for QoS latency statistics.
+ * @type: Report type for latency statistics (e.g., periodic, event-based).
+ * @granularity: Granularity of the report (e.g., per AC, per TID).
+ * @report_gran_bitmap: Bitmap indicating which granularities are requested for reporting.
+ * @link_granularity: Granularity related to link layer (e.g., per link).
+ * @link_gran_bitmap: Bitmap indicating which link granularities are requested.
+ * @enable: Flag to enable or disable the latency statistics reporting.
+ */
+struct sir_qos_latency_stats_req {
+	enum cdp_report_type type;
+	enum cdp_report_granularity granularity;
+	uint16_t report_gran_bitmap;
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
+	bool enable;
+};
+
+/**
+ * struct sir_qos_stats_req_msg - QoS statistics request message to PE.
+ * @vdev_id: Virtual device identifier.
+ * @meas_dur: Measurement duration in units specific to the stats type.
+ * @num_of_meas: Number of measurements to take.
+ * @stats_type: Type of QoS management features for statistics (e.g., latency, radio).
+ * @req: Latency statistics request parameters.
+ */
+struct sir_qos_stats_req_msg {
+	uint8_t vdev_id;
+	uint16_t meas_dur;
+	uint16_t num_of_meas;
+	enum wfa_capa_qos_mgmt_features stats_type;
+	struct sir_qos_latency_stats_req req;
+};
+
+/**
+ * struct sir_dar_latency_stats_ac_hist_stats - Histogram statistics per Access Category (AC) for DAR latency.
+ * @stats: Array holding histogram data for each AC.
+ */
+struct sir_dar_latency_stats_ac_hist_stats {
+	uint32_t stats[CDP_MAX_DATA_AC][CDP_HIST_BUCKET_SIZE];
+};
+
+/**
+ * struct sir_dar_latency_stats_ac_perc_stats - Percentile statistics per Access Category (AC) for DAR latency.
+ * @stats: Array holding percentile data for each AC.
+ */
+struct sir_dar_latency_stats_ac_perc_stats {
+	uint32_t stats[CDP_MAX_DATA_AC][CDP_PERC_BUCKET_SIZE];
+};
+
+/**
+ * struct sir_dar_latency_stats_tid_hist_stats - Histogram statistics per Traffic Identifier (TID) for DAR latency.
+ * @stats: Array holding histogram data for each TID.
+ */
+struct sir_dar_latency_stats_tid_hist_stats {
+	uint32_t stats[CDP_DATA_TID_MAX][CDP_HIST_BUCKET_SIZE];
+};
+
+/**
+ * struct sir_dar_latency_stats_tid_perc_stats - Percentile statistics per Traffic Identifier (TID) for DAR latency.
+ * @stats: Array holding percentile data for each TID.
+ */
+struct sir_dar_latency_stats_tid_perc_stats {
+	uint32_t stats[CDP_DATA_TID_MAX][CDP_PERC_BUCKET_SIZE];
+};
+
+/**
+ * union stats_hist_percentile - Union to hold different types of histogram and percentile statistics.
+ * @ac_hist: AC-level histogram statistics.
+ * @ac_perc: AC-level percentile statistics.
+ * @tid_hist: TID-level histogram statistics.
+ * @tid_perc: TID-level percentile statistics.
+ */
+union stats_hist_percentile {
+	struct cdp_ac_hist_stats ac_hist;
+	struct cdp_ac_perc_stats ac_perc;
+	struct cdp_tid_hist_stats tid_hist;
+	struct cdp_tid_perc_stats tid_perc;
+};
+
+/* Constants for latency histogram and percentile limits. */
+#define LATENCY_HIST_LIMITS_LIST_SIZE 4
+#define LATENCY_PERCENTILE_LIMITS_LIST_SIZE 2
+
+/**
+ * struct sir_qos_latency_stats - Structure to report QoS latency statistics.
+ * @vdev_id: Virtual device identifier.
+ * @type: Report type (e.g., periodic, event-based).
+ * @granularity: Granularity of the report (e.g., per AC, per TID).
+ * @report_gran_bitmap: Bitmap indicating which granularities are reported.
+ * @link_granularity: Granularity related to link layer.
+ * @link_gran_bitmap: Bitmap indicating which link granularities are reported.
+ * @num_thresholds: Number of thresholds configured for the latency stats.
+ * @thresholds: Thresholds for latency measurement, indexed by vdev, TID, and bucket.
+ * @stats: Union containing the actual histogram or percentile statistics data.
+ */
+struct sir_qos_latency_stats {
+	uint8_t vdev_id;
+	enum cdp_report_type type;
+	enum cdp_report_granularity granularity;
+	uint16_t report_gran_bitmap;
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
+	uint16_t num_thresholds;
+	uint8_t thresholds[WLAN_UMAC_MLO_MAX_VDEVS][CDP_DATA_TID_MAX][
+				LATENCY_HIST_LIMITS_LIST_SIZE];
+	union stats_hist_percentile stats;
+};
+
+/**
+ * struct sir_qos_radio_stats_config - Configuration for QoS radio statistics.
+ * @radio_stats_hdr: Header attributes for radio statistics.
+ * @tx_power: Transmit power report parameters.
+ * @cu: Channel utilization report parameters.
+ * @mpdu_stats: MPDU count statistics.
+ * @rts_stats: RTS statistics.
+ * @fcs_stats: FCS failure statistics.
+ */
+struct sir_qos_radio_stats_config {
+	struct qos_radio_stats_attr radio_stats_hdr;
+	struct qos_radio_stats_report_transmit_power tx_power;
+	struct qos_radio_stats_ch_utilization cu;
+	struct qos_radio_stats_mpdu_count mpdu_stats;
+	struct qos_radio_rts_stats rts_stats;
+	struct qos_radio_fcs_failure_stats fcs_stats;
+};
+
+/**
+ * struct sir_sme_dar_stats_msg - Message structure for Dynamic Adaptation Rate (DAR) statistics.
+ * @message_type: Message type (e.g., eWNI_SME_DAR).
+ * @length: Length of the message.
+ * @vdev_id: Virtual device identifier.
+ * @actual_meas_dur: Actual measurement duration.
+ * @stats_type: Type of QoS management features for statistics.
+ * @stats: QoS latency statistics.
+ * @radio_attr: Radio statistics configuration.
+ * @radio_stats_size: Size of the radio statistics data.
+ */
+struct sir_sme_dar_stats_msg {
+	uint16_t  message_type; /* eWNI_SME_DAR */
+	uint16_t  length;
+	uint8_t   vdev_id;
+	uint16_t actual_meas_dur;
+	enum wfa_capa_qos_mgmt_features stats_type;
+	struct sir_qos_latency_stats stats;
+	uint16_t radio_stats_size;
+};
+
+/**
+ * enum sir_dar_operation - Operations for Dynamic Adaptation Rate (DAR).
+ * @DAR_OP_START: Start DAR operation.
+ * @DAR_OP_TERMINATE: Terminate DAR operation.
+ */
+enum sir_dar_operation {
+	DAR_OP_START = 0,
+	DAR_OP_TERMINATE = 1,
+};
+
+/**
+ * struct dar_msg_info - DAR specific information payload.
+ * @operation: The specific DAR operation (start or terminate).
+ * @req_attr: Request attributes for DAR.
+ * @stats_type: Type of QoS management features for statistics.
+ * @latency_stats: Latency statistics for DAR.
+ * @radio_stats: Radio statistics for DAR.
+ */
+struct dar_msg_info {
+	enum sir_dar_operation operation;
+	struct dar_req_attr req_attr;
+	enum wfa_capa_qos_mgmt_features stats_type;
+	struct sir_qos_latency_stats latency_stats;
+	struct sir_qos_radio_stats_config radio_stats;
+};
+
+/**
+ * struct sir_sme_dar_frame_req - DAR request frame information sent to SME.
+ * @message_type: Message identifier.
+ * @length: Length of the message.
+ * @vdev_id: Virtual device identifier.
+ * @peer_mac: MAC address of the peer.
+ * @info: DAR specific information.
+ */
+struct sir_sme_dar_frame_req {
+	uint16_t  message_type; /* eWNI_SME_DAR */
+	uint16_t  length;
+	uint8_t   vdev_id;
+	tSirMacAddr peer_mac;
+	struct dar_msg_info info;
+};
 #endif /* __SIR_API_H */

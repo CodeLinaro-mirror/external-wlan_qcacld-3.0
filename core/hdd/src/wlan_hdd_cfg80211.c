@@ -24433,6 +24433,407 @@ static int wlan_hdd_cfg80211_async_get_station(struct wiphy *wiphy,
 	return errno;
 }
 
+#define CU_LINK_GRAN QCA_WLAN_DAR_OBSERVED_CU_FRACTIONAL_ATTR_LINK_GRANULARITY
+#define CU_THRESHOLDS QCA_WLAN_DAR_OBSERVED_CU_FRACTIONAL_ATTR_THRESHOLDS
+#define CU_MAX QCA_WLAN_DAR_OBSERVED_CU_FRACTIONAL_ATTR_MAX
+
+const struct nla_policy wlan_hdd_dar_cu[CU_MAX + 1] = {
+	[CU_LINK_GRAN] = {.type = NLA_U8},
+	[CU_THRESHOLDS] = {.type = NLA_BINARY,
+			   .len = sizeof(NLA_U8) * 16},
+};
+
+#define MPDU_REPORT_GRAN QCA_WLAN_DAR_MPDU_COUNT_STATS_ATTR_REPORT_GRANULARITY
+#define MPDU_LINK_GRAN QCA_WLAN_DAR_MPDU_COUNT_STATS_ATTR_LINK_GRANULARITY
+#define MPDU_THRESHOLDS \
+		QCA_WLAN_DAR_MPDU_COUNT_STATS_ATTR_THRESHOLDS
+#define MPDU_STATS_MAX QCA_WLAN_DAR_MPDU_COUNT_STATS_MAX
+
+const struct nla_policy wlan_hdd_dar_mpdu[MPDU_STATS_MAX + 1] = {
+	[MPDU_REPORT_GRAN] = {.type = NLA_U8},
+	[MPDU_LINK_GRAN] = {.type = NLA_U8},
+	[MPDU_THRESHOLDS] = {.type = NLA_BINARY,
+			     .len = sizeof(NLA_U8) *
+					WLAN_UMAC_MLO_MAX_VDEVS *
+					CDP_DATA_TID_MAX},
+};
+
+#define RTS_REPORT_GRAN QCA_WLAN_DAR_RTS_STATS_ATTR_REPORT_GRANULARITY
+#define RTS_LINK_GRAN QCA_WLAN_DAR_RTS_STATS_ATTR_LINK_GRANULARITY
+#define RTS_THRESHOLDS QCA_WLAN_DAR_RTS_STATS_ATTR_THRESHOLDS
+#define RTS_STATS_MAX QCA_WLAN_DAR_RTS_STATS_ATTR_MAX
+
+const struct nla_policy wlan_hdd_dar_rts[RTS_STATS_MAX + 1] = {
+	[RTS_REPORT_GRAN] = {.type = NLA_U8},
+	[RTS_LINK_GRAN] = {.type = NLA_U8},
+	[RTS_THRESHOLDS] = {.type = NLA_BINARY,
+			    .len = sizeof(NLA_U8) * WLAN_UMAC_MLO_MAX_VDEVS *
+					CDP_DATA_TID_MAX},
+};
+
+#define FCS_FAILURE_LINK_GRAN QCA_WLAN_DAR_FCS_FAILURE_ATTR_LINK_GRANULARITY
+#define FCS_FAILURE_MAX QCA_WLAN_DAR_FCS_FAILURE_ATTR_MAX
+
+const struct nla_policy wlan_hdd_dar_fcs[FCS_FAILURE_MAX + 1] = {
+	[FCS_FAILURE_LINK_GRAN] = {.type = NLA_U8},
+};
+
+#define PRESENSE_BITMAP QCA_WLAN_DAR_RADIO_COUNTERS_ATTR_PRESENCE_BITMAP
+#define CU_FRACTIONAL QCA_WLAN_DAR_RADIO_COUNTERS_ATTR_OBSERVED_CU_FRACTIONAL
+#define MPDU_COUNT_STATS QCA_WLAN_DAR_RADIO_COUNTERS_ATTR_MPDU_COUNT_STATS
+#define RTS_STATS QCA_WLAN_DAR_RADIO_COUNTERS_ATTR_RTS_STATS
+#define FCS_FAILURE_STATS QCA_WLAN_DAR_RADIO_COUNTERS_ATTR_FCS_FAILURE
+#define RADIO_ATTR_MAX QCA_WLAN_DAR_RADIO_COUNTERS_ATTR_MAX
+
+const struct nla_policy wlan_hdd_dar_radio_stats[RADIO_ATTR_MAX + 1] = {
+	[PRESENSE_BITMAP] = {.type = NLA_U16},
+	[CU_FRACTIONAL] = {.type = NLA_NESTED},
+	[MPDU_COUNT_STATS] = {.type = NLA_NESTED},
+	[RTS_STATS] = {.type = NLA_NESTED},
+	[FCS_FAILURE_STATS] = {.type = NLA_NESTED},
+};
+
+#define LATENCY_REPORT_TYPE QCA_WLAN_DAR_STATS_LATENCY_ATTR_REPORT_TYPE
+#define LATENCY_GRAN QCA_WLAN_DAR_STATS_LATENCY_ATTR_REPORT_GRANULARITY
+#define LATENCY_LINK_GRAN QCA_WLAN_DAR_STATS_LATENCY_ATTR_LINK_GRANULARITY
+#define LATENCY_THRESHOLDS QCA_WLAN_DAR_STATS_LATENCY_ATTR_THRESHOLDS
+#define LATENCY_ATTR_MAX QCA_WLAN_DAR_STATS_LATENCY_ATTR_MAX
+
+const struct nla_policy wlan_hdd_dar_latency_stats[LATENCY_ATTR_MAX + 1] = {
+	[LATENCY_REPORT_TYPE] = {.type = NLA_U8},
+	[LATENCY_GRAN] = {.type = NLA_U8},
+	[LATENCY_LINK_GRAN] = {.type = NLA_U8},
+	[LATENCY_THRESHOLDS] = {.type = NLA_BINARY,
+			     .len = sizeof(NLA_U8) *
+					WLAN_UMAC_MLO_MAX_VDEVS *
+					CDP_DATA_TID_MAX *
+					LATENCY_HIST_LIMITS_LIST_SIZE},
+};
+
+#define DAR_OP_TYPE QCA_WLAN_VENDOR_ATTR_DAR_OP_TYPE
+#define DAR_STATS_BITMAP QCA_WLAN_VENDOR_ATTR_DAR_STATS_BITMAP
+#define DAR_REPORT_METHOD QCA_WLAN_VENDOR_ATTR_DAR_REPORT_METHOD
+#define MEASUREMENT_DURATION QCA_WLAN_VENDOR_ATTR_DAR_MEASUREMENT_DURATION
+#define DAR_MAX_REPORTS QCA_WLAN_VENDOR_ATTR_DAR_MEASUREMENTS
+#define LATENCY_STATS_CONFIG QCA_WLAN_VENDOR_ATTR_DAR_STATS_LATENCY_CONFIG
+#define RADIO_STATS_CONFIG QCA_WLAN_VENDOR_ATTR_DAR_RADIO_COUNTERS_CONFIG
+#define CONTROL_PLANE_STATS_CONFIG QCA_WLAN_VENDOR_ATTR_DAR_CONTROL_PLANE_EVENTS_CONFIG
+#define DAR_DATA_MAX QCA_WLAN_VENDOR_ATTR_DAR_MAX
+
+const struct nla_policy wlan_hdd_dar_data[DAR_DATA_MAX + 1] = {
+	[DAR_OP_TYPE] = {.type = NLA_U8},
+	[DAR_STATS_BITMAP] = {.type = NLA_U8},
+	[DAR_REPORT_METHOD] = {.type = NLA_U8},
+	[MEASUREMENT_DURATION] = {.type = NLA_U16},
+	[DAR_MAX_REPORTS] = {.type = NLA_U16},
+	[LATENCY_STATS_CONFIG] = {.type = NLA_NESTED},
+	[RADIO_STATS_CONFIG] = {.type = NLA_NESTED},
+	[CONTROL_PLANE_STATS_CONFIG] = {.type = NLA_NESTED},
+};
+
+/**
+ * __wlan_hdd_cfg80211_dar_request() - DAR request command
+ * @wiphy: wiphy pointer
+ * @wdev: pointer to struct wireless_dev
+ * @data: pointer to incoming NL vendor data
+ * @data_len: length of @data
+ *
+ * Return: 0 on success; error number otherwise.
+ */
+static int
+__wlan_hdd_cfg80211_dar_request(struct wiphy *wiphy,
+				struct wireless_dev *wdev,
+				const void *data,
+				int data_len)
+{
+	struct hdd_context *hdd_ctx = wiphy_priv(wiphy);
+	struct hdd_adapter *adapter = WLAN_HDD_GET_PRIV_PTR(wdev->netdev);
+	struct nlattr *tb[DAR_DATA_MAX + 1], *tb_latency[LATENCY_ATTR_MAX + 1];
+	struct nlattr *tb_radio[RADIO_ATTR_MAX + 1];
+	struct nlattr *tb_cu[CU_MAX + 1];
+	struct nlattr *tb_mpdu[MPDU_STATS_MAX + 1];
+	struct nlattr *tb_rts[RTS_STATS_MAX + 1];
+	struct nlattr *tb_fcs[FCS_FAILURE_MAX + 1];
+	QDF_STATUS status = QDF_STATUS_E_INVAL;
+	struct dar_msg_info info = {0};
+	int ret;
+	uint16_t num_links, num_report_gran, num_limits, num_thresholds, rcvd_num_thresholds, i;
+
+	hdd_enter();
+	if (wlan_cfg80211_nla_parse(tb, DAR_DATA_MAX, data, data_len,
+				    wlan_hdd_dar_data)) {
+		hdd_err("nla_parse failed for DAR Request");
+		return -EINVAL;
+	}
+
+	info.req_attr.hdr.request_id = 1;
+
+	if (!tb[DAR_OP_TYPE]) {
+		hdd_debug("DAR_OP_TYPE not present");
+		goto error;
+	}
+
+	info.req_attr.req_type = nla_get_u8(tb[DAR_OP_TYPE]);
+
+	if (tb[MEASUREMENT_DURATION])
+		info.req_attr.meas_dur = nla_get_u16(tb[MEASUREMENT_DURATION]);
+	if (info.req_attr.meas_dur < 100)
+		info.req_attr.meas_dur = 5000;
+
+	if (tb[DAR_MAX_REPORTS])
+		info.req_attr.num_of_meas = nla_get_u16(tb[DAR_MAX_REPORTS]);
+
+	if (tb[LATENCY_STATS_CONFIG]) {
+		if (wlan_cfg80211_nla_parse_nested(tb_latency, LATENCY_ATTR_MAX,
+			tb[LATENCY_STATS_CONFIG], wlan_hdd_dar_latency_stats)) {
+			hdd_err("nla_parse failed for LATENCY_STATS_CONFIG attribute");
+			goto error;
+		}
+		if (!tb_latency[LATENCY_REPORT_TYPE] ||
+		    !tb_latency[LATENCY_GRAN]) {
+			hdd_err("Latency config attributes not present");
+			goto error;
+		}
+
+		info.latency_stats.type =
+			nla_get_u8(tb_latency[LATENCY_REPORT_TYPE]);
+		info.latency_stats.granularity =
+			nla_get_u8(tb_latency[LATENCY_GRAN]);
+		if (tb_latency[LATENCY_LINK_GRAN])
+			info.latency_stats.link_granularity =
+				nla_get_u8(tb_latency[LATENCY_LINK_GRAN]);
+		if (tb_latency[LATENCY_THRESHOLDS]) {
+			num_links = info.latency_stats.link_granularity ?
+					WLAN_UMAC_MLO_MAX_VDEVS:1;
+			if (info.latency_stats.granularity ==
+				QCA_WLAN_DAR_REPORT_GRANULARITY_TID)
+				num_report_gran = CDP_DATA_TID_MAX;
+			else if (info.latency_stats.granularity ==
+				QCA_WLAN_DAR_REPORT_GRANULARITY_AC)
+				num_report_gran = CDP_MAX_DATA_AC;
+			else
+				num_report_gran = 1;
+
+			num_limits = info.latency_stats.type?
+				LATENCY_PERCENTILE_LIMITS_LIST_SIZE:
+				LATENCY_HIST_LIMITS_LIST_SIZE;
+
+			num_thresholds = num_links*num_report_gran*num_limits;
+
+			info.latency_stats.num_thresholds =
+				     QDF_MIN(nla_len(tb_latency[LATENCY_THRESHOLDS]),
+					     num_thresholds);
+			qdf_mem_copy(info.latency_stats.thresholds,
+				     nla_data(tb_latency[LATENCY_THRESHOLDS]),
+				     info.latency_stats.num_thresholds);
+			for (i = info.latency_stats.num_thresholds; i < num_thresholds; i += info.latency_stats.num_thresholds)
+				qdf_mem_copy((uint8_t *)info.latency_stats.thresholds + i,
+					     info.latency_stats.thresholds,
+					     info.latency_stats.num_thresholds);
+			info.latency_stats.num_thresholds = num_thresholds;
+		}
+		info.stats_type |= WFA_CAPA_DATA_PLANE_STATS;
+		hdd_debug("Latency config: type: %d, granularity: %d link_gran: %d",
+			  info.latency_stats.type,
+			  info.latency_stats.granularity,
+			  info.latency_stats.link_granularity);
+	}
+	if (tb[RADIO_STATS_CONFIG]) {
+		if (wlan_cfg80211_nla_parse_nested(tb_radio, RADIO_ATTR_MAX,
+			tb[RADIO_STATS_CONFIG], wlan_hdd_dar_radio_stats)) {
+			hdd_err("nla_parse failed for RADIO_STATS_CONFIG attribute");
+			goto error;
+		}
+		if (!tb_radio[PRESENSE_BITMAP]) {
+			hdd_err("Radio config attributes not present");
+			goto error;
+		}
+
+		info.radio_stats.radio_stats_hdr.param_presence_bitmap =
+			nla_get_u16(tb_radio[PRESENSE_BITMAP]);
+		if (tb_radio[CU_FRACTIONAL]) {
+			if (!wlan_cfg80211_nla_parse_nested(tb_cu,
+						CU_MAX,
+						tb_radio[CU_FRACTIONAL],
+						wlan_hdd_dar_cu)) {
+				info.radio_stats.cu.link_granularity =
+					nla_get_u8(tb_cu[CU_LINK_GRAN]);
+				if (tb_cu[CU_THRESHOLDS])
+				qdf_mem_copy(
+				info.radio_stats.cu.thresholds,
+				nla_data(tb_cu[CU_THRESHOLDS]),
+					 qdf_min(nla_len(tb_cu[CU_THRESHOLDS]),
+					 WLAN_UMAC_MLO_MAX_VDEVS));
+			}
+		}
+		if (tb_radio[MPDU_COUNT_STATS]) {
+			if (!wlan_cfg80211_nla_parse_nested(tb_mpdu,
+						MPDU_STATS_MAX,
+						tb_radio[MPDU_COUNT_STATS],
+						wlan_hdd_dar_mpdu)) {
+				if (tb_mpdu[MPDU_REPORT_GRAN])
+				info.radio_stats.mpdu_stats.report_granularity =
+					nla_get_u8(tb_mpdu[MPDU_REPORT_GRAN]);
+				if (tb_mpdu[MPDU_LINK_GRAN])
+				info.radio_stats.mpdu_stats.link_granularity =
+					nla_get_u8(tb_mpdu[MPDU_LINK_GRAN]);
+				if (tb_mpdu[MPDU_THRESHOLDS]) {
+					num_links = info.radio_stats.mpdu_stats.link_granularity ?
+							WLAN_UMAC_MLO_MAX_VDEVS:1;
+					if (info.radio_stats.mpdu_stats.report_granularity ==
+						QCA_WLAN_DAR_REPORT_GRANULARITY_TID)
+						num_report_gran = CDP_DATA_TID_MAX;
+					else if (info.radio_stats.mpdu_stats.report_granularity ==
+						QCA_WLAN_DAR_REPORT_GRANULARITY_AC)
+						num_report_gran = CDP_MAX_DATA_AC;
+					else
+						num_report_gran = 1;
+
+					num_limits = 1;
+
+					num_thresholds = num_links*num_report_gran*num_limits;
+					rcvd_num_thresholds = qdf_min(nla_len(tb_mpdu[MPDU_THRESHOLDS]), num_thresholds);
+					qdf_mem_copy(
+						info.radio_stats.mpdu_stats.thresholds,
+						nla_data(tb_mpdu[MPDU_THRESHOLDS]), rcvd_num_thresholds);
+					for (i = rcvd_num_thresholds; i < num_thresholds; i += rcvd_num_thresholds)
+						qdf_mem_copy((uint8_t *)info.radio_stats.mpdu_stats.thresholds + i,
+							     info.radio_stats.mpdu_stats.thresholds,
+							     rcvd_num_thresholds);
+				}
+			}
+		}
+
+		if (tb_radio[RTS_STATS]) {
+			if (!wlan_cfg80211_nla_parse_nested(tb_rts,
+						RTS_STATS_MAX,
+						tb_radio[RTS_STATS],
+						wlan_hdd_dar_rts)) {
+				if (tb_rts[RTS_REPORT_GRAN])
+				info.radio_stats.rts_stats.report_granularity =
+					nla_get_u8(tb_rts[RTS_REPORT_GRAN]);
+				if (tb_rts[RTS_LINK_GRAN])
+				info.radio_stats.rts_stats.link_granularity =
+					nla_get_u8(tb_rts[RTS_LINK_GRAN]);
+				if (tb_rts[RTS_THRESHOLDS])
+				qdf_mem_copy(
+					info.radio_stats.rts_stats.thresholds,
+					nla_data(tb_rts[RTS_THRESHOLDS]),
+					qdf_min(nla_len(tb_rts[RTS_THRESHOLDS]),
+						WLAN_UMAC_MLO_MAX_VDEVS * CDP_DATA_TID_MAX));
+				if (tb_rts[RTS_THRESHOLDS]) {
+					num_links = info.radio_stats.rts_stats.link_granularity ?
+							WLAN_UMAC_MLO_MAX_VDEVS:1;
+					if (info.radio_stats.rts_stats.report_granularity ==
+						QCA_WLAN_DAR_REPORT_GRANULARITY_TID)
+						num_report_gran = CDP_DATA_TID_MAX;
+					else if (info.radio_stats.rts_stats.report_granularity ==
+						QCA_WLAN_DAR_REPORT_GRANULARITY_AC)
+						num_report_gran = CDP_MAX_DATA_AC;
+					else
+						num_report_gran = 1;
+
+					num_limits = 1;
+
+					num_thresholds = num_links*num_report_gran*num_limits;
+					rcvd_num_thresholds = qdf_min(nla_len(tb_rts[RTS_THRESHOLDS]), num_thresholds);
+					qdf_mem_copy(
+						info.radio_stats.rts_stats.thresholds,
+						nla_data(tb_rts[RTS_THRESHOLDS]), rcvd_num_thresholds);
+					for (i = rcvd_num_thresholds; i < num_thresholds; i += rcvd_num_thresholds)
+						qdf_mem_copy((uint8_t *)info.radio_stats.rts_stats.thresholds + i,
+							     info.radio_stats.rts_stats.thresholds,
+							     rcvd_num_thresholds);
+				}
+			}
+		}
+
+		if (tb_radio[FCS_FAILURE_STATS]) {
+			if (!wlan_cfg80211_nla_parse_nested(tb_fcs,
+						FCS_FAILURE_MAX,
+						tb_radio[FCS_FAILURE_STATS],
+						wlan_hdd_dar_fcs)) {
+				if (tb_fcs[FCS_FAILURE_LINK_GRAN])
+				info.radio_stats.fcs_stats.link_granularity =
+					nla_get_u8(tb_fcs[FCS_FAILURE_LINK_GRAN]);
+			}
+		}
+		info.stats_type |= WFA_CAPA_RADIO_COUNTER_STATS;
+		hdd_debug("Radio config: presense_bitmap: 0x%x",
+			  info.radio_stats.radio_stats_hdr.param_presence_bitmap);
+		hdd_debug("Radio config: tx_power: link_gran: %d, bitmap: 0x%x",
+			  info.radio_stats.tx_power.link_granularity,
+			  info.radio_stats.tx_power.link_gran_bitmap);
+		hdd_debug("Radio config: CU: link_gran: %d, bitmap: 0x%x, thresholds: [%d], [%d]",
+			  info.radio_stats.cu.link_granularity,
+			  info.radio_stats.cu.link_gran_bitmap,
+			  info.radio_stats.cu.thresholds[0],
+			  info.radio_stats.cu.thresholds[1]);
+		hdd_debug("Radio config: MPDU: report gran: %d, bitmap: 0x%x link_gran: %d, bitmap: 0x%x",
+			  info.radio_stats.mpdu_stats.report_granularity,
+			  info.radio_stats.mpdu_stats.report_gran_bitmap,
+			  info.radio_stats.mpdu_stats.link_granularity,
+			  info.radio_stats.mpdu_stats.link_gran_bitmap);
+		hdd_debug("Radio config: MPDU: thresholds: ");
+		QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_HDD, QDF_TRACE_LEVEL_DEBUG,
+				   info.radio_stats.mpdu_stats.thresholds,
+				   WLAN_UMAC_MLO_MAX_VDEVS * CDP_DATA_TID_MAX);
+		hdd_debug("Radio config: RTS: report gran: %d, bitmap: 0x%x link_gran: %d, bitmap: 0x%x",
+			  info.radio_stats.rts_stats.report_granularity,
+			  info.radio_stats.rts_stats.report_gran_bitmap,
+			  info.radio_stats.rts_stats.link_granularity,
+			  info.radio_stats.rts_stats.link_gran_bitmap);
+		hdd_debug("Radio config: RTS: thresholds: ");
+		QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_HDD, QDF_TRACE_LEVEL_DEBUG,
+				   info.radio_stats.rts_stats.thresholds,
+				   WLAN_UMAC_MLO_MAX_VDEVS * CDP_DATA_TID_MAX);
+		hdd_debug("Radio config: FCS: link_gran: %d, bitmap: 0x%x",
+			  info.radio_stats.fcs_stats.link_granularity,
+			  info.radio_stats.fcs_stats.link_gran_bitmap);
+	}
+	hdd_debug("Type: %d, periodicity: %d, max_report: %d",
+		  info.req_attr.req_type,
+		  info.req_attr.meas_dur,
+		  info.req_attr.num_of_meas);
+
+send_cmd:
+	hdd_debug("DAR req: operation: %d", info.operation);
+	status = sme_send_dar_frame(hdd_ctx->mac_handle, info,
+				    adapter->deflink->vdev_id);
+
+error:
+	ret = qdf_status_to_os_return(status);
+	return ret;
+}
+
+/**
+ * wlan_hdd_cfg80211_dar_request() - DAR request command
+ * @wiphy: wiphy pointer
+ * @wdev: pointer to struct wireless_dev
+ * @data: pointer to incoming NL vendor data
+ * @data_len: length of @data
+ *
+ * Return: 0 on success; error number otherwise.
+ */
+static int wlan_hdd_cfg80211_dar_request(struct wiphy *wiphy,
+					 struct wireless_dev *wdev,
+					 const void *data,
+					 int data_len)
+{
+	int errno;
+	struct osif_vdev_sync *vdev_sync;
+
+	errno = osif_vdev_sync_op_start(wdev->netdev, &vdev_sync);
+	if (errno)
+		return errno;
+
+	errno = __wlan_hdd_cfg80211_dar_request(wiphy, wdev, data, data_len);
+
+	osif_vdev_sync_op_stop(vdev_sync);
+
+	return errno;
+}
+
 const struct wiphy_vendor_command hdd_wiphy_vendor_commands[] = {
 	{
 		.info.vendor_id = QCA_NL80211_VENDOR_ID,
@@ -24893,6 +25294,15 @@ const struct wiphy_vendor_command hdd_wiphy_vendor_commands[] = {
 			WIPHY_VENDOR_CMD_NEED_RUNNING,
 		.doit = wlan_hdd_cfg80211_get_nud_stats,
 		vendor_command_policy(VENDOR_CMD_RAW_DATA, 0)
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_DAR,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_NETDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = wlan_hdd_cfg80211_dar_request,
+		vendor_command_policy(wlan_hdd_dar_data, DAR_DATA_MAX)
 	},
 
 	FEATURE_BSS_TRANSITION_VENDOR_COMMANDS

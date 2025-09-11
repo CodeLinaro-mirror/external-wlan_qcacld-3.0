@@ -5229,4 +5229,16 @@ QDF_STATUS sme_get_roam_score_delta_value(mac_handle_t mac_handle,
 QDF_STATUS sme_set_roam_cfg_rt_params_enabled(mac_handle_t mac_handle,
 					      uint8_t vdev_id,
 					      bool roam_cfg_rt_params_enabled);
+
+/**
+ * sme_send_dar_frame()- Send DAR req frame to peer/AP
+ * @mac_handle: Opaque handle to the global MAC context
+ * @info: DAR specific info
+ * @session_id: senssion it should be sent on.
+ *
+ * Return: success if msg is sent else return failure
+ */
+QDF_STATUS sme_send_dar_frame(mac_handle_t mac_handle,
+			      struct dar_msg_info info,
+			      uint8_t session_id);
 #endif /* #if !defined( __SME_API_H ) */

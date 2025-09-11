@@ -1394,18 +1394,223 @@ enum qos_mgmt_attr_id {
 };
 
 /**
+ * struct qos_radio_stats_report_tp_fixed_fields - Fixed fields for a QoS Radio Statistics Report Throughput.
+ * @link_granularity: Specifies the granularity of the report in terms of link information.
+ * @link_gran_bitmap: A bitmap indicating specific link granularity settings.
+ */
+struct qos_radio_stats_report_tp_fixed_fields {
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
+} qdf_packed;
+
+/**
+ * struct qos_radio_stats_report_transmit_power - Represents transmit power information
+ * for a QoS Radio Statistics Report.
+ * @link_granularity: Specifies the granularity of the report in terms of link information,
+ *                    e.g., if transmit power is reported per link or aggregated.
+ * @link_gran_bitmap: A bitmap indicating specific link granularity settings.
+ *                    Each bit can correspond to a specific link or a grouping of links.
+ * @transmit_power_list: An array holding transmit power values for each link/VDEV.
+ *                       The size of the array is determined by WLAN_UMAC_MLO_MAX_VDEVS,
+ *                       supporting Multi-Link Operation (MLO) scenarios.
+ */
+struct qos_radio_stats_report_transmit_power {
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
+	uint8_t transmit_power_list[WLAN_UMAC_MLO_MAX_VDEVS];
+} qdf_packed;
+
+/**
+ * struct qos_radio_stats_cu_fixed_field - Fixed fields for a QoS Radio Statistics Channel Utilization Report.
+ * @link_granularity: Specifies the granularity of the report in terms of link information.
+ * @link_gran_bitmap: A bitmap indicating specific link granularity settings.
+ */
+struct qos_radio_stats_cu_fixed_field {
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
+} qdf_packed;
+
+/**
+ * struct qos_radio_stats_ch_utilization - QoS Radio Statistics Channel Utilization Report structure.
+ * This structure holds channel utilization information for different links/VDEVs.
+ *
+ * @link_granularity: Specifies the granularity of the report in terms of link information
+ *                    (e.g., per link or aggregated).
+ * @link_gran_bitmap: A bitmap indicating specific link granularity settings.
+ * @thresholds: An array of threshold values for each VDEV/link.
+ * @cu_fraction_list: An array where each element represents the channel utilization fraction
+ *                    for a corresponding VDEV/link, calculated as
+ *                    (cca_busy_cnt_delta / cycle_cnt_delta * 255).
+ *                    The size is determined by WLAN_UMAC_MLO_MAX_VDEVS, supporting MLO scenarios.
+ */
+struct qos_radio_stats_ch_utilization {
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
+	uint8_t thresholds[WLAN_UMAC_MLO_MAX_VDEVS];
+	uint8_t cu_fraction_list[WLAN_UMAC_MLO_MAX_VDEVS];
+} qdf_packed;
+
+
+/**
+ * struct mpdu_count_stats_info - Stores statistics for MPDU counts.
+ * @successful_mpdu_count: Number of successfully transmitted MPDUs.
+ * @mpdu_retry_count: Number of MPDU retries.
+ *
+ * Thresholds to carry MPDU Retry Rate
+ * MPDU Retry Rate = {100 * MPDU Retry Count / Total MPDU Count}
+ */
+struct mpdu_count_stats_info {
+	uint32_t successful_mpdu_count;
+	uint32_t mpdu_retry_count;
+} qdf_packed;
+
+/**
+ * struct qos_radio_stats_mpdu_count_fixed_fields - Fixed fields for MPDU count statistics.
+ * @report_granularity: Specifies the granularity of the report (TID, AC, or aggregated).
+ * @report_gran_bitmap: Bitmap indicating which TIDs/ACs are included in the report.
+ * @link_granularity: Specifies the granularity of the report in terms of link information.
+ * @link_gran_bitmap: Bitmap indicating specific link granularity settings.
+ */
+struct qos_radio_stats_mpdu_count_fixed_fields {
+	uint8_t report_granularity; //sir_dar_latency_stats_report_granularity
+	uint16_t report_gran_bitmap;
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
+} qdf_packed;
+
+/**
+ * struct qos_radio_stats_mpdu_count - QoS Radio Statistics MPDU Count Report structure.
+ * @report_granularity: Specifies the granularity of the report (TID, AC, or aggregated).
+ * @report_gran_bitmap: Bitmap indicating which TIDs/ACs are included in the report.
+ * @link_granularity: Specifies the granularity of the report in terms of link information.
+ * @link_gran_bitmap: Bitmap indicating specific link granularity settings.
+ * @thresholds: An array of threshold values for each VDEV/link and TID.
+ * @dropped_mpdu_count: Array storing the count of dropped MPDUs for each TID.
+ * @stats_list: A 2D array storing MPDU count statistics (successful and retries)
+ *              for each VDEV/link and TID.
+ */
+struct qos_radio_stats_mpdu_count {
+	uint8_t report_granularity; //sir_dar_latency_stats_report_granularity
+	uint16_t report_gran_bitmap;
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
+	uint8_t thresholds[WLAN_UMAC_MLO_MAX_VDEVS][CDP_DATA_TID_MAX];
+	uint32_t dropped_mpdu_count[CDP_DATA_TID_MAX];
+	struct mpdu_count_stats_info stats_list[WLAN_UMAC_MLO_MAX_VDEVS][CDP_DATA_TID_MAX];
+} qdf_packed;
+
+/**
+ * struct rts_stats_info - Stores statistics for RTS/CTS frames.
+ * @successful_rts_count: Number of successfully transmitted RTS frames.
+ * @rts_failure_count: Number of RTS frames that failed to receive a CTS.
+ */
+struct rts_stats_info {
+	uint32_t successful_rts_count;
+	uint32_t rts_failure_count;
+} qdf_packed;
+
+/**
+ * struct qos_radio_rts_stats_fixed_fields - Fixed fields for RTS statistics.
+ * @report_granularity: Specifies the granularity of the report (TID, AC, or aggregated).
+ * @report_gran_bitmap: Bitmap indicating which TIDs/ACs are included in the report.
+ * @link_granularity: Specifies the granularity of the report in terms of link information.
+ * @link_gran_bitmap: Bitmap indicating specific link granularity settings.
+ */
+struct qos_radio_rts_stats_fixed_fields {
+	uint8_t report_granularity; //sir_dar_latency_stats_report_granularity
+	uint16_t report_gran_bitmap;
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
+} qdf_packed;
+
+/**
+ * struct qos_radio_rts_stats - QoS Radio RTS Statistics Report structure.
+ * @report_granularity: Specifies the granularity of the report (TID, AC, or aggregated).
+ * @report_gran_bitmap: Bitmap indicating which TIDs/ACs are included in the report.
+ * @link_granularity: Specifies the granularity of the report in terms of link information.
+ * @link_gran_bitmap: Bitmap indicating specific link granularity settings.
+ * @thresholds: An array of threshold values for each VDEV/link and TID.
+ * @stats_list: A 2D array storing RTS statistics (successful and failures)
+ *              for each VDEV/link and TID.
+ */
+struct qos_radio_rts_stats {
+	uint8_t report_granularity; //sir_dar_latency_stats_report_granularity
+	uint16_t report_gran_bitmap;
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
+	uint8_t thresholds[WLAN_UMAC_MLO_MAX_VDEVS][CDP_DATA_TID_MAX];
+	struct rts_stats_info stats_list[WLAN_UMAC_MLO_MAX_VDEVS][CDP_DATA_TID_MAX];
+} qdf_packed;
+
+/**
+ * struct qos_radio_fcs_failure_stats_fixed_fields - Fixed fields for FCS failure statistics.
+ * @link_granularity: Specifies the granularity of the report in terms of link information.
+ * @link_gran_bitmap: Bitmap indicating specific link granularity settings.
+ */
+struct qos_radio_fcs_failure_stats_fixed_fields {
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
+} qdf_packed;
+
+/**
+ * struct qos_radio_fcs_failure_stats - QoS Radio FCS Failure Statistics Report structure.
+ * @link_granularity: Specifies the granularity of the report in terms of link information.
+ * @link_gran_bitmap: Bitmap indicating specific link granularity settings.
+ * @fcs_fail_list: An array storing the count of FCS failures for each VDEV/link.
+ */
+struct qos_radio_fcs_failure_stats {
+	uint8_t link_granularity;
+	uint8_t link_gran_bitmap;
+	uint32_t fcs_fail_list[WLAN_UMAC_MLO_MAX_VDEVS];
+} qdf_packed;
+
+/**
+ * enum qos_radios_stats_presense - Bitmask to indicate presence of various radio statistics fields.
+ * @TRANSMIT_POWER_FIELD: Bit indicating presence of transmit power field.
+ * @OBSERVED_CU_FRACTION_FIELD: Bit indicating presence of observed channel utilization fraction field.
+ * @MPDU_COUNT_STATISTICS_FIELD: Bit indicating presence of MPDU count statistics field.
+ * @RTS_STATISTICS_FIELD: Bit indicating presence of RTS statistics field.
+ * @FCS_FAILURE_FIELD: Bit indicating presence of FCS failure field.
+ * @RADIO_STATS_THRESHOLDS_PRESENT: Bit indicating presence of radio stats thresholds.
+ * @RADIO_STATS_LISTS_PRESENT: Bit indicating presence of radio stats lists.
+ */
+enum qos_radios_stats_presense {
+	TRANSMIT_POWER_FIELD = BIT(0),
+	OBSERVED_CU_FRACTION_FIELD = BIT(1),
+	MPDU_COUNT_STATISTICS_FIELD = BIT(2),
+	RTS_STATISTICS_FIELD = BIT(3),
+	FCS_FAILURE_FIELD = BIT(4),
+	RADIO_STATS_THRESHOLDS_PRESENT = BIT(6),
+	RADIO_STATS_LISTS_PRESENT = BIT(7),
+};
+
+/**
+ * struct qos_radio_stats_attr - QoS Radio Statistics Attribute.
+ * @attr_id: Attribute ID for radio statistics.
+ * @length: Length of the radio statistics attribute data.
+ * @param_presence_bitmap: Bitmap indicating which specific radio statistics fields are present.
+ */
+struct qos_radio_stats_attr {
+	uint8_t attr_id;
+	uint8_t length;
+	uint16_t param_presence_bitmap;
+} qdf_packed;
+
+/**
  * union qos_mgmt_attr - Union of various QoS management attributes.
  * Allows a single memory location to be interpreted as different attribute structures.
  * @cmn_hdr: Common header for DAR attributes.
  * @req_attr: DAR request attributes.
  * @rsp_attr: DAR response attributes.
  * @latency_stats: Latency statistics attributes.
+ * @radio_stats: Radio statistics attributes.
  */
 union qos_mgmt_attr {
 	struct dar_attr_cmn_hdr cmn_hdr;
 	struct dar_req_attr req_attr;
 	struct dar_rsp_attr rsp_attr;
 	struct latency_stats_attr latency_stats;
+	struct qos_radio_stats_attr radio_stats;
 } qdf_packed;
 
 /**

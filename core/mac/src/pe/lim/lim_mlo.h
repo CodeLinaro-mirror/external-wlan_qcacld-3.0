@@ -424,6 +424,30 @@ QDF_STATUS lim_get_bpcc_from_mlo_ie(tSchBeaconStruct *bcn,
  */
 bool lim_check_cu_happens(struct wlan_objmgr_vdev *vdev,
 			  uint8_t link_id, uint8_t new_bpcc);
+
+/**
+ * lim_fetch_ml_vdev_id_info() - Fetch ML vdev ID information
+ * @mac: Pointer to mac_context
+ * @session: Pointer to pe_session
+ * @num_vdev_ids: Pointer to store number of vdev IDs
+ * @vdev_id_list: Pointer to store list of vdev IDs
+ * @link_id_list: Pointer to store list of link IDs
+ * @num_mac_addr_list: Pointer to store number of MAC addresses
+ * @peer_mac_addr: Array of pointers to store peer MAC addresses
+ *
+ * This function retrieves the Multi-Link vdev ID information for a given
+ * session, including the number of vdev IDs, the vdev ID list, link ID list,
+ * number of MAC addresses, and peer MAC address list.
+ *
+ * Return: void
+ */
+void
+lim_fetch_ml_vdev_id_info(struct mac_context *mac,
+			  struct pe_session *session,
+			  uint32_t *num_vdev_ids, uint32_t *vdev_id_list,
+			  uint32_t *link_id_list,
+			  uint32_t *num_mac_addr_list,
+			  uint8_t *peer_mac_addr[QDF_MAC_ADDR_SIZE]);
 #else
 static inline void lim_mlo_roam_peer_disconn_del(struct wlan_objmgr_vdev *vdev)
 {

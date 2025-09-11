@@ -9930,6 +9930,35 @@ fail:
 }
 
 /**
+ * lim_process_dar_frame_req()- Process DAR req msg
+ * @mac_ctx: pointer to global mac structure
+ * @msg: params from sme for DAR request
+ *
+ * Return: void
+ */
+
+static void
+lim_process_dar_frame_req(struct mac_context *mac_ctx, uint32_t *msg)
+{
+	struct sir_sme_dar_frame_req *dar_frame_req =
+				(struct sir_sme_dar_frame_req *) msg;
+	struct pe_session *session = NULL;
+
+	if (!msg) {
+		pe_err("Buffer is Pointing to NULL");
+		return;
+	}
+	session = pe_find_session_by_vdev_id(mac_ctx, dar_frame_req->vdev_id);
+	if (!session) {
+		pe_err("Session not found for given vdev_id %d",
+			dar_frame_req->vdev_id);
+		return;
+	}
+
+	lim_prepare_n_send_dar_req_frame(mac_ctx, session, dar_frame_req);
+}
+
+/**
  * lim_process_sme_req_messages()
  *
  ***FUNCTION:
@@ -10136,6 +10165,9 @@ bool lim_process_sme_req_messages(struct mac_context *mac,
 		break;
 	case WNI_SME_UPDATE_RNR_IES:
 		lim_process_update_rnr_ies(mac, msg_buf);
+		break;
+	case eWNI_SME_SEND_DAR_FRAME:
+		lim_process_dar_frame_req(mac, msg_buf);
 		break;
 	default:
 		qdf_mem_free((void *)pMsg->bodyptr);

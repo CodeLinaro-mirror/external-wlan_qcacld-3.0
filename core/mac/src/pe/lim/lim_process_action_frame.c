@@ -1962,6 +1962,57 @@ lim_prepare_n_send_ttlm_action_rsp_frame(struct wlan_objmgr_peer *peer,
 }
 #endif
 
+void
+lim_fetch_ml_vdev_id_info(struct mac_context *mac,
+			  struct pe_session *session,
+			  uint32_t *num_vdev_ids, uint32_t *vdev_id_list,
+			  uint32_t *link_id_list,
+			  uint32_t *num_mac_addr_list,
+			  uint8_t *peer_mac_addr[QDF_MAC_ADDR_SIZE])
+{
+	struct wlan_objmgr_vdev *wlan_vdev_list[WLAN_UMAC_MLO_MAX_VDEVS];
+	uint16_t vdev_count = 0, i;
+	struct qdf_mac_addr bss_peer_mac = {0};
+
+	*num_vdev_ids = 1;
+	vdev_id_list[0] = wlan_vdev_get_id(session->vdev);
+	if (peer_mac_addr) {
+		wlan_vdev_get_bss_peer_mac(session->vdev, &bss_peer_mac);
+		qdf_mem_copy(&peer_mac_addr[0], &bss_peer_mac,
+			     QDF_MAC_ADDR_SIZE);
+	}
+
+	if (!wlan_vdev_mlme_is_mlo_vdev(session->vdev))
+		return;
+
+	mlo_get_ml_vdev_list(session->vdev, &vdev_count, wlan_vdev_list);
+	if (!vdev_count) {
+		pe_debug("Number of VDEVs under MLD is reported as 0");
+		return;
+	}
+	if (vdev_count == 1) {
+		pe_debug("Number of VDEVs under MLD is reported as 1");
+		mlo_release_vdev_ref(wlan_vdev_list[0]);
+		return;
+	}
+	*num_vdev_ids = vdev_count;
+	if (num_mac_addr_list)
+		*num_mac_addr_list = vdev_count;
+
+	for (i = 0; i < vdev_count; i++) {
+		vdev_id_list[i] = wlan_vdev_get_id(wlan_vdev_list[i]);
+		if (peer_mac_addr) {
+			wlan_vdev_get_bss_peer_mac(wlan_vdev_list[i], &bss_peer_mac);
+			qdf_mem_copy(&peer_mac_addr[i], &bss_peer_mac,
+				     QDF_MAC_ADDR_SIZE);
+		}
+		if (link_id_list)
+			link_id_list[i] =
+				wlan_vdev_get_link_id(wlan_vdev_list[i]);
+		mlo_release_vdev_ref(wlan_vdev_list[i]);
+	}
+}
+
 static enum dar_status_codes
 lim_handle_dar_req_frame(struct mac_context *mac_ctx,
 			 struct pe_session *session,

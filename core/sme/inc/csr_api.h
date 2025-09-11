@@ -951,4 +951,15 @@ csr_roam_get_phy_mode_band_for_bss(struct mac_context *mac,
  */
 QDF_STATUS csr_send_csa_restart_req(uint8_t vdev_id);
 
+/**
+ * csr_send_dar_frame()- Send DAR frame to peer/AP
+ * @mac_ctx: pointer to global mac structure
+ * @info: DAR specific info
+ * @session_id: senssion it should be sent on.
+ *
+ * Return: success if msg posted to LIM else return failure
+ */
+QDF_STATUS csr_send_dar_frame(struct mac_context *mac_ctx,
+			      struct dar_msg_info info, uint8_t session_id);
+
 #endif

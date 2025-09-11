@@ -9270,10 +9270,28 @@ void lim_send_mgmt_frame_tx(struct mac_context *mac_ctx,
 	lim_send_frame(mac_ctx, vdev_id, mb_msg->data, msg_len);
 }
 
+static uint16_t
+lim_get_mlo_link_bitmap(struct mac_context *mac,
+			struct pe_session *session)
+{
+	uint32_t i, num_vdev_ids, vdev_id_list[2], link_id_list[2];
+	uint16_t link_bitmap = 0;
+
+	if (!wlan_vdev_mlme_is_mlo_vdev(session->vdev))
+		return 0;
+	lim_fetch_ml_vdev_id_info(mac, session, &num_vdev_ids, &vdev_id_list[0],
+			  &link_id_list[0], NULL, NULL);
+	for (i = 0; i < num_vdev_ids; i++)
+		link_bitmap |= BIT(link_id_list[i]);
+
+	return link_bitmap;
+}
+
 static void
 lim_populate_dar_frame_cmn_fields(struct mac_context *mac_ctx,
 				  struct pe_session *session,
-				  uint8_t *frame, enum qos_mgmt_frame_type type,
+				  uint8_t *frame,
+				  enum qos_mgmt_frame_type type,
 				  enum wfa_capa_qos_mgmt_features stats_type,
 				  uint16_t size)
 {
@@ -9329,6 +9347,388 @@ lim_populate_dar_frame_cmn_fields(struct mac_context *mac_ctx,
 	payload->qos_mgmt_el_hdr.oui[1] = 0x6f;
 	payload->qos_mgmt_el_hdr.oui[2] = 0x9a;
 	payload->qos_mgmt_el_hdr.oui_type = 0x22;
+}
+
+static uint16_t
+lim_populate_latency_stats_attr_req_type(struct mac_context *mac_ctx,
+					 struct pe_session *session,
+					 struct latency_stats_attr *frame,
+					 struct sir_qos_latency_stats *req)
+{
+	uint8_t *buf;
+
+	/* 0 indicates histogram, 1 indicates percentile */
+	frame->report_type = req->type;
+
+	/*
+	 * 0 indicates TID level
+	 * 1 indicates AC level
+	 * 2 indicates aggregated across all ACs
+	 */
+	frame->report_granularity = req->granularity;
+	if (!frame->report_granularity)
+		frame->report_gran_bitmap =
+					(1<<CDP_DATA_TID_MAX) - 1;
+	else if (frame->report_granularity == 1)
+		frame->report_gran_bitmap =
+					(1<<CDP_MAX_DATA_AC) - 1;
+	frame->link_granularity = req->link_granularity; //MLD level
+	if (frame->link_granularity)
+		frame->link_gran_bitmap = lim_get_mlo_link_bitmap(mac_ctx, session);
+
+	if (req->num_thresholds) {
+		frame->param_presence_bitmap = BIT(0);
+		buf = (uint8_t *)(frame + 1);
+		qdf_mem_copy(buf, req->thresholds, req->num_thresholds);
+	}
+
+	return req->num_thresholds;
+}
+
+static uint16_t
+lim_populate_latency_stats_attr(struct mac_context *mac_ctx,
+				struct pe_session *session,
+				struct latency_stats_attr *frame,
+				struct sir_qos_latency_stats *req, bool dar_req)
+{
+	uint16_t latency_tag_size = 0;
+
+	frame->attr_id = DAR_LATENCY_STATISTICS_ATTR;
+	frame->length = sizeof(struct latency_stats_attr) - 2;
+
+	if (dar_req)
+		latency_tag_size =
+			lim_populate_latency_stats_attr_req_type(mac_ctx, session, frame, req);
+
+	frame->length += latency_tag_size;
+	latency_tag_size = frame->length;
+
+	return latency_tag_size + 2;
+}
+
+static void
+lim_prepare_dar_radio_stats_req_frame(struct qos_radio_stats_attr *frame,
+				      struct sir_qos_radio_stats_config *req)
+{
+	uint8_t *buf = (uint8_t *)frame;
+	struct qos_radio_stats_report_tp_fixed_fields *tx_power;
+	struct qos_radio_stats_cu_fixed_field *cu;
+	struct qos_radio_stats_mpdu_count_fixed_fields *mpdu;
+	struct qos_radio_rts_stats_fixed_fields *rts;
+	struct qos_radio_fcs_failure_stats_fixed_fields *fcs;
+	uint8_t sub_field_size;
+
+	frame->param_presence_bitmap = req->radio_stats_hdr.param_presence_bitmap;
+	buf += sizeof(struct qos_radio_stats_attr);
+
+	if (frame->param_presence_bitmap & TRANSMIT_POWER_FIELD) {
+		tx_power = (struct qos_radio_stats_report_tp_fixed_fields *)buf;
+
+		tx_power->link_granularity = req->tx_power.link_granularity;
+		tx_power->link_gran_bitmap = req->tx_power.link_gran_bitmap;
+
+		buf += sizeof(struct qos_radio_stats_report_tp_fixed_fields);
+	}
+
+	if (frame->param_presence_bitmap & OBSERVED_CU_FRACTION_FIELD) {
+		cu = (struct qos_radio_stats_cu_fixed_field *)buf;
+
+		cu->link_granularity = req->cu.link_granularity;
+		cu->link_gran_bitmap = req->cu.link_gran_bitmap;
+
+		buf += sizeof(struct qos_radio_stats_cu_fixed_field);
+
+		//For thresholds
+		if (frame->param_presence_bitmap & RADIO_STATS_THRESHOLDS_PRESENT) {
+			if (cu->link_granularity)
+				sub_field_size = qdf_get_hamming_weight(cu->link_gran_bitmap);
+			else
+				sub_field_size = 1;
+			qdf_mem_copy(buf, req->cu.thresholds, sub_field_size);
+
+			buf += sub_field_size;
+		}
+	}
+
+	if (frame->param_presence_bitmap & MPDU_COUNT_STATISTICS_FIELD) {
+		mpdu = (struct qos_radio_stats_mpdu_count_fixed_fields *)buf;
+
+		mpdu->report_granularity = req->mpdu_stats.report_granularity;
+		mpdu->report_gran_bitmap = req->mpdu_stats.report_gran_bitmap;
+		mpdu->link_granularity = req->mpdu_stats.link_granularity;
+		mpdu->link_gran_bitmap = req->mpdu_stats.link_gran_bitmap;
+
+		buf += sizeof(struct qos_radio_stats_mpdu_count_fixed_fields);
+
+		//For thresholds
+		if (frame->param_presence_bitmap & RADIO_STATS_THRESHOLDS_PRESENT) {
+			if (mpdu->link_granularity)
+				sub_field_size = qdf_get_hamming_weight(mpdu->link_gran_bitmap);
+			else
+				sub_field_size = 1;
+			if (mpdu->report_granularity == REPORT_GRAN_TID ||
+			    mpdu->report_granularity == REPORT_GRAN_AC)
+				sub_field_size *= qdf_get_hamming_weight(mpdu->report_gran_bitmap);
+
+			if (!sub_field_size)
+				return;
+			qdf_mem_copy(buf, req->mpdu_stats.thresholds, sub_field_size);
+
+			buf += sub_field_size;
+		}
+	}
+
+	if (frame->param_presence_bitmap & RTS_STATISTICS_FIELD) {
+		rts = (struct qos_radio_rts_stats_fixed_fields *)buf;
+
+		rts->report_granularity = req->rts_stats.report_granularity;
+		rts->report_gran_bitmap = req->rts_stats.report_gran_bitmap;
+		rts->link_granularity = req->rts_stats.link_granularity;
+		rts->link_gran_bitmap = req->rts_stats.link_gran_bitmap;
+
+		buf += sizeof(struct qos_radio_rts_stats_fixed_fields);
+
+		//For thresholds
+		if (frame->param_presence_bitmap & RADIO_STATS_THRESHOLDS_PRESENT) {
+			if (rts->link_granularity)
+				sub_field_size = qdf_get_hamming_weight(rts->link_gran_bitmap);
+			else
+				sub_field_size = 1;
+			if (rts->report_granularity == REPORT_GRAN_TID ||
+			    rts->report_granularity == REPORT_GRAN_AC)
+				sub_field_size *= qdf_get_hamming_weight(rts->report_gran_bitmap);
+
+			if (!sub_field_size)
+				return;
+			qdf_mem_copy(buf, req->rts_stats.thresholds, sub_field_size);
+
+			buf += sub_field_size;
+		}
+	}
+
+	if (frame->param_presence_bitmap & FCS_FAILURE_FIELD) {
+		fcs = (struct qos_radio_fcs_failure_stats_fixed_fields *)buf;
+
+		fcs->link_granularity = req->fcs_stats.link_granularity;
+		fcs->link_gran_bitmap = req->fcs_stats.link_gran_bitmap;
+
+		buf += sizeof(struct qos_radio_fcs_failure_stats_fixed_fields);
+	}
+}
+
+static uint16_t
+lim_populate_radio_stats_attr(struct qos_radio_stats_attr *frame,
+			      struct sir_qos_radio_stats_config *req, uint16_t size,
+			      bool req_rep)
+{
+	if (req_rep)
+		lim_prepare_dar_radio_stats_req_frame(frame, req);
+	else
+		qdf_mem_copy(frame, req, size);
+
+	frame->attr_id = DAR_RADIO_COUNTERS_ATTR;
+	frame->length = size - 2;
+
+	return size;
+}
+
+QDF_STATUS
+lim_prepare_n_send_dar_req_frame(struct mac_context *mac_ctx,
+				 struct pe_session *session,
+				 struct sir_sme_dar_frame_req *req)
+{
+	tSirMacMgmtHdr *mac_hdr;
+	uint8_t *frame, tx_flag = 0, radio_stats_size = 0, var_tag_size = 0;
+	void *pkt_ptr;
+	uint16_t frame_len;
+	QDF_STATUS status;
+	union qos_mgmt_attr *attr;
+	struct dar_req_rsp_action_frame *req_frm;
+	struct qos_mgmt_elements *payload;
+	uint16_t latency_tag_size = 0;
+
+	frame_len = sizeof(tSirMacMgmtHdr) + sizeof(struct dar_req_rsp_action_frame) -
+			sizeof(union qos_mgmt_attr) +
+			sizeof(struct dar_req_attr);
+
+	if (req->info.stats_type & WFA_CAPA_DATA_PLANE_STATS) {
+		frame_len += sizeof(struct latency_stats_attr);
+		frame_len += req->info.latency_stats.num_thresholds;
+	}
+
+	if (req->info.stats_type & WFA_CAPA_RADIO_COUNTER_STATS) {
+		radio_stats_size = sizeof(struct qos_radio_stats_attr);
+
+		if (req->info.radio_stats.radio_stats_hdr.param_presence_bitmap & TRANSMIT_POWER_FIELD) {
+			radio_stats_size += sizeof(struct qos_radio_stats_report_tp_fixed_fields);
+			if (req->info.radio_stats.tx_power.link_granularity &&
+			    !req->info.radio_stats.tx_power.link_gran_bitmap)
+				req->info.radio_stats.tx_power.link_gran_bitmap = lim_get_mlo_link_bitmap(mac_ctx, session);
+			if (!lim_get_mlo_link_bitmap(mac_ctx, session)) {
+				req->info.radio_stats.tx_power.link_granularity = 0;
+				req->info.radio_stats.tx_power.link_gran_bitmap = 0;
+			}
+		}
+
+		if (req->info.radio_stats.radio_stats_hdr.param_presence_bitmap & OBSERVED_CU_FRACTION_FIELD) {
+			radio_stats_size +=
+				sizeof(struct qos_radio_stats_cu_fixed_field);
+			if (req->info.radio_stats.cu.link_granularity &&
+			    !req->info.radio_stats.cu.link_gran_bitmap)
+				req->info.radio_stats.cu.link_gran_bitmap = lim_get_mlo_link_bitmap(mac_ctx, session);
+
+			if (!lim_get_mlo_link_bitmap(mac_ctx, session)) {
+				req->info.radio_stats.cu.link_granularity = 0;
+				req->info.radio_stats.cu.link_gran_bitmap = 0;
+			}
+			//For thresholds
+			if (req->info.radio_stats.radio_stats_hdr.param_presence_bitmap & RADIO_STATS_THRESHOLDS_PRESENT) {
+				if (req->info.radio_stats.cu.link_granularity)
+					radio_stats_size += qdf_get_hamming_weight(req->info.radio_stats.cu.link_gran_bitmap) * sizeof(uint8_t);
+				else
+					radio_stats_size += sizeof(uint8_t);
+			}
+		}
+
+		if (req->info.radio_stats.radio_stats_hdr.param_presence_bitmap & MPDU_COUNT_STATISTICS_FIELD) {
+			radio_stats_size +=
+				sizeof(struct qos_radio_stats_mpdu_count_fixed_fields);
+			if (!req->info.radio_stats.mpdu_stats.report_gran_bitmap) {
+				if (req->info.radio_stats.mpdu_stats.report_granularity == REPORT_GRAN_TID)
+					req->info.radio_stats.mpdu_stats.report_gran_bitmap = BIT(CDP_DATA_TID_MAX) - 1;
+				else
+					req->info.radio_stats.mpdu_stats.report_gran_bitmap = BIT(CDP_MAX_DATA_AC) - 1;
+			}
+			if (req->info.radio_stats.mpdu_stats.link_granularity &&
+			    !req->info.radio_stats.mpdu_stats.link_gran_bitmap)
+				req->info.radio_stats.mpdu_stats.link_gran_bitmap = lim_get_mlo_link_bitmap(mac_ctx, session);
+
+			if (!lim_get_mlo_link_bitmap(mac_ctx, session)) {
+				req->info.radio_stats.mpdu_stats.link_granularity = 0;
+				req->info.radio_stats.mpdu_stats.link_gran_bitmap = 0;
+			}
+			//For thresholds
+			if (req->info.radio_stats.radio_stats_hdr.param_presence_bitmap & RADIO_STATS_THRESHOLDS_PRESENT) {
+
+				if (req->info.radio_stats.mpdu_stats.link_granularity)
+					var_tag_size = qdf_get_hamming_weight(req->info.radio_stats.mpdu_stats.link_gran_bitmap) * sizeof(uint8_t);
+				else
+					var_tag_size = sizeof(uint8_t);
+
+				if (req->info.radio_stats.mpdu_stats.report_granularity == REPORT_GRAN_TID ||
+				    req->info.radio_stats.mpdu_stats.report_granularity == REPORT_GRAN_AC)
+					var_tag_size *= qdf_get_hamming_weight(req->info.radio_stats.mpdu_stats.report_gran_bitmap) * sizeof(uint8_t);
+
+				radio_stats_size += var_tag_size;
+			}
+		}
+
+		if (req->info.radio_stats.radio_stats_hdr.param_presence_bitmap & RTS_STATISTICS_FIELD) {
+			radio_stats_size +=
+				sizeof(struct qos_radio_rts_stats_fixed_fields);
+			if (!req->info.radio_stats.rts_stats.report_gran_bitmap) {
+				if (req->info.radio_stats.rts_stats.report_granularity == REPORT_GRAN_TID)
+					req->info.radio_stats.rts_stats.report_gran_bitmap = BIT(CDP_DATA_TID_MAX) - 1;
+				else
+					req->info.radio_stats.rts_stats.report_gran_bitmap = BIT(CDP_MAX_DATA_AC) - 1;
+			}
+			if (req->info.radio_stats.rts_stats.link_granularity &&
+			    !req->info.radio_stats.rts_stats.link_gran_bitmap)
+				req->info.radio_stats.rts_stats.link_gran_bitmap = lim_get_mlo_link_bitmap(mac_ctx, session);
+			if (!lim_get_mlo_link_bitmap(mac_ctx, session)) {
+				req->info.radio_stats.rts_stats.link_granularity = 0;
+				req->info.radio_stats.rts_stats.link_gran_bitmap = 0;
+			}
+
+			//For thresholds
+			if (req->info.radio_stats.radio_stats_hdr.param_presence_bitmap & RADIO_STATS_THRESHOLDS_PRESENT) {
+				if (req->info.radio_stats.rts_stats.link_granularity)
+					var_tag_size = qdf_get_hamming_weight(req->info.radio_stats.rts_stats.link_gran_bitmap) * sizeof(uint8_t);
+				else
+					var_tag_size = sizeof(uint8_t);
+
+				if (req->info.radio_stats.rts_stats.report_granularity == REPORT_GRAN_TID ||
+				    req->info.radio_stats.rts_stats.report_granularity == REPORT_GRAN_AC)
+					var_tag_size *= qdf_get_hamming_weight(req->info.radio_stats.rts_stats.report_gran_bitmap) * sizeof(uint8_t);
+
+				radio_stats_size += var_tag_size;
+			}
+		}
+
+		if (req->info.radio_stats.radio_stats_hdr.param_presence_bitmap & FCS_FAILURE_FIELD) {
+			radio_stats_size += sizeof(struct qos_radio_fcs_failure_stats_fixed_fields);
+			if (req->info.radio_stats.fcs_stats.link_granularity &&
+			    !req->info.radio_stats.fcs_stats.link_gran_bitmap)
+				req->info.radio_stats.fcs_stats.link_gran_bitmap = lim_get_mlo_link_bitmap(mac_ctx, session);
+		}
+
+		frame_len += radio_stats_size;
+	}
+
+	pe_debug("Allocate %d bytes for a DAR req frame", frame_len);
+
+	status = cds_packet_alloc((uint16_t)frame_len, (void **)&frame,
+				  (void **)&pkt_ptr);
+	if (!QDF_IS_STATUS_SUCCESS(status)) {
+		pe_err("Failed to allocate %d bytes for a DAR req frame",
+			frame_len);
+		return QDF_STATUS_E_NOMEM;
+	}
+
+	/* zero out the memory */
+	qdf_mem_zero(frame, frame_len);
+	mac_hdr = (tSirMacMgmtHdr *)frame;
+
+	lim_populate_dar_frame_cmn_fields(mac_ctx, session, frame,
+					  DAR_REQ_FRAME, req->info.stats_type,
+					  radio_stats_size);
+
+	req_frm = (struct dar_req_rsp_action_frame *)(frame + sizeof(*mac_hdr));
+	req_frm->dialog_token = 1;
+
+	payload = &req_frm->qos_elements[0];
+
+	attr = &payload->attr[0];
+	attr->req_attr.hdr.attr_id = DAR_REQUEST_ATTR;
+	attr->req_attr.hdr.length = 6;
+	attr->req_attr.hdr.request_id = 1; //Fetch it from vdev priv counter
+	attr->req_attr.req_type = req->info.req_attr.req_type; //Add
+	attr->req_attr.meas_dur = req->info.req_attr.meas_dur;
+	attr->req_attr.num_of_meas = req->info.req_attr.num_of_meas;
+
+	attr = (union qos_mgmt_attr *)((uint8_t *)attr + sizeof(struct dar_req_attr));
+	if (req->info.stats_type & WFA_CAPA_DATA_PLANE_STATS) {
+		latency_tag_size = lim_populate_latency_stats_attr(mac_ctx, session,
+					&attr->latency_stats,
+					&req->info.latency_stats, true);
+		payload->qos_mgmt_el_hdr.len += latency_tag_size;
+
+		attr = (union qos_mgmt_attr *)((uint8_t *)attr +
+				sizeof(struct latency_stats_attr)+ latency_tag_size);
+	}
+	if (req->info.stats_type & WFA_CAPA_RADIO_COUNTER_STATS) {
+		lim_populate_radio_stats_attr(&attr->radio_stats,
+					&req->info.radio_stats,
+					radio_stats_size, true);
+		attr = (union qos_mgmt_attr *)((uint8_t *)attr + sizeof(struct qos_radio_stats_attr));
+	}
+
+	tx_flag |= HAL_USE_BD_RATE2_FOR_MANAGEMENT_FRAME;
+
+	pe_debug("DAR Request frame");
+	QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+			   frame, frame_len);
+	status = wma_tx_frame(mac_ctx, pkt_ptr, frame_len,
+			      TXRX_FRM_802_11_MGMT, ANI_TXDIR_TODS, 7,
+			      lim_tx_complete, frame, tx_flag,
+			      session->vdev_id,
+			      0, RATEID_DEFAULT, 0);
+	if (!QDF_IS_STATUS_SUCCESS(status)) {
+		pe_err("could not send DAR rsp action frame!");
+		status = QDF_STATUS_E_FAILURE;
+	}
+
+	return status;
 }
 
 QDF_STATUS

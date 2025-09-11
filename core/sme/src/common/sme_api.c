@@ -17945,3 +17945,22 @@ QDF_STATUS sme_set_roam_cfg_rt_params_enabled(mac_handle_t mac_handle,
 					  ROAM_CONFIG_RT_PARAMS_ENABLED,
 					  &src_config);
 }
+
+QDF_STATUS sme_send_dar_frame(mac_handle_t mac_handle,
+			      struct dar_msg_info info,
+			      uint8_t session_id)
+{
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	struct mac_context *mac_ctx  = MAC_CONTEXT(mac_handle);
+
+	sme_err("DAR session_id: %d", session_id);
+
+	status = sme_acquire_global_lock(&mac_ctx->sme);
+
+	if (QDF_STATUS_SUCCESS == status) {
+		status = csr_send_dar_frame(mac_ctx, info, session_id);
+		sme_release_global_lock(&mac_ctx->sme);
+	}
+
+	return status;
+}

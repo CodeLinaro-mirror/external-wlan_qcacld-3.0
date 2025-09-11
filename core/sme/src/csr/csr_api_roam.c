@@ -8389,3 +8389,21 @@ void csr_set_vdev_ies_per_band(mac_handle_t mac_handle, uint8_t vdev_id,
 	if (QDF_STATUS_SUCCESS != status)
 		sme_err("Send eWNI_SME_SET_VDEV_IES_PER_BAND fail");
 }
+
+QDF_STATUS csr_send_dar_frame(struct mac_context *mac_ctx,
+			      struct dar_msg_info info, uint8_t session_id)
+{
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	struct sir_sme_dar_frame_req *msg;
+
+	msg = qdf_mem_malloc(sizeof(*msg));
+	if (!msg)
+		return QDF_STATUS_E_NOMEM;
+
+	msg->message_type = eWNI_SME_SEND_DAR_FRAME;
+	msg->length = sizeof(*msg);
+	qdf_mem_copy(&msg->info, &info, sizeof(struct dar_msg_info));
+	msg->vdev_id = session_id;
+	status = umac_send_mb_message_to_mac(msg);
+	return status;
+}
