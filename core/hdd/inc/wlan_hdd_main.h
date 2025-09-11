@@ -2018,9 +2018,22 @@ enum wlan_state_ctrl_str_id {
  * struct qos_dar_data - Data structure for QoS DAR (Data Activity Report)
  * statistics.
  * @dar_stats_support_by_fw: DAR stats support by fw
+ * @dar_stats_work: Delayed work structure for scheduling DAR stats collection.
+ * @dar_work_created: Boolean flag indicating if the delayed work has been created.
+ * @dar_query_in_progress: Atomic flag indicating if a DAR query is currently
+ *                         in progress.
+ * @num_of_meas: Number of measurements to be included in the report.
+ * @config_meas_dur: Configured duration for the measurement period in ms.
+ * @start_ts: Timestamp when the DAR measurement period started.
  */
 struct qos_dar_data {
 	bool dar_stats_support_by_fw;
+	struct qdf_delayed_work dar_stats_work;
+	bool dar_work_created;
+	qdf_atomic_t dar_query_in_progress;
+	uint16_t num_of_meas;
+	uint16_t config_meas_dur;
+	qdf_time_t start_ts;
 };
 
 #define MAX_TGT_HW_NAME_LEN 32

@@ -58,6 +58,7 @@
 #include "wlan_psoc_mlme_ucfg_api.h"
 #include "wlan_action_oui_ucfg_api.h"
 #include "wlan_hdd_ioctl.h"
+#include <wlan_hdd_stats.h>
 
 #define MAX_ROAM_COUNT_VALUE (999)
 
@@ -983,6 +984,7 @@ int wlan_hdd_cm_connect(struct wiphy *wiphy,
 			hdd_objmgr_put_vdev_by_user(vdev, WLAN_OSIF_CM_ID);
 			return -EINVAL;
 		}
+		wlan_hdd_dar_timers_init(link_info);
 	}
 	status = osif_cm_connect(ndev, vdev, req, &params);
 

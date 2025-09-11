@@ -292,6 +292,21 @@ struct index_data_rate_type {
 	uint16_t supported_rate[4];
 };
 
+/**
+ * struct dar_stats_timer_iface - Structure for DAR (Dynamic Adaptive
+ *	Rate) stats timer interface parameters.
+ * @vdev_id: Virtual device identifier.
+ * @enable: Flag to enable or disable the timer.
+ * @timeout: Timeout value for the statistics timer in milliseconds.
+ * @num_of_meas: Number of measurements to take before stopping or reporting.
+ */
+struct dar_stats_timer_iface {
+	uint8_t vdev_id;
+	uint8_t enable;
+	uint16_t timeout;
+	uint16_t num_of_meas;
+};
+
 #ifdef WLAN_FEATURE_LINK_LAYER_STATS
 
 /**
@@ -1061,4 +1076,53 @@ hdd_cstats_log_ndi_create_req_evt(struct wlan_objmgr_vdev *vdev,
  */
 void wlan_hdd_fill_rate_info(struct hdd_fw_txrx_stats *txrx_stats,
 			     struct peer_stats_info_ext_event *peer_info);
+
+/**
+ * wlan_hdd_dar_timers_init() - Initialize DAR (Dynamic Adaptive Rate) stats timers
+ * @link_info: Pointer to the link-specific information structure.
+ *
+ * This function initializes any timers or related structures necessary for
+ * collecting Dynamic Adaptive Rate (DAR) statistics for a given link.
+ *
+ * Return: void
+ */
+void wlan_hdd_dar_timers_init(struct wlan_hdd_link_info *link_info);
+
+/**
+ * wlan_hdd_dar_timers_deinit() - Deinitialize DAR (Dynamic Adaptive Rate) stats timers
+ * @hdd_ctx: Pointer to the HDD context.
+ *
+ * This function deinitializes and cleans up any timers or related structures
+ * used for collecting Dynamic Adaptive Rate (DAR) statistics.
+ *
+ * Return: void
+ */
+void wlan_hdd_dar_timers_deinit(struct hdd_context *hdd_ctx);
+
+/**
+ * wlan_hdd_handle_dar_timer_req() - Handle DAR (Dynamic Adaptive Rate) timer request
+ * @hdd_ctx: Pointer to the HDD context.
+ * @stats: Pointer to the DAR stats timer interface parameters.
+ *
+ * This function processes a request related to the Dynamic Adaptive Rate (DAR)
+ * statistics timer, which might involve enabling/disabling, setting timeouts,
+ * or configuring measurement parameters.
+ *
+ * Return: void
+ */
+void
+wlan_hdd_handle_dar_timer_req(struct hdd_context *hdd_ctx,
+			 struct dar_stats_timer_iface *stats);
+
+/**
+ * wlan_hdd_dar_timers_reset() - Reset DAR (Dynamic Adaptive Rate) stats timers
+ * @hdd_ctx: Pointer to the HDD context.
+ *
+ * This function resets the Dynamic Adaptive Rate (DAR) statistics timers to
+ * their initial state, effectively stopping any ongoing measurements and
+ * clearing related data.
+ *
+ * Return: void
+ */
+void wlan_hdd_dar_timers_reset(struct hdd_context *hdd_ctx);
 #endif /* end #if !defined(WLAN_HDD_STATS_H) */

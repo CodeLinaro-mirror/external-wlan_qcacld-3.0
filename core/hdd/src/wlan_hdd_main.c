@@ -12514,7 +12514,6 @@ static int hdd_context_deinit(struct hdd_context *hdd_ctx)
 void hdd_context_destroy(struct hdd_context *hdd_ctx)
 {
 	wlan_hdd_sar_timers_deinit(hdd_ctx);
-
 	cds_set_context(QDF_MODULE_ID_HDD, NULL);
 
 	hdd_exit_netlink_services(hdd_ctx);
@@ -18438,6 +18437,8 @@ int hdd_wlan_stop_modules(struct hdd_context *hdd_ctx, bool ftm_mode)
 	}
 
 	wlan_connectivity_logging_stop();
+	if (hdd_ctx->dar_data.dar_work_created)
+		wlan_hdd_dar_timers_deinit(hdd_ctx);
 
 	ucfg_ipa_component_config_free();
 

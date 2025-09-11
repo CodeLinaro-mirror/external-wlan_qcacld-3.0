@@ -12617,3 +12617,141 @@ void hdd_cstats_log_ndi_create_req_evt(struct wlan_objmgr_vdev *vdev,
 	wlan_cstats_host_stats(sizeof(struct cstats_nan_ndi_create_req), &stat);
 }
 #endif /* WLAN_CHIPSET_STATS */
+
+static void
+wlan_hdd_dar_timer_start(struct hdd_context *hdd_ctx)
+{
+	if (!hdd_ctx->dar_data.dar_work_created)
+		return;
+	qdf_delayed_work_start(&hdd_ctx->dar_data.dar_stats_work,
+			       hdd_ctx->dar_data.config_meas_dur);
+	hdd_ctx->dar_data.start_ts = qdf_get_time_of_the_day_ms();
+	hdd_nofl_debug("DAR work scheduled %d msec, current ts: %lu",
+			hdd_ctx->dar_data.config_meas_dur,
+			hdd_ctx->dar_data.start_ts);
+}
+
+static void wlan_hdd_dar_timer_reset(struct hdd_context *hdd_ctx)
+{
+	if (!hdd_ctx->dar_data.dar_work_created)
+		return;
+	qdf_delayed_work_stop_sync(&hdd_ctx->dar_data.dar_stats_work);
+	hdd_nofl_debug("DAR work stopped");
+}
+
+static void hdd_dar_stats_work_cb(void *user_data)
+{
+	struct wlan_hdd_link_info *link_info;
+	struct hdd_context *hdd_ctx;
+	QDF_STATUS status;
+	int errno;
+	struct osif_psoc_sync *psoc_sync;
+	struct sir_qos_latency_stats *stats = NULL;
+
+	link_info = (struct wlan_hdd_link_info *)user_data;
+	hdd_ctx = WLAN_HDD_GET_CTX(link_info->adapter);
+
+	hdd_debug("Dar timer expired: %d ", hdd_ctx->dar_data.num_of_meas);
+
+	errno = osif_psoc_sync_op_start(wiphy_dev(hdd_ctx->wiphy), &psoc_sync);
+
+	if (errno == -EAGAIN) {
+		hdd_nofl_debug("rescheduling Dar stats work");
+		status = qdf_delayed_work_create(&hdd_ctx->dar_data.dar_stats_work,
+						 hdd_dar_stats_work_cb,
+						 hdd_ctx);
+		if (QDF_IS_STATUS_ERROR(status))
+			hdd_err("failed to create DAR stats work");
+		return;
+	} else if (errno) {
+		hdd_err("cannot handle DAR work");
+		return;
+	}
+
+
+	qdf_atomic_set(&hdd_ctx->dar_data.dar_query_in_progress, 0);
+
+	hdd_ctx->dar_data.num_of_meas--;
+	if (hdd_ctx->dar_data.num_of_meas) {
+		hdd_ctx->dar_data.start_ts = qdf_get_time_of_the_day_ms();
+		wlan_hdd_dar_timer_start(hdd_ctx);
+	}
+
+	qdf_mem_free(stats);
+	osif_psoc_sync_op_stop(psoc_sync);
+}
+
+void wlan_hdd_dar_timers_init(struct wlan_hdd_link_info *link_info)
+{
+	QDF_STATUS status;
+	struct hdd_context *hdd_ctx = WLAN_HDD_GET_CTX(link_info->adapter);
+
+	hdd_enter();
+	hdd_debug("DAR work created: %d", hdd_ctx->dar_data.dar_work_created);
+	if (hdd_ctx->dar_data.dar_work_created)
+		goto hdd_exit;
+	status = qdf_delayed_work_create(&hdd_ctx->dar_data.dar_stats_work,
+					 hdd_dar_stats_work_cb,
+					 link_info);
+
+	if (QDF_IS_STATUS_ERROR(status)) {
+		hdd_err("failed to create sar safety unsolicited work");
+		goto hdd_exit;
+	}
+	hdd_debug("DAR work created");
+
+	qdf_atomic_init(&hdd_ctx->dar_data.dar_query_in_progress);
+	hdd_ctx->dar_data.dar_work_created = 1;
+
+hdd_exit:
+	hdd_exit();
+}
+
+void wlan_hdd_dar_timers_deinit(struct hdd_context *hdd_ctx)
+{
+	if (!hdd_ctx->dar_data.dar_work_created) {
+		hdd_debug("DAR work is already destroyed");
+		return;
+	}
+	qdf_delayed_work_destroy(&hdd_ctx->dar_data.dar_stats_work);
+	hdd_ctx->dar_data.dar_work_created = 0;
+	hdd_debug("DAR work destroyed");
+}
+
+void
+wlan_hdd_handle_dar_timer_req(struct hdd_context *hdd_ctx,
+			 struct dar_stats_timer_iface *stats)
+{
+	struct wlan_objmgr_vdev *vdev;
+	struct cdp_qos_latency_stats req = {0};
+	struct wlan_hdd_link_info *link_info;
+
+	if (stats->enable &&
+	    qdf_atomic_read(&hdd_ctx->dar_data.dar_query_in_progress)) {
+		hdd_debug("DAR work is already scheduled");
+		return;
+	}
+	if (stats->enable && !stats->timeout) {
+		hdd_debug("No timeout mentioned");
+		return;
+	}
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(hdd_ctx->psoc,
+						    stats->vdev_id,
+						    WLAN_OSIF_STATS_ID);
+	if (!vdev) {
+		hdd_err("vdev is NULL");
+		return;
+	}
+
+	if (stats->enable) {
+		hdd_ctx->dar_data.num_of_meas = stats->num_of_meas;
+		hdd_ctx->dar_data.config_meas_dur = stats->timeout;
+		wlan_hdd_dar_timer_start(hdd_ctx);
+	} else {
+		hdd_ctx->dar_data.num_of_meas = 0;
+		hdd_ctx->dar_data.config_meas_dur = 0;
+		wlan_hdd_dar_timer_reset(hdd_ctx);
+	}
+
+	hdd_objmgr_put_vdev_by_user(vdev, WLAN_OSIF_STATS_ID);
+}
