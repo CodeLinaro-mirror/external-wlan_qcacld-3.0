@@ -1394,6 +1394,20 @@ enum qos_mgmt_attr_id {
 };
 
 /**
+ * struct dar_report_attr_fields - Attributes specific to a DAR Report.
+ * @hdr: Common header for DAR attributes, including attribute ID, length, and request ID.
+ * @report_ts: The timestamp at which the report was generated or the measurement ended.
+ * @report_ts_linkid: The Link ID associated with the timestamp for multi-link operations.
+ * @report_meas_dur: The actual duration of the measurement period for this report.
+ */
+struct dar_report_attr_fields {
+	struct dar_attr_cmn_hdr hdr;
+	uint32_t report_ts;
+	uint8_t report_ts_linkid;
+	uint16_t report_meas_dur;
+} qdf_packed;
+
+/**
  * struct qos_radio_stats_report_tp_fixed_fields - Fixed fields for a QoS Radio Statistics Report Throughput.
  * @link_granularity: Specifies the granularity of the report in terms of link information.
  * @link_gran_bitmap: A bitmap indicating specific link granularity settings.
@@ -1602,6 +1616,7 @@ struct qos_radio_stats_attr {
  * @cmn_hdr: Common header for DAR attributes.
  * @req_attr: DAR request attributes.
  * @rsp_attr: DAR response attributes.
+ * @report_attr: DAR report attributes.
  * @latency_stats: Latency statistics attributes.
  * @radio_stats: Radio statistics attributes.
  */
@@ -1609,6 +1624,7 @@ union qos_mgmt_attr {
 	struct dar_attr_cmn_hdr cmn_hdr;
 	struct dar_req_attr req_attr;
 	struct dar_rsp_attr rsp_attr;
+	struct dar_report_attr_fields report_attr;
 	struct latency_stats_attr latency_stats;
 	struct qos_radio_stats_attr radio_stats;
 } qdf_packed;
@@ -1633,6 +1649,17 @@ struct qos_mgmt_elements {
 struct dar_req_rsp_action_frame {
 	struct qos_mgmt_frame_hdr dar_header;
 	uint8_t dialog_token;
+	struct qos_mgmt_elements qos_elements[1];
+} qdf_packed;
+
+/**
+ * struct dar_report_action_frame - Directed Advertising Report (DAR) Report Action Frame.
+ * This structure defines the format for DAR report action frames.
+ * @dar_header: QoS management frame header.
+ * @qos_elements: Array of QoS management elements, containing the specific DAR report attributes.
+ */
+struct dar_report_action_frame {
+	struct qos_mgmt_frame_hdr dar_header;
 	struct qos_mgmt_elements qos_elements[1];
 } qdf_packed;
 

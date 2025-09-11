@@ -5241,4 +5241,21 @@ QDF_STATUS sme_set_roam_cfg_rt_params_enabled(mac_handle_t mac_handle,
 QDF_STATUS sme_send_dar_frame(mac_handle_t mac_handle,
 			      struct dar_msg_info info,
 			      uint8_t session_id);
+
+/**
+ * sme_send_dar_stats_to_peer() - Send DAR stats to peer
+ * @mac_handle: Opaque handle to the global MAC context
+ * @type: Type of QoS Management features (e.g., latency, throughput)
+ * @stats: Pointer to QoS latency statistics
+ * @vdev_id: VDEV ID
+ * @meas_dur: Measurement duration
+ *
+ * This function sends QoS statistics related to DAR to a peer device or AP.
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS sme_send_dar_stats_to_peer(mac_handle_t mac_handle,
+				      enum wfa_capa_qos_mgmt_features type,
+				      struct sir_qos_latency_stats *stats,
+				      uint8_t vdev_id, uint16_t meas_dur);
 #endif /* #if !defined( __SME_API_H ) */

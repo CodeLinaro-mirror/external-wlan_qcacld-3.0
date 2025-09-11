@@ -964,4 +964,24 @@ QDF_STATUS csr_send_csa_restart_req(uint8_t vdev_id);
 QDF_STATUS csr_send_dar_frame(struct mac_context *mac_ctx,
 			      struct dar_msg_info info, uint8_t session_id);
 
+/**
+ * csr_send_dar_stats_to_peer() - Send DAR statistics to a peer or AP
+ * @mac_ctx: Pointer to the global MAC context.
+ * @type: Type of QoS Management feature for WFA capabilities.
+ * @stats: Pointer to structure containing QoS latency statistics.
+ * @vdev_id: The virtual device ID on which the statistics are to be sent.
+ * @meas_dur: The measurement duration.
+ *
+ * This function is used to send Differentiated Access Rate statistics,
+ * including QoS latency information, to a specified peer or Access Point
+ * within a given virtual device context. It takes into account the WFA
+ * capability QoS management features and the measurement duration.
+ *
+ * Return: QDF_STATUS indicating success or failure of the operation.
+ */
+QDF_STATUS
+csr_send_dar_stats_to_peer(struct mac_context *mac_ctx,
+			   enum wfa_capa_qos_mgmt_features type,
+			   struct sir_qos_latency_stats *stats,
+			   uint8_t vdev_id, uint16_t meas_dur);
 #endif

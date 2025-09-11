@@ -9300,6 +9300,7 @@ lim_populate_dar_frame_cmn_fields(struct mac_context *mac_ctx,
 	tSirMacMgmtHdr *mac_hdr = (tSirMacMgmtHdr *)frame;
 	struct dar_req_rsp_action_frame *req_frm;
 	struct qos_mgmt_frame_hdr *dar_header;
+	struct dar_report_action_frame *rep_frm;
 	tSirMacAddr da;
 
 	qdf_mem_copy(da, session->bssId, 6);
@@ -9312,6 +9313,10 @@ lim_populate_dar_frame_cmn_fields(struct mac_context *mac_ctx,
 		req_frm = (struct dar_req_rsp_action_frame *)(frame + sizeof(*mac_hdr));
 		dar_header = &req_frm->dar_header;
 		payload = &req_frm->qos_elements[0];
+	} else {
+		rep_frm = (struct dar_report_action_frame *)(frame + sizeof(*mac_hdr));
+		dar_header = &rep_frm->dar_header;
+		payload = &rep_frm->qos_elements[0];
 	}
 
 	dar_header->action_header.category =
@@ -9336,10 +9341,15 @@ lim_populate_dar_frame_cmn_fields(struct mac_context *mac_ctx,
 			- sizeof(union qos_mgmt_attr)
 			+ sizeof(struct dar_req_attr)
 			+ tag_size;
-	if (type == DAR_RSP_FRAME)
+	else if (type == DAR_RSP_FRAME)
 		attr_size = sizeof(struct qos_mgmt_elements) - 2
 			- sizeof(union qos_mgmt_attr)
 			+ sizeof(struct dar_rsp_attr);
+	else if (type == DAR_REPORT_FRAME)
+		attr_size = sizeof(struct qos_mgmt_elements) - 2
+			- sizeof(union qos_mgmt_attr)
+			+ sizeof(struct dar_report_attr_fields)
+			+ tag_size;
 
 	//payload->qos_mgmt_el_hdr.len = 4 + attr_size; //4 is for below data
 	payload->qos_mgmt_el_hdr.len = attr_size;
@@ -9386,6 +9396,107 @@ lim_populate_latency_stats_attr_req_type(struct mac_context *mac_ctx,
 }
 
 static uint16_t
+lim_populate_latency_stats_entry(struct latency_stats_attr *frame,
+				 struct sir_qos_latency_stats *req)
+{
+	uint8_t i, j, num_entries = 0, num_rows = 0, num_columns = 0;
+	uint32_t *stats_src = NULL;
+	uint16_t *lower_bound_src = NULL;
+	struct latency_stats_payload *payload = (struct latency_stats_payload *)((uint8_t *)frame + sizeof(struct latency_stats_attr));
+	union latency_stats_entry *latency_list = (union latency_stats_entry *)((uint8_t *)payload + sizeof(struct latency_stats_payload));
+	union latency_stats_entry *entry = latency_list;
+
+	if (req->granularity == CDP_REPORT_GRAN_TID &&
+	    req->type == REPORT_TYPE_HISTOGRAM) {
+		num_rows = CDP_DATA_TID_MAX;
+		num_columns = CDP_HIST_BUCKET_SIZE;
+		lower_bound_src = cdp_latency_hist_bucket;
+		stats_src = (uint32_t *)&req->stats.tid_hist;
+	} else if (req->granularity == CDP_REPORT_GRAN_TID &&
+		   req->type == REPORT_TYPE_PERCENTILE) {
+		num_rows = CDP_DATA_TID_MAX;
+		num_columns = CDP_PERC_BUCKET_SIZE;
+		lower_bound_src = cdp_latency_perc_bucket;
+		stats_src = (uint32_t *)&req->stats.tid_perc;
+	} else if (req->granularity == CDP_REPORT_GRAN_AC &&
+	    req->type == REPORT_TYPE_HISTOGRAM) {
+		num_rows = CDP_MAX_DATA_AC;
+		num_columns = CDP_HIST_BUCKET_SIZE;
+		lower_bound_src = cdp_latency_hist_bucket;
+		stats_src = (uint32_t *)&req->stats.ac_hist;
+	} else if (req->granularity == CDP_REPORT_GRAN_AC &&
+		   req->type == REPORT_TYPE_PERCENTILE) {
+		num_rows = CDP_MAX_DATA_AC;
+		num_columns = CDP_PERC_BUCKET_SIZE;
+		lower_bound_src = cdp_latency_perc_bucket;
+		stats_src = (uint32_t *)&req->stats.ac_perc;
+	} else if (req->granularity == CDP_REPORT_GRAN_AGGR &&
+		   req->type == REPORT_TYPE_HISTOGRAM) {
+		num_rows = 1;
+		num_columns = CDP_HIST_BUCKET_SIZE;
+		lower_bound_src = cdp_latency_hist_bucket;
+		stats_src = (uint32_t *)&req->stats.ac_hist;
+	} else if (req->granularity == CDP_REPORT_GRAN_AGGR &&
+		   req->type == REPORT_TYPE_PERCENTILE) {
+		num_rows = 1;
+		num_columns = CDP_PERC_BUCKET_SIZE;
+		lower_bound_src = cdp_latency_perc_bucket;
+		stats_src = (uint32_t *)&req->stats.ac_perc;
+	}
+
+	for (i = 0; i < num_rows; i++) {
+		if (!(frame->report_gran_bitmap & BIT(i)))
+			continue;
+		for (j = 0; j < num_columns; j++) {
+			if (req->type == REPORT_TYPE_HISTOGRAM) {
+				entry->hist_stats[j].lower_bound = lower_bound_src[j];
+				entry->hist_stats[j].msdu_count = *(stats_src+(i*j));
+				entry = (union latency_stats_entry *)((uint8_t *)entry + sizeof(struct latency_stats_entry_hist));
+			} else {
+				entry->perc_stats[j].percentile = lower_bound_src[j];
+				entry->perc_stats[j].latency = *(stats_src+(i*j));
+				entry = (union latency_stats_entry *)((uint8_t *)entry + sizeof(struct latency_stats_entry_perc));
+			}
+		}
+		num_entries++;
+	}
+	payload->num_latency_stats = num_entries;
+
+	return (uint8_t *)entry - (uint8_t *)latency_list + 1;
+}
+
+static uint16_t
+lim_populate_latency_stats_attr_report_type(struct mac_context *mac_ctx,
+					    struct pe_session *session,
+					    struct latency_stats_attr *frame,
+					    struct sir_qos_latency_stats *req)
+{
+	frame->param_presence_bitmap = BIT(1);
+	/* 0 indicates histogram, 1 indicates percentile */
+	frame->report_type = req->type;
+	frame->link_granularity = req->link_granularity;
+
+	if (frame->link_granularity)
+		frame->link_gran_bitmap = req->link_gran_bitmap & lim_get_mlo_link_bitmap(mac_ctx, session);
+
+	/*
+	 * 0 indicates TID level
+	 * 1 indicates AC level
+	 * 2 indicates aggregated across all ACs
+	 */
+	frame->report_granularity = req->granularity;
+	if (!frame->report_granularity)
+		frame->report_gran_bitmap =
+			req->report_gran_bitmap & ((1<<(CDP_DATA_TID_MAX)) - 1);
+	else if (frame->report_granularity == 1)
+		frame->report_gran_bitmap =
+			req->report_gran_bitmap & ((1<<(CDP_MAX_DATA_AC)) - 1);
+
+	return lim_populate_latency_stats_entry(frame, req);
+}
+
+
+static uint16_t
 lim_populate_latency_stats_attr(struct mac_context *mac_ctx,
 				struct pe_session *session,
 				struct latency_stats_attr *frame,
@@ -9399,6 +9510,9 @@ lim_populate_latency_stats_attr(struct mac_context *mac_ctx,
 	if (dar_req)
 		latency_tag_size =
 			lim_populate_latency_stats_attr_req_type(mac_ctx, session, frame, req);
+	else
+		latency_tag_size =
+			lim_populate_latency_stats_attr_report_type(mac_ctx, session, frame, req);
 
 	frame->length += latency_tag_size;
 	latency_tag_size = frame->length;
@@ -9743,10 +9857,14 @@ lim_prepare_n_send_dar_rsp_frame(struct mac_context *mac_ctx,
 	struct dar_req_rsp_action_frame *rsp_frm;
 	struct qos_mgmt_elements *payload;
 	union qos_mgmt_attr *attr;
+	tSirMacAddr peer_mac;
 
 	frame_len = sizeof(*mac_hdr) + sizeof(struct dar_req_rsp_action_frame) -
 			sizeof(union qos_mgmt_attr) +
 			sizeof(struct dar_rsp_attr);
+
+	wlan_mlme_dar_get_peer_config(mac_ctx->psoc, session->vdev_id, peer_mac,
+				      &request_id, NULL);
 
 	status = cds_packet_alloc((uint16_t)frame_len, (void **)&frame,
 				  (void **)&pkt_ptr);
@@ -9789,5 +9907,109 @@ lim_prepare_n_send_dar_rsp_frame(struct mac_context *mac_ctx,
 		status = QDF_STATUS_E_FAILURE;
 	}
 
+	return status;
+}
+
+QDF_STATUS
+lim_prepare_n_send_dar_report_frame(struct mac_context *mac_ctx,
+				    struct pe_session *session,
+				    struct sir_sme_dar_stats_msg *req)
+{
+	tSirMacMgmtHdr *mac_hdr;
+	struct dar_report_action_frame *dar_frm;
+	uint8_t *frame, tx_flag = 0, *buf_temp;
+	void *pkt_ptr;
+	QDF_STATUS status;
+	uint16_t frame_len;
+	struct qos_mgmt_elements *payload;
+	union qos_mgmt_attr *attr;
+	tSirMacAddr peer_mac;
+	uint8_t request_id = 0;
+	uint16_t stats_tag_size = 0, filled_ie_len = 0;
+
+	frame_len = sizeof(tSirMacMgmtHdr)
+			+ sizeof(struct dar_report_action_frame)
+			- sizeof(union qos_mgmt_attr)
+			+ sizeof(struct dar_report_attr_fields);
+
+	frame_len += stats_tag_size;
+
+	buf_temp = qdf_mem_malloc(DAR_FRAME_SIZE_MAX);
+	if (!buf_temp) {
+		pe_err("Failed to allocate %d bytes for a DAR buf",
+			DAR_FRAME_SIZE_MAX);
+		return QDF_STATUS_E_NOMEM;
+	}
+
+	pe_debug("Allocate %d bytes for a DAR rep frame for 0x%x", frame_len, req->stats_type);
+	status = cds_packet_alloc(1000, (void **)&frame,
+				  (void **)&pkt_ptr);
+	if (!QDF_IS_STATUS_SUCCESS(status)) {
+		pe_err("Failed to allocate %d bytes for a DAR req frame",
+			frame_len);
+		qdf_mem_free(buf_temp);
+		return QDF_STATUS_E_NOMEM;
+	}
+
+	/* zero out the memory */
+	qdf_mem_zero(frame, 1000);
+
+	mac_hdr = (tSirMacMgmtHdr *)frame;
+
+	wlan_mlme_dar_get_peer_config(mac_ctx->psoc, session->vdev_id, peer_mac,
+				      &request_id, NULL);
+
+	lim_populate_dar_frame_cmn_fields(mac_ctx, session, frame,
+					  DAR_REPORT_FRAME,
+					  req->stats_type,
+					  stats_tag_size);
+
+	dar_frm = (struct dar_report_action_frame *)(frame + sizeof(*mac_hdr));
+
+	payload = &dar_frm->qos_elements[0];
+
+	attr = &payload->attr[0];
+	attr->report_attr.hdr.attr_id = DAR_REPORT_ATTR;
+	attr->report_attr.hdr.length = 8;
+	attr->report_attr.hdr.request_id = request_id; //from DAR req
+	attr->report_attr.report_ts = (uint32_t)(qdf_get_time_of_the_day_us() & 0xFFFFFFFF); //Get TSF
+	attr->report_attr.report_ts_linkid = 0;
+	attr->report_attr.report_meas_dur = req->actual_meas_dur; //Duration from req
+
+	attr = (union qos_mgmt_attr *)((uint8_t *)attr + sizeof(struct dar_report_attr_fields));
+
+	if (req->stats_type & WFA_CAPA_DATA_PLANE_STATS) {
+		stats_tag_size =
+			lim_populate_latency_stats_attr(mac_ctx, session,
+					(struct latency_stats_attr *)buf_temp,
+					&req->stats, false);
+		filled_ie_len += sizeof(struct vendor_el);
+
+		filled_ie_len += sizeof(struct dar_report_attr_fields);
+		payload->qos_mgmt_el_hdr.len = filled_ie_len;
+
+		frame_len += stats_tag_size - filled_ie_len;
+		attr = (union qos_mgmt_attr *)((uint8_t *)attr + stats_tag_size);
+		filled_ie_len += stats_tag_size;
+	}
+
+	tx_flag |= HAL_USE_BD_RATE2_FOR_MANAGEMENT_FRAME;
+
+	pe_info("DAR report frame: %d", frame_len);
+	if (frame_len > 800)
+		frame_len = 600;
+	QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+			   frame, frame_len);
+	status = wma_tx_frame(mac_ctx, pkt_ptr, frame_len,
+			      TXRX_FRM_802_11_MGMT, ANI_TXDIR_TODS, 7,
+			      lim_tx_complete, frame, tx_flag,
+			      session->vdev_id,
+			      0, RATEID_DEFAULT, 0);
+	if (!QDF_IS_STATUS_SUCCESS(status)) {
+		pe_err("could not send DAR rsp action frame!");
+		status = QDF_STATUS_E_FAILURE;
+	}
+
+	qdf_mem_free(buf_temp);
 	return status;
 }

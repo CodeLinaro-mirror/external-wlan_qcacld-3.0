@@ -12639,6 +12639,56 @@ static void wlan_hdd_dar_timer_reset(struct hdd_context *hdd_ctx)
 	hdd_nofl_debug("DAR work stopped");
 }
 
+static void
+wlan_hdd_query_dar_latency_stats(struct wlan_hdd_link_info *link_info,
+				 struct sir_qos_latency_stats **latency_stats)
+{
+	struct cdp_qos_latency_stats_req *dp_stats = NULL;
+	struct sir_qos_latency_stats *stats;
+	struct hdd_context *hdd_ctx = WLAN_HDD_GET_CTX(link_info->adapter);
+
+	dp_stats = qdf_mem_malloc(sizeof(struct cdp_qos_latency_stats_req));
+	if (!dp_stats)
+		return;
+	stats = qdf_mem_malloc(sizeof(struct sir_qos_latency_stats));
+	if (!stats)
+		goto done;
+	qdf_atomic_set(&hdd_ctx->dar_data.dar_query_in_progress, 1);
+	//Call DP API to get latency stats and call DAR report API
+	stats->granularity = hdd_ctx->dar_data.granularity;
+	stats->report_gran_bitmap = hdd_ctx->dar_data.report_gran_bitmap;
+	stats->link_granularity = hdd_ctx->dar_data.link_granularity;
+	stats->link_gran_bitmap = hdd_ctx->dar_data.link_gran_bitmap;
+	ucfg_dp_qos_latency_get_stats(link_info->vdev, dp_stats);
+	//Copy from DP to CP mem
+	stats->type = dp_stats->type;
+	if (stats->granularity == CDP_REPORT_GRAN_TID &&
+	    stats->type == REPORT_TYPE_HISTOGRAM) {
+		stats->stats.tid_hist = dp_stats->tid_hist;
+		QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_HDD, QDF_TRACE_LEVEL_DEBUG,
+				   &stats->stats.tid_hist, CDP_DATA_TID_MAX*CDP_HIST_BUCKET_SIZE);
+	} else if (stats->granularity == CDP_REPORT_GRAN_TID &&
+	    stats->type == REPORT_TYPE_PERCENTILE) {
+		stats->stats.tid_perc = dp_stats->tid_perc;
+		QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_HDD, QDF_TRACE_LEVEL_DEBUG,
+				   &stats->stats.tid_perc, CDP_DATA_TID_MAX*CDP_PERC_BUCKET_SIZE);
+	} else if (stats->granularity == CDP_REPORT_GRAN_AC &&
+	    stats->type == REPORT_TYPE_HISTOGRAM) {
+		stats->stats.ac_hist = dp_stats->ac_hist;
+		QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_HDD, QDF_TRACE_LEVEL_DEBUG,
+				   &stats->stats.ac_hist, CDP_MAX_DATA_AC*CDP_HIST_BUCKET_SIZE);
+	} else if (stats->granularity == CDP_REPORT_GRAN_AC &&
+	    stats->type == REPORT_TYPE_PERCENTILE) {
+		stats->stats.ac_perc = dp_stats->ac_perc;
+		QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_HDD, QDF_TRACE_LEVEL_DEBUG,
+				   &stats->stats.ac_perc, CDP_MAX_DATA_AC*CDP_PERC_BUCKET_SIZE);
+	}
+
+done:
+	qdf_mem_free(dp_stats);
+	*latency_stats = stats;
+}
+
 static void hdd_dar_stats_work_cb(void *user_data)
 {
 	struct wlan_hdd_link_info *link_info;
@@ -12668,6 +12718,14 @@ static void hdd_dar_stats_work_cb(void *user_data)
 		return;
 	}
 
+	if (hdd_ctx->dar_data.stats_type & WFA_CAPA_DATA_PLANE_STATS)
+		wlan_hdd_query_dar_latency_stats(link_info, &stats);
+
+	sme_send_dar_stats_to_peer(hdd_ctx->mac_handle,
+				   hdd_ctx->dar_data.stats_type, stats,
+				   link_info->vdev_id,
+				   qdf_get_time_of_the_day_ms() -
+				   hdd_ctx->dar_data.start_ts);
 
 	qdf_atomic_set(&hdd_ctx->dar_data.dar_query_in_progress, 0);
 
@@ -12743,6 +12801,14 @@ wlan_hdd_handle_dar_timer_req(struct hdd_context *hdd_ctx,
 		return;
 	}
 
+	if (stats->stats_type & WFA_CAPA_CONTROL_PLANE_STATS) {
+		link_info = hdd_get_link_info_by_vdev(hdd_ctx,
+						      stats->vdev_id);
+		if (!link_info) {
+			hdd_err("Invalid link_info. Unable to configure bmiss");
+			return;
+		}
+	}
 	if (stats->enable) {
 		hdd_ctx->dar_data.num_of_meas = stats->num_of_meas;
 		hdd_ctx->dar_data.config_meas_dur = stats->timeout;

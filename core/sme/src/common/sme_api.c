@@ -18010,3 +18010,24 @@ QDF_STATUS sme_send_dar_frame(mac_handle_t mac_handle,
 
 	return status;
 }
+
+QDF_STATUS sme_send_dar_stats_to_peer(mac_handle_t mac_handle,
+				      enum wfa_capa_qos_mgmt_features type,
+				      struct sir_qos_latency_stats *stats,
+				      uint8_t vdev_id, uint16_t meas_dur)
+{
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	struct mac_context *mac_ctx  = MAC_CONTEXT(mac_handle);
+
+	sme_err("DAR vdev_id: %d %u", vdev_id, meas_dur);
+
+	status = sme_acquire_global_lock(&mac_ctx->sme);
+
+	if (QDF_STATUS_SUCCESS == status) {
+		status = csr_send_dar_stats_to_peer(mac_ctx, type, stats,
+						    vdev_id, meas_dur);
+		sme_release_global_lock(&mac_ctx->sme);
+	}
+
+	return status;
+}

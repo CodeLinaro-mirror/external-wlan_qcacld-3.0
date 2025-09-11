@@ -8407,3 +8407,28 @@ QDF_STATUS csr_send_dar_frame(struct mac_context *mac_ctx,
 	status = umac_send_mb_message_to_mac(msg);
 	return status;
 }
+
+QDF_STATUS
+csr_send_dar_stats_to_peer(struct mac_context *mac_ctx,
+			   enum wfa_capa_qos_mgmt_features type,
+			   struct sir_qos_latency_stats *stats,
+			   uint8_t vdev_id, uint16_t meas_dur)
+{
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	struct sir_sme_dar_stats_msg *msg;
+
+	msg = qdf_mem_malloc(sizeof(*msg));
+	if (!msg)
+		return QDF_STATUS_E_NOMEM;
+
+	msg->message_type = eWNI_SME_DAR_STATS;
+	msg->length = sizeof(*msg);
+	if (stats)
+		qdf_mem_copy(&msg->stats, stats,
+			     sizeof(struct sir_qos_latency_stats));
+	msg->vdev_id = vdev_id;
+	msg->actual_meas_dur = meas_dur;
+	msg->stats_type = type;
+	status = umac_send_mb_message_to_mac(msg);
+	return status;
+}

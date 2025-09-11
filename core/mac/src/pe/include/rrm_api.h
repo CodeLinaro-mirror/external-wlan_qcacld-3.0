@@ -210,4 +210,23 @@ QDF_STATUS
 lim_prepare_n_send_dar_rsp_frame(struct mac_context *mac_ctx,
 				 struct pe_session *session,
 				 uint8_t dar_status);
+
+/**
+ * lim_prepare_n_send_dar_report_frame - Prepare and send a Directed
+ *                                       Address Report (DAR) frame.
+ * @mac_ctx: Pointer to mac context.
+ * @session: Pointer to PE session.
+ * @req: Pointer to the DAR statistics message structure containing
+ *       the report data.
+ *
+ * This function prepares the necessary frame elements and sends a
+ * Directed Address Report (DAR) frame over the air, providing
+ * statistics related to directed address activity.
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+lim_prepare_n_send_dar_report_frame(struct mac_context *mac_ctx,
+				    struct pe_session *session,
+				    struct sir_sme_dar_stats_msg *req);
 #endif
