@@ -9988,7 +9988,8 @@ lim_process_dar_stats_data(struct mac_context *mac_ctx, uint32_t *msg)
 			stats_msg->vdev_id);
 		return;
 	}
-	if (stats_msg->stats_type & WFA_CAPA_RADIO_COUNTER_STATS)
+	if (stats_msg->stats_type & WFA_CAPA_RADIO_COUNTER_STATS ||
+	    stats_msg->stats_type & WFA_CAPA_CONTROL_PLANE_STATS)
 		lim_send_dar_radio_stats_query(mac_ctx, session);
 
 	if (stats_msg->stats_type & WFA_CAPA_DATA_PLANE_STATS)

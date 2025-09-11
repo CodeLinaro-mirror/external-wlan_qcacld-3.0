@@ -9616,6 +9616,7 @@ wlan_mlme_dar_cache_peer_radio_stats(struct wlan_objmgr_psoc *psoc,
 	struct wlan_objmgr_vdev *vdev;
 	QDF_STATUS status = QDF_STATUS_SUCCESS;
 	struct dar_radios_stats_fw *radio_stats_cached;
+	struct dar_control_stats_fw *control_plane_stats;
 	uint8_t i;
 
 	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, dar_stats->vdev_id,
@@ -9721,6 +9722,10 @@ wlan_mlme_dar_cache_peer_radio_stats(struct wlan_objmgr_psoc *psoc,
 			 radio_stats_cached->rts_stats[i].rts_failure_count,
 			 radio_stats_cached->fcs_failures[i]);
 	}
+	control_plane_stats = &mlme_priv->dar_info.control_plane_stats;
+	control_plane_stats->beacon_loss_cnt =
+			dar_stats->beacon_loss_cnt - control_plane_stats->beacon_loss_cnt;
+	pe_debug("Current stats: beacon_loss_cnt: %d", control_plane_stats->beacon_loss_cnt);
 
 done:
 	wlan_objmgr_vdev_release_ref(vdev, WLAN_MLME_OBJMGR_ID);
@@ -10004,6 +10009,58 @@ done:
 	mlme_legacy_debug("Radio stats size: %d", *radio_stats_size);
 	qdf_trace_hex_dump(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
 			   (void *)(radio_attr), *radio_stats_size);
+
+	return status;
+}
+
+QDF_STATUS
+wlan_mlme_dar_get_cotrol_plane_stats(struct wlan_objmgr_psoc *psoc,
+			uint32_t num_vdev_ids, uint32_t *vdev_id_list,
+			uint32_t *link_id_list,
+			struct sir_qos_control_plane_stats_config *attr,
+			uint16_t *control_stats_size)
+{
+	struct mlme_legacy_priv *mlme_priv_list[2];
+	struct wlan_objmgr_vdev *vdev_list[2];
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	uint8_t i, *buf = (uint8_t *)attr;
+	struct qos_control_stats_attr *hdr = (struct qos_control_stats_attr *)attr;
+	struct qos_control_plane_evt_tuple * tuple;
+
+	for (i = 0; i < num_vdev_ids; i++) {
+		vdev_list[i] = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id_list[i],
+							WLAN_MLME_OBJMGR_ID);
+		if (!vdev_list[i])
+			return QDF_STATUS_E_INVAL;
+
+		mlme_priv_list[i] = wlan_vdev_mlme_get_ext_hdl(vdev_list[i]);
+		if (!mlme_priv_list[i]) {
+			mlme_legacy_err("vdev legacy private object is NULL");
+			status = QDF_STATUS_E_INVAL;
+			goto done;
+		}
+	}
+
+	buf += sizeof(struct qos_control_stats_attr);
+
+	for (i = 0; i < num_vdev_ids; i++) {
+		tuple = (struct qos_control_plane_evt_tuple *)buf;
+		if (mlme_priv_list[i]->dar_info.control_plane_stats.beacon_loss_cnt) {
+			tuple->link_id = link_id_list[i];
+			tuple->category_code = 0;
+			tuple->sub_category_code = BEACON_LOSS;
+			buf += sizeof(*tuple);
+			hdr->contol_plane_evt_cnt++;
+		}
+	}
+
+done:
+	for (i = 0; i < num_vdev_ids; i++)
+		wlan_objmgr_vdev_release_ref(vdev_list[i], WLAN_MLME_OBJMGR_ID);
+	*control_stats_size = buf - (uint8_t *)attr;
+	mlme_legacy_debug("Control plane stats size: %d", *control_stats_size);
+	qdf_trace_hex_dump(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+			   (void *)(attr), *control_stats_size);
 
 	return status;
 }

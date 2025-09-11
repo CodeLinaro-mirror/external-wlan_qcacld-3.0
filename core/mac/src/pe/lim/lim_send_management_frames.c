@@ -9712,6 +9712,19 @@ lim_populate_radio_stats_attr(struct qos_radio_stats_attr *frame,
 	return size;
 }
 
+static uint16_t
+lim_populate_control_plane_stats_attr(struct qos_control_stats_attr *frame,
+			      struct sir_qos_control_plane_stats_config *req,
+			      uint16_t size, bool req_rep)
+{
+	qdf_mem_copy(frame, req, size);
+
+	frame->attr_id = DAR_CONTROL_PLANE_EVENTS_ATTR;
+	frame->length = size - 2;
+
+	return size;
+}
+
 QDF_STATUS
 lim_prepare_n_send_dar_req_frame(struct mac_context *mac_ctx,
 				 struct pe_session *session,
@@ -9998,6 +10011,9 @@ lim_prepare_n_send_dar_report_frame(struct mac_context *mac_ctx,
 			- sizeof(union qos_mgmt_attr)
 			+ sizeof(struct dar_report_attr_fields);
 
+	if (req->stats_type & WFA_CAPA_CONTROL_PLANE_STATS)
+		stats_tag_size += req->control_plane_stats_size;
+
 	frame_len += stats_tag_size;
 
 	buf_temp = qdf_mem_malloc(DAR_FRAME_SIZE_MAX);
@@ -10089,6 +10105,15 @@ lim_prepare_n_send_dar_report_frame(struct mac_context *mac_ctx,
 		frame_len += stats_tag_size - filled_ie_len;
 		attr = (union qos_mgmt_attr *)((uint8_t *)attr + stats_tag_size);
 		filled_ie_len += stats_tag_size;
+	}
+
+	if (req->stats_type & WFA_CAPA_CONTROL_PLANE_STATS) {
+		stats_tag_size =
+			lim_populate_control_plane_stats_attr(&attr->control_stats,
+					      &req->control_plane_attr,
+					      req->control_plane_stats_size,
+					      false);
+		attr = (union qos_mgmt_attr *)((uint8_t *)attr + stats_tag_size);
 	}
 
 	tx_flag |= HAL_USE_BD_RATE2_FOR_MANAGEMENT_FRAME;

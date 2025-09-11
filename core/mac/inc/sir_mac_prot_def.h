@@ -1611,6 +1611,46 @@ struct qos_radio_stats_attr {
 } qdf_packed;
 
 /**
+ * enum control_plane_evt_codes - Enumerates various control plane event codes.
+ * @DFS_EVENTS: Dynamic Frequency Selection (DFS) related events.
+ * @BEACON_LOSS: Beacon loss event.
+ * @SEQ_NUM_JUMP: Sequence number jump event.
+ * @RTS_CTS_FLOODS: RTS/CTS floods event.
+ * @BA_NEGOTIATION_FAILURE: Block ACK negotiation failure event.
+ */
+enum control_plane_evt_codes {
+	DFS_EVENTS = 1,
+	BEACON_LOSS = 2,
+	SEQ_NUM_JUMP = 3,
+	RTS_CTS_FLOODS = 4,
+	BA_NEGOTIATION_FAILURE = 5,
+};
+
+/**
+ * struct qos_control_plane_evt_tuple - Tuple representing a QoS control plane event.
+ * @link_id: The Link ID where the event occurred.
+ * @category_code: The category code for the event (e.g., DFS, Beacon Loss).
+ * @sub_category_code: The sub-category code providing more specific details about the event.
+ */
+struct qos_control_plane_evt_tuple {
+	uint8_t link_id;
+	uint8_t category_code;
+	uint8_t sub_category_code;
+} qdf_packed;
+
+/**
+ * struct qos_control_stats_attr - QoS Control Plane Statistics Attribute.
+ * @attr_id: Attribute ID for control plane statistics.
+ * @length: Length of the control plane statistics attribute data.
+ * @contol_plane_evt_cnt: Count of control plane events reported.
+ */
+struct qos_control_stats_attr {
+	uint8_t attr_id;
+	uint8_t length;
+	uint8_t contol_plane_evt_cnt;
+} qdf_packed;
+
+/**
  * struct dar_frag_attr_fixed_fields - Fixed fields for a DAR Fragmentation Attribute.
  * @attr_id: Attribute ID for the fragmentation attribute.
  * @len: Length of the fragmentation attribute data.
@@ -1648,6 +1688,7 @@ union qos_mgmt_attr {
 	struct dar_report_attr_fields report_attr;
 	struct latency_stats_attr latency_stats;
 	struct qos_radio_stats_attr radio_stats;
+	struct qos_control_stats_attr control_stats;
 	struct dar_frag_attr frag_attr;
 } qdf_packed;
 

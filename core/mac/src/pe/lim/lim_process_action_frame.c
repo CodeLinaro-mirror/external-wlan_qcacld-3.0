@@ -2084,6 +2084,15 @@ lim_dar_radio_stats_response_cb(struct infra_cp_stats_event *ev, void *cookie)
 		if (session->dar_radio_stats_valid)
 			lim_prepare_n_send_dar_report_frame(mac, session, stats);
 		session->dar_radio_stats_valid = true;
+	} else if (dar_requested_bitmap_peer & WFA_CAPA_CONTROL_PLANE_STATS) {
+		stats->stats_type = WFA_CAPA_CONTROL_PLANE_STATS;
+		wlan_mlme_dar_get_cotrol_plane_stats(mac->psoc,
+						   num_vdev_ids, vdev_id_list,
+						   link_id_list,
+						   &stats->control_plane_attr,
+						   &stats->control_plane_stats_size);
+		if (stats->control_plane_attr.control_plane_stats_hdr.contol_plane_evt_cnt)
+			lim_prepare_n_send_dar_report_frame(mac, session, stats);
 	}
 	qdf_mem_free(stats);
 
@@ -2289,6 +2298,7 @@ lim_handle_dar_req_frame(struct mac_context *mac_ctx,
 	struct dar_req_attr *req_attr;
 	struct latency_stats_attr *latency_attr = NULL;
 	struct qos_radio_stats_attr *radio_attr = NULL;
+	struct qos_control_stats_attr *control_plane_stats = NULL;
 	uint8_t *buf;
 	struct sir_qos_stats_peer_data peer_data = {0};
 	struct sir_qos_radio_stats_config radio_config = {0};
@@ -2386,6 +2396,33 @@ lim_handle_dar_req_frame(struct mac_context *mac_ctx,
 						   req_attr->hdr.request_id,
 						   (uint8_t *)radio_attr, radio_attr->length+2,
 						   WFA_CAPA_RADIO_COUNTER_STATS);
+		break;
+		case DAR_CONTROL_PLANE_EVENTS_ATTR:
+			pe_debug("DAR control plane attr");
+			if (buf + sizeof(struct qos_control_stats_attr) >
+			    frame + frame_len) {
+				pe_debug("DAR cotrol plane stats attr with insufficient length");
+				//Abort all stats and cleanup local data
+				return DAR_REQ_DECLINED;
+			}
+			control_plane_stats = (struct qos_control_stats_attr *)buf;
+
+			/**
+			 * 1. Update beacon miss thr to 20% more than
+			 *    measurement duration.
+			 *    i.e. measurement_dur*100*120/100
+			 * 2. Start timer for measurement duration
+			 * 3. when timer expires, query and prepare
+			 *    report frame if any of the events occured
+			 */
+			stats_requested |= WFA_CAPA_CONTROL_PLANE_STATS;
+			wlan_mlme_dar_set_peer_config(mac_ctx->psoc,
+						   session->vdev_id,
+						   mac_addr->sa,
+						   req_attr->hdr.request_id,
+						   (uint8_t *)control_plane_stats,
+						   control_plane_stats->length+2,
+						   WFA_CAPA_CONTROL_PLANE_STATS);
 		break;
 
 		default:

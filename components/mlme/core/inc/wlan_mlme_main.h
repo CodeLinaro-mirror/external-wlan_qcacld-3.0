@@ -866,6 +866,16 @@ struct dar_radios_stats_fw {
 };
 
 /**
+ * struct dar_control_stats_fw - Control plane statistics from firmware
+ * @ba_nego_fail_cnt: Count of Block Ack negotiation failures.
+ * @beacon_loss_cnt: Count of consecutive beacon losses.
+ */
+struct dar_control_stats_fw {
+	uint32_t ba_nego_fail_cnt;
+	uint32_t beacon_loss_cnt;
+};
+
+/**
  * struct dar_req_ies_peer - Requested IEs from peer for DAR
  * @latency_stats_req_ie_peer: Buffer to store latency stats request IE from peer.
  * @latency_stats_req_ie_len: Length of the latency stats request IE.
@@ -892,6 +902,7 @@ struct dar_req_ies_peer {
  * @req_ies: Information elements requested from the peer.
  * @radio_config: Configuration parameters for radio statistics.
  * @radio_stats_cached: Cached radio statistics received from firmware.
+ * @control_plane_stats: Control plane statistics related to DAR.
  */
 struct dar_config {
 	uint16_t dar_feature_bitmap;
@@ -901,6 +912,7 @@ struct dar_config {
 	struct dar_req_ies_peer req_ies;
 	struct sir_qos_radio_stats_config radio_config;
 	struct dar_radios_stats_fw radio_stats_cached;
+	struct dar_control_stats_fw control_plane_stats;
 };
 
 /**

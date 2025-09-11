@@ -5176,6 +5176,16 @@ struct sir_qos_radio_stats_config {
 };
 
 /**
+ * struct sir_qos_control_plane_stats_config - Configuration for QoS control plane statistics.
+ * @control_plane_stats_hdr: Header attributes for control plane statistics.
+ * @tuple: Event tuple for control plane statistics.
+ */
+struct sir_qos_control_plane_stats_config {
+	struct qos_control_stats_attr control_plane_stats_hdr;
+	struct qos_control_plane_evt_tuple tuple;
+};
+
+/**
  * struct sir_sme_dar_stats_msg - Message structure for Dynamic Adaptation Rate (DAR) statistics.
  * @message_type: Message type (e.g., eWNI_SME_DAR).
  * @length: Length of the message.
@@ -5185,6 +5195,8 @@ struct sir_qos_radio_stats_config {
  * @stats: QoS latency statistics.
  * @radio_attr: Radio statistics configuration.
  * @radio_stats_size: Size of the radio statistics data.
+ * @control_plane_attr: Control plane statistics configuration.
+ * @control_plane_stats_size: Size of the control plane statistics data.
  */
 struct sir_sme_dar_stats_msg {
 	uint16_t  message_type; /* eWNI_SME_DAR */
@@ -5195,6 +5207,8 @@ struct sir_sme_dar_stats_msg {
 	struct sir_qos_latency_stats stats;
 	struct sir_qos_radio_stats_config radio_attr;
 	uint16_t radio_stats_size;
+	struct sir_qos_control_plane_stats_config control_plane_attr;
+	uint16_t control_plane_stats_size;
 };
 
 /**
