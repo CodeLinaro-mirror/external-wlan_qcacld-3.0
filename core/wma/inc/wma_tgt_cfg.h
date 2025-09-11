@@ -60,6 +60,7 @@
  *                                supported or not
  * @is_mlo_per_link_stats_supported: Per link mlo stats is supported or not
  * @en_mlo_tid_to_link_support: Get tid to link fw support
+ * @dar_stats_support: DAR stats support by fw
  */
 struct wma_tgt_services {
 	uint32_t sta_power_save;
@@ -120,6 +121,7 @@ struct wma_tgt_services {
 #ifdef WLAN_FEATURE_11BE
 	bool en_mlo_tid_to_link_support;
 #endif
+	bool dar_stats_support;
 };
 
 /**

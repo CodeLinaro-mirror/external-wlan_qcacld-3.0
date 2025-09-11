@@ -2014,6 +2014,15 @@ enum wlan_state_ctrl_str_id {
 	WLAN_FORCE_DISABLE_STR
 };
 
+/**
+ * struct qos_dar_data - Data structure for QoS DAR (Data Activity Report)
+ * statistics.
+ * @dar_stats_support_by_fw: DAR stats support by fw
+ */
+struct qos_dar_data {
+	bool dar_stats_support_by_fw;
+};
+
 #define MAX_TGT_HW_NAME_LEN 32
 #define HDD_MAX_IFACE_TYPE 2
 
@@ -2269,6 +2278,7 @@ struct hdd_tx_powerboost {
  *			userspace application close/abort
  * @usd_adapter: adapter on which USD frames to be forwarded to userspace
  * @tx_pb: Tx powerboost context
+ * @dar_data: DAR data
  */
 struct hdd_context {
 	struct wlan_objmgr_psoc *psoc;
@@ -2577,6 +2587,7 @@ struct hdd_context {
 #ifdef FEATURE_WLAN_TX_POWERBOOST
 	struct hdd_tx_powerboost tx_pb;
 #endif
+	struct qos_dar_data dar_data;
 };
 
 /**
