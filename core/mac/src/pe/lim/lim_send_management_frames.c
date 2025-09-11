@@ -9287,6 +9287,63 @@ lim_get_mlo_link_bitmap(struct mac_context *mac,
 	return link_bitmap;
 }
 
+#define DAR_IE_LEN_MAX 255
+
+static uint16_t
+lim_fragment_dar_attr(uint8_t *attr, uint16_t len, uint16_t id)
+{
+	uint16_t left = len, copy_size = 0, total_len;
+	uint8_t *buf_temp, *tgt, *src =  attr;
+	struct dar_frag_attr *frag_attr;
+
+	if (len < MIN_IE_LEN + DAR_IE_LEN_MAX)
+		return len;
+
+	buf_temp = qdf_mem_malloc(DAR_FRAME_SIZE_MAX);
+	if (!buf_temp) {
+		pe_err("Failed to allocate %d bytes for a DAR buf",
+			DAR_FRAME_SIZE_MAX);
+		return 0;
+	}
+	tgt = buf_temp;
+	qdf_mem_copy(tgt, src, MIN_IE_LEN + DAR_IE_LEN_MAX);
+	*(tgt + 1) = DAR_IE_LEN_MAX;
+	tgt += MIN_IE_LEN + DAR_IE_LEN_MAX;
+	src += MIN_IE_LEN + DAR_IE_LEN_MAX;
+	left -= MIN_IE_LEN + DAR_IE_LEN_MAX;
+
+	while (left) {
+		copy_size = QDF_MIN((uint16_t)DAR_IE_LEN_MAX, left);
+		frag_attr = (struct dar_frag_attr *)tgt;
+		frag_attr->attr_id = id;
+		frag_attr->len = copy_size;
+		tgt += sizeof(*frag_attr);
+		qdf_mem_copy(tgt, src, copy_size);
+		left -= copy_size;
+		tgt += copy_size;
+		src += copy_size;
+	}
+
+	total_len = tgt - buf_temp;
+
+	qdf_mem_copy(attr, buf_temp, total_len);
+	qdf_mem_free(buf_temp);
+
+	return total_len;
+}
+
+static uint16_t
+lim_dar_populate_fragment_ie(uint8_t *target, uint16_t ie_occupied_size,
+			     uint8_t *src, uint16_t src_size)
+{
+	uint16_t len;
+
+	qdf_mem_copy(target+ie_occupied_size, src, src_size);
+	len = lim_fragment_dar_attr(target, ie_occupied_size + src_size, WLAN_ELEMID_FRAGMENT);
+
+	return len;
+}
+
 static void
 lim_populate_dar_frame_cmn_fields(struct mac_context *mac_ctx,
 				  struct pe_session *session,
@@ -9514,8 +9571,14 @@ lim_populate_latency_stats_attr(struct mac_context *mac_ctx,
 		latency_tag_size =
 			lim_populate_latency_stats_attr_report_type(mac_ctx, session, frame, req);
 
-	frame->length += latency_tag_size;
-	latency_tag_size = frame->length;
+	if (frame->length + latency_tag_size > DAR_IE_LEN_MAX) {
+		latency_tag_size = lim_fragment_dar_attr((uint8_t *)frame,
+							 frame->length + latency_tag_size,
+							 DAR_FRAGMENT_ATTR);
+	} else {
+		frame->length += latency_tag_size;
+		latency_tag_size = frame->length;
+	}
 
 	return latency_tag_size + 2;
 }
@@ -9924,7 +9987,7 @@ lim_prepare_n_send_dar_report_frame(struct mac_context *mac_ctx,
 	struct qos_mgmt_elements *payload;
 	union qos_mgmt_attr *attr;
 	tSirMacAddr peer_mac;
-	uint8_t request_id = 0;
+	uint8_t request_id = 0, num_frag_ies = 0;
 	uint16_t stats_tag_size = 0, filled_ie_len = 0;
 
 	frame_len = sizeof(tSirMacMgmtHdr)
@@ -9987,6 +10050,12 @@ lim_prepare_n_send_dar_report_frame(struct mac_context *mac_ctx,
 
 		filled_ie_len += sizeof(struct dar_report_attr_fields);
 		payload->qos_mgmt_el_hdr.len = filled_ie_len;
+
+		stats_tag_size = lim_dar_populate_fragment_ie((uint8_t *)&payload->qos_mgmt_el_hdr,
+					       filled_ie_len, buf_temp,
+					       stats_tag_size);
+		if (payload->qos_mgmt_el_hdr.len + stats_tag_size - filled_ie_len <= DAR_IE_LEN_MAX)
+			payload->qos_mgmt_el_hdr.len += stats_tag_size - filled_ie_len;
 
 		frame_len += stats_tag_size - filled_ie_len;
 		attr = (union qos_mgmt_attr *)((uint8_t *)attr + stats_tag_size);

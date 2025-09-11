@@ -1611,6 +1611,26 @@ struct qos_radio_stats_attr {
 } qdf_packed;
 
 /**
+ * struct dar_frag_attr_fixed_fields - Fixed fields for a DAR Fragmentation Attribute.
+ * @attr_id: Attribute ID for the fragmentation attribute.
+ * @len: Length of the fragmentation attribute data.
+ */
+struct dar_frag_attr_fixed_fields {
+	uint8_t attr_id;
+	uint8_t len;
+} qdf_packed;
+
+/**
+ * struct dar_frag_attr - DAR Fragmentation Attribute.
+ * @attr_id: Attribute ID for the fragmentation attribute.
+ * @len: Length of the fragmentation attribute data.
+ */
+struct dar_frag_attr {
+	uint8_t attr_id;
+	uint8_t len;
+} qdf_packed;
+
+/**
  * union qos_mgmt_attr - Union of various QoS management attributes.
  * Allows a single memory location to be interpreted as different attribute structures.
  * @cmn_hdr: Common header for DAR attributes.
@@ -1619,6 +1639,7 @@ struct qos_radio_stats_attr {
  * @report_attr: DAR report attributes.
  * @latency_stats: Latency statistics attributes.
  * @radio_stats: Radio statistics attributes.
+ * @frag_attr: Fragmentation attribute.
  */
 union qos_mgmt_attr {
 	struct dar_attr_cmn_hdr cmn_hdr;
@@ -1627,6 +1648,7 @@ union qos_mgmt_attr {
 	struct dar_report_attr_fields report_attr;
 	struct latency_stats_attr latency_stats;
 	struct qos_radio_stats_attr radio_stats;
+	struct dar_frag_attr frag_attr;
 } qdf_packed;
 
 /**
