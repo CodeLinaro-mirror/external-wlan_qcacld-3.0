@@ -844,6 +844,28 @@ struct enhance_roam_info {
 };
 
 /**
+ * struct dar_radios_stats_fw - Radio statistics from firmware
+ * @tx_power: Current transmit power of the radio.
+ * @cca_busy_cnt: Clear Channel Assessment busy count for the radio.
+ * @cycle_cnt: Total cycle count for the radio.
+ * @cu: Channel Utilization (CU) of the radio.
+ * @mpdu_stats: Array of MPDU count statistics per Traffic Identifier (TID).
+ * @dropped_mpdu_count: Array of dropped MPDU counts per TID.
+ * @rts_stats: Array of RTS (Request To Send) statistics per TID.
+ * @fcs_failures: Array of Frame Check Sequence (FCS) failures per TID.
+ */
+struct dar_radios_stats_fw {
+	uint32_t tx_power;
+	uint64_t cca_busy_cnt;
+	uint64_t cycle_cnt;
+	uint32_t cu;
+	struct mpdu_count_stats_info mpdu_stats[CDP_DATA_TID_MAX];
+	uint32_t dropped_mpdu_count[CDP_DATA_TID_MAX];
+	struct rts_stats_info rts_stats[CDP_DATA_TID_MAX];
+	uint32_t fcs_failures[CDP_DATA_TID_MAX];
+};
+
+/**
  * struct dar_req_ies_peer - Requested IEs from peer for DAR
  * @latency_stats_req_ie_peer: Buffer to store latency stats request IE from peer.
  * @latency_stats_req_ie_len: Length of the latency stats request IE.
@@ -869,6 +891,7 @@ struct dar_req_ies_peer {
  * @request_id: Identifier for the current DAR request.
  * @req_ies: Information elements requested from the peer.
  * @radio_config: Configuration parameters for radio statistics.
+ * @radio_stats_cached: Cached radio statistics received from firmware.
  */
 struct dar_config {
 	uint16_t dar_feature_bitmap;
@@ -877,6 +900,7 @@ struct dar_config {
 	uint8_t request_id;
 	struct dar_req_ies_peer req_ies;
 	struct sir_qos_radio_stats_config radio_config;
+	struct dar_radios_stats_fw radio_stats_cached;
 };
 
 /**

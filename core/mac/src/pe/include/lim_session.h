@@ -765,6 +765,9 @@ struct punc_chan_info {
  * @rsno_gen_used: rsno gen used for connection
  * @wnm_action_dialog_token: Dialog token for WNM action frames.
  * @dfs_p2p_info: DFS P2P group operation info.
+ * @dar_radio_stats_valid: Flag to indicate if DAR radio stats are fetched from
+ * firmware. This helps to skip sending DAR report frame if not stats
+ * are collected.
  */
 struct pe_session {
 	uint8_t available;
@@ -1101,6 +1104,7 @@ struct pe_session {
 	uint8_t rsno_gen_used;
 	uint8_t wnm_action_dialog_token;
 	struct dfs_p2p_group_info dfs_p2p_info;
+	bool dar_radio_stats_valid;
 };
 
 /*-------------------------------------------------------------------------

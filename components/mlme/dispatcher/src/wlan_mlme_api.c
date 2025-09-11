@@ -9607,3 +9607,403 @@ done:
 	wlan_objmgr_vdev_release_ref(vdev, WLAN_MLME_OBJMGR_ID);
 	return status;
 }
+
+QDF_STATUS
+wlan_mlme_dar_cache_peer_radio_stats(struct wlan_objmgr_psoc *psoc,
+				     struct cp_stats_dar *dar_stats)
+{
+	struct mlme_legacy_priv *mlme_priv;
+	struct wlan_objmgr_vdev *vdev;
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	struct dar_radios_stats_fw *radio_stats_cached;
+	uint8_t i;
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, dar_stats->vdev_id,
+						    WLAN_MLME_OBJMGR_ID);
+	if (!vdev)
+		return QDF_STATUS_E_INVAL;
+
+	mlme_priv = wlan_vdev_mlme_get_ext_hdl(vdev);
+	if (!mlme_priv) {
+		mlme_legacy_err("vdev legacy private object is NULL");
+		status = QDF_STATUS_E_INVAL;
+		goto done;
+	}
+
+
+	pe_debug("Rcvd stats: transmit_pwr: %d cca_busy_cnt: %llu cycle_cnt: %llu transmit_pwr: %d",
+		 dar_stats->transmit_pwr,
+		 dar_stats->cca_busy_cnt,
+		 dar_stats->cycle_cnt,
+		 dar_stats->transmit_pwr);
+	pe_debug("Rcvd stats: success_mpdu_tx_cnt: %d, %d, %d, %d, %d, %d, %d, %d",
+		 dar_stats->success_mpdu_tx_cnt[0],
+		 dar_stats->success_mpdu_tx_cnt[1],
+		 dar_stats->success_mpdu_tx_cnt[2],
+		 dar_stats->success_mpdu_tx_cnt[3],
+		 dar_stats->success_mpdu_tx_cnt[4],
+		 dar_stats->success_mpdu_tx_cnt[5],
+		 dar_stats->success_mpdu_tx_cnt[6],
+		 dar_stats->success_mpdu_tx_cnt[7]);
+	pe_debug("Rcvd stats: dropped_mpdu_tx_cnt: %d, %d, %d, %d, %d, %d, %d, %d",
+		 dar_stats->dropped_mpdu_tx_cnt[0],
+		 dar_stats->dropped_mpdu_tx_cnt[1],
+		 dar_stats->dropped_mpdu_tx_cnt[2],
+		 dar_stats->dropped_mpdu_tx_cnt[3],
+		 dar_stats->dropped_mpdu_tx_cnt[4],
+		 dar_stats->dropped_mpdu_tx_cnt[5],
+		 dar_stats->dropped_mpdu_tx_cnt[6],
+		 dar_stats->dropped_mpdu_tx_cnt[7]);
+	pe_debug("Rcvd stats: rts_success_cnt: %d, %d, %d, %d, %d, %d, %d, %d",
+		 dar_stats->rts_success_cnt[0],
+		 dar_stats->rts_success_cnt[1],
+		 dar_stats->rts_success_cnt[2],
+		 dar_stats->rts_success_cnt[3],
+		 dar_stats->rts_success_cnt[4],
+		 dar_stats->rts_success_cnt[5],
+		 dar_stats->rts_success_cnt[6],
+		 dar_stats->rts_success_cnt[7]);
+	pe_debug("Rcvd stats: rts_failure_cnt: %d, %d, %d, %d, %d, %d, %d, %d",
+		 dar_stats->rts_failure_cnt[0],
+		 dar_stats->rts_failure_cnt[1],
+		 dar_stats->rts_failure_cnt[2],
+		 dar_stats->rts_failure_cnt[3],
+		 dar_stats->rts_failure_cnt[4],
+		 dar_stats->rts_failure_cnt[5],
+		 dar_stats->rts_failure_cnt[6],
+		 dar_stats->rts_failure_cnt[7]);
+	pe_debug("Rcvd stats: fcs_failure_cnt: %d, %d, %d, %d, %d, %d, %d, %d",
+		 dar_stats->fcs_failure_cnt[0],
+		 dar_stats->fcs_failure_cnt[1],
+		 dar_stats->fcs_failure_cnt[2],
+		 dar_stats->fcs_failure_cnt[3],
+		 dar_stats->fcs_failure_cnt[4],
+		 dar_stats->fcs_failure_cnt[5],
+		 dar_stats->fcs_failure_cnt[6],
+		 dar_stats->fcs_failure_cnt[7]);
+	pe_debug("Rcvd stats: ack_failure_cnt: %d, %d, %d, %d, %d, %d, %d, %d",
+		 dar_stats->ack_failure_cnt[0],
+		 dar_stats->ack_failure_cnt[1],
+		 dar_stats->ack_failure_cnt[2],
+		 dar_stats->ack_failure_cnt[3],
+		 dar_stats->ack_failure_cnt[4],
+		 dar_stats->ack_failure_cnt[5],
+		 dar_stats->ack_failure_cnt[6],
+		 dar_stats->ack_failure_cnt[7]);
+	pe_debug("Rcvd stats: beacon_loss_cnt: %d", dar_stats->beacon_loss_cnt);
+
+	radio_stats_cached = &mlme_priv->dar_info.radio_stats_cached;
+	radio_stats_cached->tx_power = dar_stats->transmit_pwr - radio_stats_cached->tx_power;
+	radio_stats_cached->cca_busy_cnt = dar_stats->cca_busy_cnt - radio_stats_cached->cca_busy_cnt;
+	radio_stats_cached->cycle_cnt = dar_stats->cycle_cnt - radio_stats_cached->cycle_cnt;
+	radio_stats_cached->cu = (uint32_t)((radio_stats_cached->cca_busy_cnt/radio_stats_cached->cycle_cnt)*255);
+	pe_debug("Rcvd stats: cu: %d", radio_stats_cached->cu);
+
+	for (i = 0; i < CDP_DATA_TID_MAX; i++) {
+		radio_stats_cached->mpdu_stats[i].successful_mpdu_count =
+			dar_stats->success_mpdu_tx_cnt[i] - radio_stats_cached->mpdu_stats[i].successful_mpdu_count;
+		radio_stats_cached->dropped_mpdu_count[i] =
+			dar_stats->dropped_mpdu_tx_cnt[i] - radio_stats_cached->dropped_mpdu_count[i];
+	//TODO: fetch from DP
+		radio_stats_cached->mpdu_stats[i].mpdu_retry_count =
+			dar_stats->dropped_mpdu_tx_cnt[i] - radio_stats_cached->mpdu_stats[i].mpdu_retry_count;
+		radio_stats_cached->rts_stats[i].successful_rts_count =
+			dar_stats->rts_success_cnt[i] - radio_stats_cached->rts_stats[i].successful_rts_count;
+		radio_stats_cached->rts_stats[i].rts_failure_count =
+			dar_stats->rts_failure_cnt[i] - radio_stats_cached->rts_stats[i].rts_failure_count;
+		radio_stats_cached->fcs_failures[i] =
+			dar_stats->fcs_failure_cnt[i] - radio_stats_cached->fcs_failures[i];
+		pe_debug("Current stats TID: %d: successful_mpdu_count %d dropped_mpdu_count: %d mpdu_retry_count: %d successful_rts_count: %d rts_failure_count: %d fcs_failures: %d",
+			 i, radio_stats_cached->mpdu_stats[i].successful_mpdu_count,
+			 radio_stats_cached->dropped_mpdu_count[i],
+			 radio_stats_cached->mpdu_stats[i].mpdu_retry_count,
+			 radio_stats_cached->rts_stats[i].successful_rts_count,
+			 radio_stats_cached->rts_stats[i].rts_failure_count,
+			 radio_stats_cached->fcs_failures[i]);
+	}
+
+done:
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_MLME_OBJMGR_ID);
+	return status;
+}
+
+QDF_STATUS
+wlan_mlme_dar_get_peer_radio_stats(struct wlan_objmgr_psoc *psoc,
+				   uint32_t num_vdev_ids, uint32_t *vdev_id_list,
+				   uint32_t *link_id_list,
+				   struct sir_qos_radio_stats_config *config,
+				   struct sir_qos_radio_stats_config *radio_attr,
+				   uint16_t *radio_stats_size)
+{
+	struct mlme_legacy_priv *mlme_priv_list[2];
+	struct wlan_objmgr_vdev *vdev_list[2];
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	struct dar_radios_stats_fw *radio_stats_cached;
+	uint8_t i, j, num_elements = 1, retry_rate_conf, retry_rate_obsr;
+	uint8_t *buf = (uint8_t *)radio_attr;
+	struct qos_radio_stats_report_transmit_power *tx_power;
+	struct qos_radio_stats_cu_fixed_field *cu;
+	struct qos_radio_stats_mpdu_count_fixed_fields *mpdu_stats;
+	struct qos_radio_rts_stats_fixed_fields *rts_stats;
+	struct qos_radio_fcs_failure_stats *fcs_stats;
+	struct rts_stats_info *rts_stats_list;
+	bool threshold_hit = false;
+	uint16_t param_bitmap_conf, *param_bitmap_attr;
+	uint8_t *cu_fraction_list;
+	struct mpdu_count_stats_info *mpdu_stats_list;
+
+	for (i = 0; i < num_vdev_ids; i++) {
+		vdev_list[i] = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id_list[i],
+							WLAN_MLME_OBJMGR_ID);
+		if (!vdev_list[i])
+			return QDF_STATUS_E_INVAL;
+
+		mlme_priv_list[i] = wlan_vdev_mlme_get_ext_hdl(vdev_list[i]);
+		if (!mlme_priv_list[i]) {
+			mlme_legacy_err("vdev legacy private object is NULL");
+			status = QDF_STATUS_E_INVAL;
+			goto done;
+		}
+	}
+
+	param_bitmap_conf = config->radio_stats_hdr.param_presence_bitmap;
+	param_bitmap_attr = &radio_attr->radio_stats_hdr.param_presence_bitmap;
+	//*param_bitmap_attr = param_bitmap_conf;
+
+	buf += sizeof(struct qos_radio_stats_attr);
+	if (param_bitmap_conf & TRANSMIT_POWER_FIELD &&
+	    ((config->tx_power.link_granularity &&
+	      config->tx_power.link_gran_bitmap) ||
+	     !config->tx_power.link_granularity)) {
+		*param_bitmap_attr |= TRANSMIT_POWER_FIELD;
+		tx_power = (struct qos_radio_stats_report_transmit_power *)buf;
+		tx_power->link_granularity = config->tx_power.link_granularity;
+		for (i = 0; i < num_vdev_ids; i++)
+			if (tx_power->link_granularity &&
+			    (config->tx_power.link_gran_bitmap & BIT(link_id_list[i])))
+				tx_power->link_gran_bitmap |= BIT(link_id_list[i]);
+
+		if (!tx_power->link_gran_bitmap)
+			tx_power->link_granularity = 0;
+
+		buf += sizeof(struct qos_radio_stats_report_tp_fixed_fields);
+		*param_bitmap_attr |= RADIO_STATS_LISTS_PRESENT;
+		for (i = 0; i < num_vdev_ids; i++) {
+			radio_stats_cached = &mlme_priv_list[i]->dar_info.radio_stats_cached;
+			tx_power->transmit_power_list[i] = radio_stats_cached->tx_power;
+			buf++;
+			/* Decide whether to add next element in list or not */
+			if (!tx_power->link_granularity ||
+			    i+1 >= qdf_get_hamming_weight(config->tx_power.link_gran_bitmap))
+				break;
+		}
+	}
+
+	if (param_bitmap_conf & OBSERVED_CU_FRACTION_FIELD &&
+	    ((config->cu.link_granularity &&
+	      config->cu.link_gran_bitmap) ||
+	     !config->cu.link_granularity)) {
+		*param_bitmap_attr |= OBSERVED_CU_FRACTION_FIELD;
+		cu = (struct qos_radio_stats_cu_fixed_field *)buf;
+		cu->link_granularity = config->cu.link_granularity;
+		for (i = 0; i < num_vdev_ids; i++)
+			if (cu->link_granularity &&
+			    (config->cu.link_gran_bitmap & BIT(link_id_list[i])))
+				cu->link_gran_bitmap |= BIT(link_id_list[i]);
+
+		if (!cu->link_gran_bitmap)
+			cu->link_granularity = 0;
+		buf += sizeof(struct qos_radio_stats_cu_fixed_field);
+
+		*param_bitmap_attr |= RADIO_STATS_LISTS_PRESENT;
+		for (i = 0; i < num_vdev_ids; i++) {
+			radio_stats_cached = &mlme_priv_list[i]->dar_info.radio_stats_cached;
+			cu_fraction_list = buf;
+			*cu_fraction_list = radio_stats_cached->cu;
+			buf++;
+			if (param_bitmap_conf & RADIO_STATS_THRESHOLDS_PRESENT) {
+				if (radio_stats_cached->cu > config->cu.thresholds[i])
+					threshold_hit = true;
+			}
+			/* Decide whether to add next element in list or not */
+			if (!cu->link_granularity ||
+			    i+1 >= qdf_get_hamming_weight(config->cu.link_gran_bitmap))
+				break;
+		}
+	}
+
+	qdf_trace_hex_dump(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+			   (void *)(radio_attr), buf - (uint8_t *)radio_attr);
+
+	if (param_bitmap_conf & MPDU_COUNT_STATISTICS_FIELD &&
+	    ((config->mpdu_stats.link_granularity &&
+	      config->mpdu_stats.link_gran_bitmap) ||
+	     !config->mpdu_stats.link_granularity)) {
+		*param_bitmap_attr |= MPDU_COUNT_STATISTICS_FIELD;
+		mpdu_stats = (struct qos_radio_stats_mpdu_count_fixed_fields *)buf;
+		radio_stats_cached = &mlme_priv_list[0]->dar_info.radio_stats_cached;
+
+		if (config->mpdu_stats.report_granularity == REPORT_GRAN_TID) {
+			mpdu_stats->report_granularity = REPORT_GRAN_TID;
+			mpdu_stats->report_gran_bitmap =
+				config->mpdu_stats.report_gran_bitmap &
+					(BIT(CDP_DATA_TID_MAX) - 1);
+			num_elements = qdf_get_hamming_weight(mpdu_stats->report_gran_bitmap);
+		} else if (config->mpdu_stats.report_granularity == REPORT_GRAN_AC) {
+			mpdu_stats->report_granularity = REPORT_GRAN_AC;
+			mpdu_stats->report_gran_bitmap =
+				config->mpdu_stats.report_gran_bitmap &
+					(BIT(CDP_MAX_DATA_AC) - 1);
+			num_elements = qdf_get_hamming_weight(mpdu_stats->report_gran_bitmap);
+		} else {
+			mpdu_stats->report_granularity = REPORT_GRAN_AGGR;
+			mpdu_stats->report_gran_bitmap = 0;
+			num_elements = 1;
+		}
+
+		mpdu_stats->link_granularity = config->mpdu_stats.link_granularity;
+		for (i = 0; i < num_vdev_ids; i++)
+			if (mpdu_stats->link_granularity &&
+			    (config->mpdu_stats.link_gran_bitmap & BIT(link_id_list[i])))
+				mpdu_stats->link_gran_bitmap |= BIT(link_id_list[i]);
+
+		if (!mpdu_stats->link_gran_bitmap)
+			mpdu_stats->link_granularity = 0;
+		buf += sizeof(struct qos_radio_stats_mpdu_count_fixed_fields);
+
+		*param_bitmap_attr |= RADIO_STATS_LISTS_PRESENT;
+
+		radio_stats_cached = &mlme_priv_list[0]->dar_info.radio_stats_cached;
+
+		for (j = 0; j < num_elements; j++) {
+			*(uint32_t *)buf = radio_stats_cached->dropped_mpdu_count[j];
+			buf += sizeof(uint32_t);
+		}
+	qdf_trace_hex_dump(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+			   (void *)(radio_attr), buf - (uint8_t *)radio_attr);
+		for (i = 0; i < num_vdev_ids; i++) {
+			radio_stats_cached = &mlme_priv_list[i]->dar_info.radio_stats_cached;
+
+			for (j = 0; j < num_elements; j++) {
+				mpdu_stats_list = (struct mpdu_count_stats_info *)buf;
+				mpdu_stats_list->successful_mpdu_count =
+					radio_stats_cached->mpdu_stats[j].successful_mpdu_count;
+				mpdu_stats_list->mpdu_retry_count =
+					radio_stats_cached->mpdu_stats[j].mpdu_retry_count;
+				buf += sizeof(struct mpdu_count_stats_info);
+
+				retry_rate_conf = config->mpdu_stats.thresholds[i][j];
+				retry_rate_obsr = (uint32_t)mpdu_stats_list->mpdu_retry_count * 100 /
+					(mpdu_stats_list->successful_mpdu_count +
+					 1);//mpdu_stats_list->dropped_mpdu_count);
+				if (param_bitmap_conf & RADIO_STATS_THRESHOLDS_PRESENT &&
+				    retry_rate_obsr >= retry_rate_conf)
+					threshold_hit = true;
+			}
+			if (!mpdu_stats->link_granularity ||
+			    i+1 >= qdf_get_hamming_weight(config->mpdu_stats.link_gran_bitmap))
+				break;
+		}
+	}
+
+	if (param_bitmap_conf & RTS_STATISTICS_FIELD &&
+	    ((config->rts_stats.link_granularity &&
+	      config->rts_stats.link_gran_bitmap) ||
+	     !config->rts_stats.link_granularity)) {
+		*param_bitmap_attr |= RTS_STATISTICS_FIELD;
+		rts_stats = (struct qos_radio_rts_stats_fixed_fields *)buf;
+		radio_stats_cached = &mlme_priv_list[0]->dar_info.radio_stats_cached;
+
+		if (config->rts_stats.report_granularity == REPORT_GRAN_TID) {
+			rts_stats->report_granularity = REPORT_GRAN_TID;
+			rts_stats->report_gran_bitmap =
+				config->rts_stats.report_gran_bitmap &
+					(BIT(CDP_DATA_TID_MAX) - 1);
+			num_elements = qdf_get_hamming_weight(rts_stats->report_gran_bitmap);
+		} else if (config->rts_stats.report_granularity == REPORT_GRAN_AC) {
+			rts_stats->report_granularity = REPORT_GRAN_AC;
+			rts_stats->report_gran_bitmap =
+				config->rts_stats.report_gran_bitmap &
+					(BIT(CDP_MAX_DATA_AC) - 1);
+			num_elements = qdf_get_hamming_weight(rts_stats->report_gran_bitmap);
+		} else {
+			rts_stats->report_granularity = REPORT_GRAN_AGGR;
+			rts_stats->report_gran_bitmap = 0;
+			num_elements = 1;
+		}
+
+		rts_stats->link_granularity = config->rts_stats.link_granularity;
+		for (i = 0; i < num_vdev_ids; i++)
+			if (rts_stats->link_granularity &&
+			    (config->rts_stats.link_gran_bitmap & BIT(link_id_list[i])))
+				rts_stats->link_gran_bitmap |= BIT(link_id_list[i]);
+
+		if (!rts_stats->link_gran_bitmap)
+			rts_stats->link_granularity = 0;
+		buf += sizeof(struct qos_radio_rts_stats_fixed_fields);
+
+		*param_bitmap_attr |= RADIO_STATS_LISTS_PRESENT;
+		for (i = 0; i < num_vdev_ids; i++) {
+			radio_stats_cached = &mlme_priv_list[i]->dar_info.radio_stats_cached;
+
+			for (j = 0; j < num_elements; j++) {
+				rts_stats_list = (struct rts_stats_info *)buf;
+				rts_stats_list->successful_rts_count =
+					radio_stats_cached->rts_stats[j].successful_rts_count;
+				rts_stats_list->rts_failure_count =
+					radio_stats_cached->rts_stats[j].rts_failure_count;
+				buf += sizeof(struct rts_stats_info);
+
+				retry_rate_conf = config->rts_stats.thresholds[i][j];
+				retry_rate_obsr = (uint32_t)rts_stats_list->rts_failure_count * 100 /
+					(rts_stats_list->successful_rts_count +
+					 rts_stats_list->rts_failure_count) * 100; //TODO: Fetch from DP
+				if (param_bitmap_conf & RADIO_STATS_THRESHOLDS_PRESENT &&
+				    retry_rate_obsr >= retry_rate_conf)
+					threshold_hit = true;
+			}
+			if (!rts_stats->link_granularity ||
+			    i+1 >= qdf_get_hamming_weight(config->rts_stats.link_gran_bitmap))
+				break;
+		}
+//		buf += 3*4*num_elements*num_vdev_ids;
+	}
+
+	if (param_bitmap_conf & FCS_FAILURE_FIELD &&
+	    ((config->fcs_stats.link_granularity &&
+	      config->fcs_stats.link_gran_bitmap) ||
+	     !config->fcs_stats.link_granularity)) {
+		*param_bitmap_attr |= FCS_FAILURE_FIELD;
+		fcs_stats = (struct qos_radio_fcs_failure_stats *)buf;
+		fcs_stats->link_granularity = config->fcs_stats.link_granularity;
+		for (i = 0; i < num_vdev_ids; i++)
+			if (fcs_stats->link_granularity &&
+			    (config->fcs_stats.link_gran_bitmap & BIT(link_id_list[i])))
+				fcs_stats->link_gran_bitmap |= BIT(link_id_list[i]);
+
+		if (!fcs_stats->link_gran_bitmap)
+			fcs_stats->link_granularity = 0;
+
+		buf += sizeof(struct qos_radio_fcs_failure_stats_fixed_fields);
+		*param_bitmap_attr |= RADIO_STATS_LISTS_PRESENT;
+		for (i = 0; i < num_vdev_ids; i++) {
+			radio_stats_cached = &mlme_priv_list[i]->dar_info.radio_stats_cached;
+			fcs_stats->fcs_fail_list[i] = radio_stats_cached->fcs_failures[0];
+			buf += sizeof(uint32_t);
+			/* Decide whether to add next element in list or not */
+			if (!fcs_stats->link_granularity ||
+			    i+1 >= qdf_get_hamming_weight(config->fcs_stats.link_gran_bitmap))
+				break;
+		}
+	}
+
+done:
+	for (i = 0; i < num_vdev_ids; i++)
+		wlan_objmgr_vdev_release_ref(vdev_list[i], WLAN_MLME_OBJMGR_ID);
+	*radio_stats_size = buf - (uint8_t *)radio_attr;
+	mlme_legacy_debug("Radio stats size: %d", *radio_stats_size);
+	qdf_trace_hex_dump(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+			   (void *)(radio_attr), *radio_stats_size);
+
+	return status;
+}

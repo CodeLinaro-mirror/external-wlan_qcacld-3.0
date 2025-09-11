@@ -5713,6 +5713,37 @@ wlan_mlme_dar_get_radio_stats_config(struct wlan_objmgr_psoc *psoc, uint8_t vdev
 				     struct sir_qos_radio_stats_config *config);
 
 /**
+ * wlan_mlme_dar_cache_peer_radio_stats() - Cache DAR peer radio statistics.
+ * @psoc: pointer to psoc object
+ * @dar_stats: Pointer to the DAR statistics structure for a peer
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+wlan_mlme_dar_cache_peer_radio_stats(struct wlan_objmgr_psoc *psoc,
+				     struct cp_stats_dar *dar_stats);
+
+/**
+ * wlan_mlme_dar_get_peer_radio_stats() - Get DAR peer radio statistics.
+ * @psoc: pointer to psoc object
+ * @num_vdev_ids: Number of VDEV IDs in the list
+ * @vdev_id_list: Array of VDEV IDs
+ * @link_id_list: Array of link IDs
+ * @config: Pointer to the radio statistics configuration structure (input criteria)
+ * @radio_attr: Pointer to fill with the retrieved radio attributes/statistics
+ * @radio_stats_size: Pointer to store the size of the retrieved radio statistics
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+wlan_mlme_dar_get_peer_radio_stats(struct wlan_objmgr_psoc *psoc,
+				   uint32_t num_vdev_ids, uint32_t *vdev_id_list,
+				   uint32_t *link_id_list,
+				   struct sir_qos_radio_stats_config *config,
+			   struct sir_qos_radio_stats_config *radio_attr,
+				   uint16_t *radio_stats_size);
+
+/**
  * wlan_mlme_dar_set_requested_stats_bitmap() - Set the bitmap for requested DAR statistics.
  * @psoc: pointer to psoc object
  * @vdev_id: VDEV identifier

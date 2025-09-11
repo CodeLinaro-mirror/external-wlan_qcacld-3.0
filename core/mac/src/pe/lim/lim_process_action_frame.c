@@ -2013,6 +2013,139 @@ lim_fetch_ml_vdev_id_info(struct mac_context *mac,
 	}
 }
 
+#ifdef WLAN_SUPPORT_INFRA_CTRL_PATH_STATS
+/**
+ * lim_cache_dar_radio_stats: update stats of rrm structure of mac
+ * @ev: cp stats event
+ * @mac: mac context
+ *
+ * Return: None
+ */
+static inline void
+lim_cache_dar_radio_stats(struct infra_cp_stats_event *ev,
+			  struct mac_context *mac)
+{
+	struct cp_stats_dar *dar_stats;
+	uint8_t i;
+
+	for (i = 0; i < 2; i++) {
+		dar_stats = &ev->sta_stats->dar_stats[i];
+		if (dar_stats->filled)
+			wlan_mlme_dar_cache_peer_radio_stats(mac->psoc,
+							     dar_stats);
+	}
+}
+
+/**
+ * lim_dar_radio_stats_response_cb: radio stats response callback
+ * @ev: cp stats event
+ * @cookie: Data carried from caller
+ *
+ * Return: None
+ */
+static void
+lim_dar_radio_stats_response_cb(struct infra_cp_stats_event *ev, void *cookie)
+{
+	struct mac_context *mac;
+	QDF_STATUS status;
+	struct pe_session *session = (struct pe_session *)cookie;
+	struct sir_sme_dar_stats_msg *stats;
+	uint32_t num_vdev_ids, vdev_id_list[2], link_id_list[2] = {0};
+	struct sir_qos_radio_stats_config config = {0};
+	enum wfa_capa_qos_mgmt_features dar_requested_bitmap_peer;
+
+
+	mac = cds_get_context(QDF_MODULE_ID_PE);
+	if (!mac)
+		return;
+
+	/* Deregister callback registered in request */
+	status = wlan_cp_stats_infra_cp_deregister_resp_cb(mac->psoc);
+	if (QDF_IS_STATUS_ERROR(status))
+		pe_err("failed to deregister callback %d", status);
+
+	lim_cache_dar_radio_stats(ev, mac);
+	//Check if previous stats are cached. prepare the frame with radio stats
+
+	lim_fetch_ml_vdev_id_info(mac, session, &num_vdev_ids, &vdev_id_list[0],
+				  &link_id_list[0], NULL, NULL);
+	dar_requested_bitmap_peer = wlan_mlme_dar_get_requested_stats_bitmap(
+						mac->psoc, session->vdev_id);
+	stats = qdf_mem_malloc(1000);
+	if (dar_requested_bitmap_peer & WFA_CAPA_RADIO_COUNTER_STATS) {
+		wlan_mlme_dar_get_radio_stats_config(mac->psoc, session->vdev_id,
+						     &config);
+		stats->stats_type = WFA_CAPA_RADIO_COUNTER_STATS;
+		wlan_mlme_dar_get_peer_radio_stats(mac->psoc,
+						   num_vdev_ids, vdev_id_list,
+						   link_id_list, &config,
+						   &stats->radio_attr,
+						   &stats->radio_stats_size);
+		if (session->dar_radio_stats_valid)
+			lim_prepare_n_send_dar_report_frame(mac, session, stats);
+		session->dar_radio_stats_valid = true;
+	}
+	qdf_mem_free(stats);
+
+}
+
+static void
+lim_populate_dar_req_ml_vdev_id_info(struct mac_context *mac,
+				     struct pe_session *session,
+				     struct infra_cp_stats_cmd_info *info)
+{
+	info->num_pdev_ids = 0;
+	lim_fetch_ml_vdev_id_info(mac, session,
+				  &info->num_vdev_ids, &info->vdev_id[0], NULL,
+				  &info->num_mac_addr_list,
+				  (uint8_t **)info->peer_mac_addr);
+}
+
+QDF_STATUS
+lim_send_dar_radio_stats_query(struct mac_context *mac,
+			 struct pe_session *session)
+{
+	struct infra_cp_stats_cmd_info info = {0};
+	get_infra_cp_stats_cb resp_cb = NULL;
+	void *context;
+	QDF_STATUS status;
+
+	status = wlan_cp_stats_infra_cp_get_context(mac->psoc, &resp_cb,
+						    &context);
+	if (resp_cb) {
+		pe_err("another request already in progress");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	info.request_cookie = session;
+	info.stats_id = TYPE_REQ_CTRL_PATH_DAR_STAT;
+	info.action = ACTION_REQ_CTRL_PATH_STAT_GET;
+	info.stats_granularity = 0;
+	info.infra_cp_stats_resp_cb = lim_dar_radio_stats_response_cb;
+	lim_populate_dar_req_ml_vdev_id_info(mac, session, &info);
+
+	status =  wlan_cp_stats_infra_cp_register_resp_cb(mac->psoc, &info);
+	if (QDF_IS_STATUS_ERROR(status)) {
+		pe_err("Failed to register resp callback: %d", status);
+		return status;
+	}
+
+	status = wlan_cp_stats_send_infra_cp_req(mac->psoc, &info);
+	if (QDF_IS_STATUS_ERROR(status)) {
+		pe_err("Failed to send stats request status: %d", status);
+		goto get_stats_fail;
+	}
+
+	return QDF_STATUS_SUCCESS;
+
+get_stats_fail:
+	status = wlan_cp_stats_infra_cp_deregister_resp_cb(mac->psoc);
+	if (QDF_IS_STATUS_ERROR(status))
+		pe_err("failed to deregister callback %d", status);
+	return status;
+}
+#endif
+
 static void
 lim_send_sme_dar_timer_req(struct mac_context *mac, uint8_t vdev_id,
 			   struct latency_stats_attr *latency_attr,
@@ -2244,6 +2377,8 @@ lim_handle_dar_req_frame(struct mac_context *mac_ctx,
 						       &radio_config);
 			wlan_mlme_dar_set_radio_stats_config(mac_ctx->psoc,
 					session->smeSessionId, &radio_config);
+			session->dar_radio_stats_valid = false;
+			lim_send_dar_radio_stats_query(mac_ctx, session);
 			stats_requested |= WFA_CAPA_RADIO_COUNTER_STATS;
 			wlan_mlme_dar_set_peer_config(mac_ctx->psoc,
 						   session->vdev_id,

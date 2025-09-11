@@ -124,4 +124,17 @@ QDF_STATUS
 lim_send_edca_pifs_param(struct mac_context *mac,
 			 struct wlan_edca_pifs_param_ie *param,
 			 uint8_t vdev_id);
+/**
+ * lim_send_dar_radio_stats_query() - Send a query to the firmware for DAR radio statistics.
+ * @mac: pointer to Global MAC structure.
+ * @session: PE session.
+ *
+ * This function sends a request to the underlying firmware to retrieve
+ * radio statistics related to DAR functionality.
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+lim_send_dar_radio_stats_query(struct mac_context *mac,
+			       struct pe_session *session);
 #endif
