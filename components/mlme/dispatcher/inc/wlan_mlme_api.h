@@ -5688,6 +5688,31 @@ wlan_mlme_dar_get_peer_config(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
 			      struct dar_req_ies_peer **req_ies);
 
 /**
+ * wlan_mlme_dar_set_radio_stats_config() - Set DAR radio stats config
+ * @psoc: pointer to psoc object
+ * @vdev_id: VDEV identifier
+ * @config: Pointer to the radio statistics configuration structure
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+wlan_mlme_dar_set_radio_stats_config(struct wlan_objmgr_psoc *psoc,
+				     uint8_t vdev_id,
+				     struct sir_qos_radio_stats_config *config);
+
+/**
+ * wlan_mlme_dar_get_radio_stats_config() - Get DAR radio stats config
+ * @psoc: pointer to psoc object
+ * @vdev_id: VDEV identifier
+ * @config: Pointer to fill with the radio statistics configuration structure
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+wlan_mlme_dar_get_radio_stats_config(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+				     struct sir_qos_radio_stats_config *config);
+
+/**
  * wlan_mlme_dar_set_requested_stats_bitmap() - Set the bitmap for requested DAR statistics.
  * @psoc: pointer to psoc object
  * @vdev_id: VDEV identifier

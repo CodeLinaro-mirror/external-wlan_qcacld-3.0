@@ -9550,3 +9550,60 @@ done:
 	wlan_objmgr_vdev_release_ref(vdev, WLAN_MLME_OBJMGR_ID);
 	return status;
 }
+
+QDF_STATUS
+wlan_mlme_dar_set_radio_stats_config(struct wlan_objmgr_psoc *psoc,
+				     uint8_t vdev_id,
+				     struct sir_qos_radio_stats_config *config)
+{
+	struct mlme_legacy_priv *mlme_priv;
+	struct wlan_objmgr_vdev *vdev;
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id,
+						    WLAN_MLME_OBJMGR_ID);
+	if (!vdev)
+		return QDF_STATUS_E_INVAL;
+
+	mlme_priv = wlan_vdev_mlme_get_ext_hdl(vdev);
+	if (!mlme_priv) {
+		mlme_legacy_err("vdev legacy private object is NULL");
+		status = QDF_STATUS_E_INVAL;
+		goto done;
+	}
+
+	qdf_mem_copy(&mlme_priv->dar_info.radio_config, config,
+		     sizeof(*config));
+
+done:
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_MLME_OBJMGR_ID);
+	return status;
+}
+
+QDF_STATUS
+wlan_mlme_dar_get_radio_stats_config(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+				     struct sir_qos_radio_stats_config *config)
+{
+	struct mlme_legacy_priv *mlme_priv;
+	struct wlan_objmgr_vdev *vdev;
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+
+	vdev = wlan_objmgr_get_vdev_by_id_from_psoc(psoc, vdev_id,
+						    WLAN_MLME_OBJMGR_ID);
+	if (!vdev)
+		return QDF_STATUS_E_INVAL;
+
+	mlme_priv = wlan_vdev_mlme_get_ext_hdl(vdev);
+	if (!mlme_priv) {
+		mlme_legacy_err("vdev legacy private object is NULL");
+		status = QDF_STATUS_E_INVAL;
+		goto done;
+	}
+
+	qdf_mem_copy(config, &mlme_priv->dar_info.radio_config,
+		     sizeof(*config));
+
+done:
+	wlan_objmgr_vdev_release_ref(vdev, WLAN_MLME_OBJMGR_ID);
+	return status;
+}

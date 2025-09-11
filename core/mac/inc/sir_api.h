@@ -5193,6 +5193,7 @@ struct sir_sme_dar_stats_msg {
 	uint16_t actual_meas_dur;
 	enum wfa_capa_qos_mgmt_features stats_type;
 	struct sir_qos_latency_stats stats;
+	struct sir_qos_radio_stats_config radio_attr;
 	uint16_t radio_stats_size;
 };
 

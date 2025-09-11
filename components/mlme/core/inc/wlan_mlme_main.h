@@ -868,6 +868,7 @@ struct dar_req_ies_peer {
  * @peer_mac: MAC address of the peer for which DAR is configured.
  * @request_id: Identifier for the current DAR request.
  * @req_ies: Information elements requested from the peer.
+ * @radio_config: Configuration parameters for radio statistics.
  */
 struct dar_config {
 	uint16_t dar_feature_bitmap;
@@ -875,6 +876,7 @@ struct dar_config {
 	tSirMacAddr peer_mac;
 	uint8_t request_id;
 	struct dar_req_ies_peer req_ies;
+	struct sir_qos_radio_stats_config radio_config;
 };
 
 /**

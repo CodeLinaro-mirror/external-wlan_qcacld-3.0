@@ -9704,7 +9704,10 @@ lim_populate_radio_stats_attr(struct qos_radio_stats_attr *frame,
 		qdf_mem_copy(frame, req, size);
 
 	frame->attr_id = DAR_RADIO_COUNTERS_ATTR;
-	frame->length = size - 2;
+	if (size > DAR_IE_LEN_MAX)
+		size = lim_fragment_dar_attr((uint8_t *)frame, size, DAR_FRAGMENT_ATTR);
+	else
+		frame->length = size - 2;
 
 	return size;
 }
@@ -10057,6 +10060,32 @@ lim_prepare_n_send_dar_report_frame(struct mac_context *mac_ctx,
 		if (payload->qos_mgmt_el_hdr.len + stats_tag_size - filled_ie_len <= DAR_IE_LEN_MAX)
 			payload->qos_mgmt_el_hdr.len += stats_tag_size - filled_ie_len;
 
+		frame_len += stats_tag_size - filled_ie_len;
+		attr = (union qos_mgmt_attr *)((uint8_t *)attr + stats_tag_size);
+		filled_ie_len += stats_tag_size;
+	}
+	if (req->stats_type & WFA_CAPA_RADIO_COUNTER_STATS) {
+		stats_tag_size =
+			lim_populate_radio_stats_attr(
+					(struct qos_radio_stats_attr *)buf_temp,
+					      &req->radio_attr,
+					      req->radio_stats_size,
+					      false);
+		QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+				   buf_temp, stats_tag_size);
+
+		filled_ie_len += sizeof(struct vendor_el);
+
+		filled_ie_len += sizeof(struct dar_report_attr_fields);
+
+		//payload length
+		payload->qos_mgmt_el_hdr.len = filled_ie_len - 2;
+		stats_tag_size = lim_dar_populate_fragment_ie((uint8_t *)&payload->qos_mgmt_el_hdr,
+					       filled_ie_len, buf_temp,
+					       stats_tag_size);
+
+		if (payload->qos_mgmt_el_hdr.len + stats_tag_size <= DAR_IE_LEN_MAX)
+			payload->qos_mgmt_el_hdr.len += stats_tag_size - filled_ie_len;
 		frame_len += stats_tag_size - filled_ie_len;
 		attr = (union qos_mgmt_attr *)((uint8_t *)attr + stats_tag_size);
 		filled_ie_len += stats_tag_size;

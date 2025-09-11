@@ -2083,6 +2083,67 @@ lim_process_dar_rsp_frame(struct mac_context *mac,
 	return;
 }
 
+static void
+lim_parse_dar_radio_stats_attr(struct qos_radio_stats_attr *radio_attr,
+			       struct sir_qos_radio_stats_config *radio_config)
+{
+	uint8_t *buf = (uint8_t *)radio_attr;
+	uint8_t num_thresholds = 0;
+
+	radio_config->radio_stats_hdr = *radio_attr;
+
+	buf += sizeof(*radio_attr);
+	if (radio_config->radio_stats_hdr.param_presence_bitmap & TRANSMIT_POWER_FIELD) {
+		qdf_mem_copy(&radio_config->tx_power, buf,
+			     sizeof(struct qos_radio_stats_report_tp_fixed_fields));
+		buf += sizeof(struct qos_radio_stats_report_tp_fixed_fields);
+	}
+
+	if (radio_config->radio_stats_hdr.param_presence_bitmap & OBSERVED_CU_FRACTION_FIELD) {
+		qdf_mem_copy(&radio_config->cu, buf,
+			     sizeof(struct qos_radio_stats_cu_fixed_field));
+		buf += sizeof(struct qos_radio_stats_cu_fixed_field);
+
+		if (radio_config->radio_stats_hdr.param_presence_bitmap & RADIO_STATS_THRESHOLDS_PRESENT) {
+			num_thresholds = qdf_get_hamming_weight(QDF_MAX(radio_config->cu.link_gran_bitmap, 1));
+			if (num_thresholds)
+				qdf_mem_copy(&radio_config->cu.thresholds, buf, num_thresholds);
+			buf += num_thresholds;
+		}
+	}
+
+	if (radio_config->radio_stats_hdr.param_presence_bitmap & MPDU_COUNT_STATISTICS_FIELD) {
+		qdf_mem_copy(&radio_config->mpdu_stats, buf,
+			     sizeof(struct qos_radio_stats_mpdu_count_fixed_fields));
+		buf += sizeof(struct qos_radio_stats_mpdu_count_fixed_fields);
+		if (radio_config->radio_stats_hdr.param_presence_bitmap & RADIO_STATS_THRESHOLDS_PRESENT) {
+			num_thresholds = qdf_get_hamming_weight(QDF_MAX(radio_config->mpdu_stats.link_gran_bitmap, 1)) *
+					qdf_get_hamming_weight(radio_config->mpdu_stats.report_gran_bitmap);
+			if (num_thresholds)
+				qdf_mem_copy(&radio_config->mpdu_stats.thresholds, buf, num_thresholds);
+			buf += num_thresholds;
+		}
+	}
+
+	if (radio_config->radio_stats_hdr.param_presence_bitmap & RTS_STATISTICS_FIELD) {
+		qdf_mem_copy(&radio_config->rts_stats, buf,
+			     sizeof(struct qos_radio_rts_stats_fixed_fields));
+		buf += sizeof(struct qos_radio_rts_stats_fixed_fields);
+		if (radio_config->radio_stats_hdr.param_presence_bitmap & RADIO_STATS_THRESHOLDS_PRESENT) {
+			num_thresholds = qdf_get_hamming_weight(QDF_MAX(radio_config->rts_stats.link_gran_bitmap, 1)) *
+					qdf_get_hamming_weight(radio_config->rts_stats.report_gran_bitmap);
+			if (num_thresholds)
+				qdf_mem_copy(&radio_config->rts_stats.thresholds, buf, num_thresholds);
+			buf += num_thresholds;
+		}
+	}
+
+	if (radio_config->radio_stats_hdr.param_presence_bitmap & FCS_FAILURE_FIELD) {
+		qdf_mem_copy(&radio_config->fcs_stats, buf,
+			     sizeof(struct qos_radio_fcs_failure_stats_fixed_fields));
+	}
+}
+
 static enum dar_status_codes
 lim_handle_dar_req_frame(struct mac_context *mac_ctx,
 			 struct pe_session *session,
@@ -2094,8 +2155,10 @@ lim_handle_dar_req_frame(struct mac_context *mac_ctx,
 	union qos_mgmt_attr *qos_attr;
 	struct dar_req_attr *req_attr;
 	struct latency_stats_attr *latency_attr = NULL;
+	struct qos_radio_stats_attr *radio_attr = NULL;
 	uint8_t *buf;
 	struct sir_qos_stats_peer_data peer_data = {0};
+	struct sir_qos_radio_stats_config radio_config = {0};
 	enum wfa_capa_qos_mgmt_features stats_requested = 0;
 
 	payload = (struct dar_req_rsp_action_frame *)(frame +
@@ -2162,6 +2225,34 @@ lim_handle_dar_req_frame(struct mac_context *mac_ctx,
 						   (uint8_t *)latency_attr, latency_attr->length+2,
 						   WFA_CAPA_DATA_PLANE_STATS);
 		break;
+		case DAR_RADIO_COUNTERS_ATTR:
+			pe_debug("DAR radio attr");
+			if (buf + sizeof(struct qos_radio_stats_attr) >
+			    frame + frame_len) {
+				pe_debug("DAR radio stats attr with insufficient length");
+				//Abort all stats and cleanup local data
+				return DAR_REQ_DECLINED;
+			}
+			radio_attr = (struct qos_radio_stats_attr *)buf;
+			/**
+			 * 1. Query radio stats and cache them
+			 * 2. Start timer for measurement duration
+			 * 3. when timer expires, query again and prepare
+			 *    report frame with delta
+			 */
+			lim_parse_dar_radio_stats_attr(radio_attr,
+						       &radio_config);
+			wlan_mlme_dar_set_radio_stats_config(mac_ctx->psoc,
+					session->smeSessionId, &radio_config);
+			stats_requested |= WFA_CAPA_RADIO_COUNTER_STATS;
+			wlan_mlme_dar_set_peer_config(mac_ctx->psoc,
+						   session->vdev_id,
+						   mac_addr->sa,
+						   req_attr->hdr.request_id,
+						   (uint8_t *)radio_attr, radio_attr->length+2,
+						   WFA_CAPA_RADIO_COUNTER_STATS);
+		break;
+
 		default:
 			pe_debug("skip Unsupported attr: %d", dar_hdr->attr_id);
 		}
