@@ -302,6 +302,8 @@ extern enum policy_mgr_conc_next_action
  *                       BW when do restart
  * @move_sap_go_1st_on_dfs_sta_csa: Enable/Disable SAP / GO's movement
  *				    to non-DFS channel before STA
+ * @cfg_sta_indoor_ch_peer_scc: Enable/disable STA connected indoor channel for
+ * peer-to-peer connections and from SCC.
  */
 struct policy_mgr_cfg {
 	uint8_t mcc_to_scc_switch;
@@ -332,6 +334,7 @@ struct policy_mgr_cfg {
 #endif
 	bool use_sap_original_bw;
 	bool move_sap_go_1st_on_dfs_sta_csa;
+	bool cfg_sta_indoor_ch_peer_scc;
 };
 
 /**
