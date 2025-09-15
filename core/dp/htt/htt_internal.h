@@ -114,9 +114,7 @@
 #endif
 
 #ifdef DP_COLOGNE_HL
-	/* No extra hardware rx desc for cologne hl dp rx */
-	/* Point directly to the rx payload */
-	/* target rx payload has a fix extra 2 bytes offset */
+	/* target rx payload has a fix extra 2 bytes offset for Cologne HL */
 #define DP_RX_EXTRA_OFFSET 2
 #else
 #define DP_RX_EXTRA_OFFSET 0
