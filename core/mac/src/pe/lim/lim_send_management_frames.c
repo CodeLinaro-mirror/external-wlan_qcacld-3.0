@@ -3263,7 +3263,7 @@ QDF_STATUS lim_fill_wifi_gen_cap_ie(struct pe_session *pe_session,
 	*buf = cert_gen;
 	buf++;
 
-	*ie_len = WFA_CAPABILITIES_IE_LENGTH + 2;
+	*ie_len = WFA_CAPABILITIES_IE_LENGTH + sizeof(cap_bitmap) + 2;
 	*ie_buf = cap_ie;
 
 	return status;

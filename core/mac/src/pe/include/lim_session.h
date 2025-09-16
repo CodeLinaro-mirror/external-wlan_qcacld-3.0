@@ -440,7 +440,7 @@ struct punc_chan_info {
  * capabilities length is defined as 1.
  */
 #define WFA_CAPABILITIES_LENGTH			0x1
-#define WFA_CAPABILITIES_IE_LENGTH		(0x0B + WFA_CAPABILITIES_LENGTH)
+#define WFA_CAPABILITIES_IE_LENGTH		0x0B
 #define WFA_CAPABILITIES_OUI			"\x50\x6F\x9A\x23"
 #define WFA_CAPABILITIES_OUI_LENGTH		0x04
 /* Fixed field: OUI length + 1 byte for length of bitmap */
