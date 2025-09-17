@@ -1567,6 +1567,24 @@
 		CFG_VALUE_OR_DEFAULT, \
 		"max limitation for buffer size in ADDBA response")
 
+/*
+ * <ini>
+ * amsdu_enable - capbility of rx amsdu support
+ *
+ * @Min: 0
+ * @Max: 1
+ * @Default: 1
+ *
+ * This will reflect the amsdu permit bit in addba response frame
+ *
+ * </ini>
+ */
+#define CFG_DP_RX_AMSDU_ENABLE \
+		CFG_INI_UINT("rx_amsdu", \
+		0, 1, 1, \
+		CFG_VALUE_OR_DEFAULT, \
+		"enable or disable amsdu support in addba response")
+
 #define CFG_DP_ALL \
 	CFG(CFG_DP_RX_THREAD_CPU_MASK) \
 	CFG(CFG_DP_RX_THREAD_UL_CPU_MASK) \
@@ -1601,6 +1619,7 @@
 	CFG_DP_DYNAMIC_RESOURCE_MGMT \
 	CFG(CFG_DP_IPA_DEBUG_ENABLE) \
 	CFG(CFG_DP_IRQ_AFFINITY_MASK) \
-	CFG(CFG_DP_ADDBA_BUFSIZE)
+	CFG(CFG_DP_ADDBA_BUFSIZE) \
+	CFG(CFG_DP_RX_AMSDU_ENABLE)
 
 #endif /* WLAN_DP_CFG_H__ */

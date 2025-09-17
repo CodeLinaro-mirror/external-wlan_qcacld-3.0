@@ -7113,7 +7113,7 @@ QDF_STATUS lim_send_addba_response_frame(struct mac_context *mac_ctx,
 	 */
 	if (frm_buff_size > cfg_get(mac_ctx->psoc, CFG_DP_ADDBA_BUFSIZE)) {
 		frm_buff_size = cfg_get(mac_ctx->psoc, CFG_DP_ADDBA_BUFSIZE);
-		pr_info("ADDBA reponse: buf set to: %d\n", frm_buff_size);
+		pr_debug("ADDBA reponse: buf set to: %d\n", frm_buff_size);
 	}
 #endif
 
@@ -7126,7 +7126,8 @@ QDF_STATUS lim_send_addba_response_frame(struct mac_context *mac_ctx,
 	frm.addba_param_set.buff_size = frm_buff_size % MAX_EHT_BA_BUFF_SIZE;
 
 	/* Enable RX AMSDU only in HE mode if supported */
-	if (mac_ctx->is_usr_cfg_amsdu_enabled &&
+	if (cfg_get(mac_ctx->psoc, CFG_DP_RX_AMSDU_ENABLE) &&
+		mac_ctx->is_usr_cfg_amsdu_enabled &&
 	    ((IS_PE_SESSION_HE_MODE(session) &&
 	      WLAN_REG_IS_24GHZ_CH_FREQ(session->curr_op_freq)) ||
 	     !WLAN_REG_IS_24GHZ_CH_FREQ(session->curr_op_freq) ||
