@@ -475,5 +475,43 @@ ol_tx_get_ext_header_type(struct ol_txrx_vdev_t *vdev,
 enum extension_header_type
 ol_tx_get_wisa_ext_type(qdf_nbuf_t netbuf);
 
+/*
+ * When the tx frame is downloaded to the target, there are two
+ * outstanding references:
+ * 1.  The host download SW (HTT, HTC, HIF)
+ *     This reference is cleared by the ol_tx_send_done callback
+ *     functions.
+ * 2.  The target FW
+ *     This reference is cleared by the ol_tx_completion_handler
+ *     function.
+ * It is extremely probable that the download completion is processed
+ * before the tx completion message.  However, under exceptional
+ * conditions the tx completion may be processed first.  Thus, rather
+ * that assuming that reference (1) is done before reference (2),
+ * explicit reference tracking is needed.
+ * Double-increment the ref count to account for both references
+ * described above.
+ *
+ * For cologne SDIO, target FW will not send tx completion therefore
+ * reference (2) is not required. Double-increment will lead to desc
+ * unfreed.
+ */
+
+#ifdef DP_COLOGNE_HL
+static inline
+void ol_tx_desc_ref_init(struct ol_tx_desc_t *tx_desc)
+{
+	OL_TX_DESC_REF_INIT(tx_desc);
+	OL_TX_DESC_REF_INC(tx_desc);
+}
+#else
+static inline
+void ol_tx_desc_ref_init(struct ol_tx_desc_t *tx_desc)
+{
+	OL_TX_DESC_REF_INIT(tx_desc);
+	OL_TX_DESC_REF_INC(tx_desc);
+	OL_TX_DESC_REF_INC(tx_desc);
+}
+#endif
 
 #endif /* _OL_TX_DESC__H_ */

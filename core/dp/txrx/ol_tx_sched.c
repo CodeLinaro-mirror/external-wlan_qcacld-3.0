@@ -1384,27 +1384,7 @@ ol_tx_sched_dispatch(
 		prev = msdu;
 
 #ifndef ATH_11AC_TXCOMPACT
-		/*
-		 * When the tx frame is downloaded to the target, there are two
-		 * outstanding references:
-		 * 1.  The host download SW (HTT, HTC, HIF)
-		 *     This reference is cleared by the ol_tx_send_done callback
-		 *     functions.
-		 * 2.  The target FW
-		 *     This reference is cleared by the ol_tx_completion_handler
-		 *     function.
-		 * It is extremely probable that the download completion is
-		 * processed before the tx completion message.  However, under
-		 * exceptional conditions the tx completion may be processed
-		 *first. Thus, rather that assuming that reference (1) is
-		 *done before reference (2),
-		 * explicit reference tracking is needed.
-		 * Double-increment the ref count to account for both references
-		 * described above.
-		 */
-		qdf_atomic_init(&tx_desc->ref_cnt);
-		qdf_atomic_inc(&tx_desc->ref_cnt);
-		qdf_atomic_inc(&tx_desc->ref_cnt);
+		ol_tx_desc_ref_init(tx_desc);
 #endif
 
 		/*Store the MSDU Id for each MSDU*/
