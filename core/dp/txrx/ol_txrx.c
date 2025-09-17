@@ -6354,6 +6354,128 @@ ol_txrx_set_peer_txq_flush_config(struct cdp_soc_t *soc_hdl,
 }
 #endif
 
+
+#ifdef DP_COLOGNE_HL
+/**
+ * ol_txrx_peer_setup_hl() - Setup peer for HL datapath
+ * @soc_hdl: datapath soc handle
+ * @vdev_id: virtual device id
+ * @peer_mac: peer mac address
+ * @peer_info: peer setup information
+ *
+ * Return: QDF_STATUS_SUCCESS on success, error code on failure
+ */
+static QDF_STATUS ol_txrx_peer_setup_hl(struct cdp_soc_t *soc_hdl,
+                                       uint8_t vdev_id,
+                                       uint8_t *peer_mac,
+                                       struct cdp_peer_setup_info *peer_info)
+{
+	struct ol_txrx_soc_t *soc = cdp_soc_t_to_ol_txrx_soc_t(soc_hdl);
+	ol_txrx_pdev_handle pdev = ol_txrx_get_pdev_from_pdev_id(soc, OL_TXRX_PDEV_ID);
+	QDF_STATUS status = QDF_STATUS_SUCCESS;
+	struct mac_context *mac_ctx;
+
+	if (!pdev) {
+		ol_txrx_err("Pdev is NULL");
+		return QDF_STATUS_E_INVAL;
+	}
+
+	mac_ctx = cds_get_context(QDF_MODULE_ID_PE);
+	if (!mac_ctx) {
+		ol_txrx_err("mac context is NULL");
+		return QDF_STATUS_E_INVAL;
+	}
+
+	/* Send WMI_PEER_MULTIPLE_REORDER_QUEUE_SETUP_CMDID for HL datapath */
+	if (soc->cdp_soc.ol_ops && soc->cdp_soc.ol_ops->peer_multi_rx_reorder_queue_setup) {
+		struct multi_rx_reorder_queue_setup_params tid_params = {0};
+
+		/* Setup parameters for multiple reorder queues */
+		tid_params.vdev_id = vdev_id;
+		tid_params.peer_macaddr = peer_mac;
+
+		/* Set up TID bitmap and queue parameters */
+		tid_params.tid_bitmap = OL_TXRX_TID_FULL_BITMASK(OL_TX_NUM_QOS_TIDS); /* All TIDs */
+		tid_params.tid_num = OL_TX_NUM_QOS_TIDS; /* Number of TIDs */
+
+		/* Set up queue parameters for each TID */
+		int tid;
+		for (tid = 0; tid < OL_TX_NUM_QOS_TIDS; tid++) {
+			tid_params.queue_params_list[tid].hw_qdesc_paddr = 0; /* Will be set by firmware */
+			tid_params.queue_params_list[tid].queue_no = tid;
+			tid_params.queue_params_list[tid].ba_window_size_valid = 1;
+			tid_params.queue_params_list[tid].ba_window_size = cfg_get(mac_ctx->psoc, CFG_DP_ADDBA_BUFSIZE);
+		}
+
+		status = soc->cdp_soc.ol_ops->peer_multi_rx_reorder_queue_setup(
+				soc->psoc,
+				pdev->id,
+				&tid_params);
+
+		if (QDF_IS_STATUS_ERROR(status)) {
+			ol_txrx_err("Failed to setup multiple reorder queues for HL peer");
+		}
+	}
+
+	return status;
+}
+
+/**
+ * ol_txrx_peer_teardown_hl() - HL datapath peer teardown function
+ * @soc: CDP soc handle
+ * @vdev_id: virtual interface id
+ * @peer_mac: peer MAC address
+ *
+ * This function handles peer teardown in HL datapath by sending
+ * WMI_PEER_REORDER_QUEUE_REMOVE_CMDID to remove reorder queues
+ *
+ * Return: QDF_STATUS_SUCCESS on success, error code on failure
+ */
+static QDF_STATUS ol_txrx_peer_teardown_hl(struct cdp_soc_t *soc_hdl,
+		                                   uint8_t vdev_id,
+		                                   uint8_t *peer_mac)
+{
+	struct ol_txrx_soc_t *soc = cdp_soc_t_to_ol_txrx_soc_t(soc_hdl);
+	ol_txrx_pdev_handle pdev = ol_txrx_get_pdev_from_pdev_id(soc, OL_TXRX_PDEV_ID);
+	QDF_STATUS status;
+	uint32_t tid_mask = OL_TXRX_TID_FULL_BITMASK(OL_TX_NUM_QOS_TIDS);  /* Remove all TIDs (0-15) */
+
+	if (!soc || !peer_mac) {
+		ol_txrx_err("Invalid parameters: soc=%pK, peer_mac=%pK",
+				soc, peer_mac);
+		return QDF_STATUS_E_INVAL;
+	}
+
+	if (!pdev) {
+		ol_txrx_err("Pdev is NULL");
+		return QDF_STATUS_E_INVAL;
+	}
+
+
+	if (soc->cdp_soc.ol_ops && soc->cdp_soc.ol_ops->peer_rx_reorder_queue_remove) {
+
+		status = soc->cdp_soc.ol_ops->peer_rx_reorder_queue_remove(
+				soc->psoc,
+				pdev->id,
+				vdev_id,
+				peer_mac,
+				tid_mask);
+
+		if (QDF_IS_STATUS_ERROR(status)) {
+			ol_txrx_err("Failed to setup multiple reorder queues for HL peer");
+			return status;
+		}
+
+	}
+
+	ol_txrx_info("Successfully sent peer reorder queue remove for peer " QDF_MAC_ADDR_FMT,
+			QDF_MAC_ADDR_REF(peer_mac));
+
+	return QDF_STATUS_SUCCESS;
+}
+
+#endif
+
 static struct cdp_cmn_ops ol_ops_cmn = {
 	.txrx_soc_attach_target = ol_txrx_soc_attach_target,
 	.txrx_vdev_attach = ol_txrx_vdev_attach,
@@ -6364,8 +6486,13 @@ static struct cdp_cmn_ops ol_ops_cmn = {
 	.txrx_pdev_pre_detach = ol_txrx_pdev_pre_detach,
 	.txrx_pdev_detach = ol_txrx_pdev_detach,
 	.txrx_peer_create = ol_txrx_peer_attach,
+#ifdef DP_COLOGNE_HL
+	.txrx_peer_setup = ol_txrx_peer_setup_hl,
+	.txrx_peer_teardown = ol_txrx_peer_teardown_hl,
+#else
 	.txrx_peer_setup = NULL,
 	.txrx_peer_teardown = NULL,
+#endif
 	.txrx_peer_delete = ol_txrx_peer_detach,
 	.txrx_peer_delete_sync = ol_txrx_peer_detach_sync,
 	.txrx_vdev_register = ol_txrx_vdev_register,

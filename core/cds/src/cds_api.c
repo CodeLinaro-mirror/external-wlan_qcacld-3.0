@@ -76,7 +76,7 @@
 #include <linux/iommu.h>
 #endif
 
-#ifdef QCA_WIFI_QCA8074
+#if defined(QCA_WIFI_QCA8074) || defined(DP_COLOGNE_HL)
 #include <target_if_dp.h>
 #endif
 #include "wlan_mlme_ucfg_api.h"
@@ -188,6 +188,14 @@ static struct ol_if_ops dp_ol_if_ops = {
 	.dp_peer_event_notify = wlan_dp_stc_peer_event_notify,
 #endif
 	/* TODO: Add any other control path calls required to OL_IF/WMA layer */
+};
+#elif defined(DP_COLOGNE_HL)
+static struct ol_if_ops dp_ol_if_ops = {
+	.dp_rx_get_pending = cds_get_rx_thread_pending,
+	.peer_rx_reorder_queue_setup = target_if_peer_rx_reorder_queue_setup,
+	.peer_rx_reorder_queue_remove = target_if_peer_rx_reorder_queue_remove,
+	.peer_multi_rx_reorder_queue_setup =
+		target_if_peer_multi_rx_reorder_queue_setup,
 };
 #else /* !QCA_WIFI_QCA8074 */
 static struct ol_if_ops dp_ol_if_ops = {

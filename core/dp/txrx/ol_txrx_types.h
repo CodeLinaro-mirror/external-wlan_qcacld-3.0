@@ -52,6 +52,8 @@
  */
 #define MAX_NUM_PEER_ID_PER_PEER 16
 
+#define OL_TXRX_TID_FULL_BITMASK(tid_num)  ((1<<(tid_num)) -1)
+
 /* OL_TXRX_NUM_EXT_TIDS -
  * 16 "real" TIDs + 3 pseudo-TIDs for mgmt, mcast/bcast & non-QoS data
  */
