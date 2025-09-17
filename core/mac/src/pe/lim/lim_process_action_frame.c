@@ -2480,8 +2480,11 @@ lim_process_dar_frame(struct mac_context *mac_ctx, struct pe_session *session,
 					session->smeSessionId,
 					&frame->qos_elements[0].attr[0]);
 			break;
+		case DAR_REPORT_FRAME:
+			pe_debug("Received DAR report frame");
+			break;
 		default:
-			pe_debug("Unsupported DAR frame");
+			status = QDF_STATUS_E_NOSUPPORT;
 	}
 
 	return status;
