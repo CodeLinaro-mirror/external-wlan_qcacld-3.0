@@ -1306,14 +1306,16 @@ CDS_INC_DIR :=	$(CDS_DIR)/inc
 CDS_SRC_DIR :=	$(CDS_DIR)/src
 
 CDS_INC := 	-I$(WLAN_ROOT)/$(CDS_INC_DIR) \
-		-I$(WLAN_ROOT)/$(CDS_SRC_DIR)
+		-I$(WLAN_ROOT)/$(CDS_SRC_DIR) \
+        -I$(WLAN_COMMON_INC)/target_if/dp/inc
 
 CDS_OBJS :=	$(CDS_SRC_DIR)/cds_api.o \
 		$(CDS_SRC_DIR)/cds_reg_service.o \
 		$(CDS_SRC_DIR)/cds_packet.o \
 		$(CDS_SRC_DIR)/cds_regdomain.o \
 		$(CDS_SRC_DIR)/cds_sched.o \
-		$(CDS_SRC_DIR)/cds_utils.o
+		$(CDS_SRC_DIR)/cds_utils.o \
+		$(WLAN_COMMON_ROOT)/target_if/dp/src/target_if_dp.o
 
 $(call add-wlan-objs,cds,$(CDS_OBJS))
 
