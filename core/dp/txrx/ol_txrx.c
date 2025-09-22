@@ -6823,6 +6823,36 @@ void ol_txrx_peer_mlo_delete(struct ol_txrx_peer_t *peer)
 					    0, mld_peer->peer_type);
 	}
 }
+
+static inline
+QDF_STATUS ol_mlo_dev_ctxt_create(struct cdp_soc_t *soc_hdl,
+				  uint8_t *mld_mac_addr)
+{
+	return QDF_STATUS_SUCCESS;
+}
+
+static inline
+QDF_STATUS ol_mlo_dev_ctxt_destroy(struct cdp_soc_t *soc_hdl,
+				   uint8_t *mld_mac_addr)
+{
+	return QDF_STATUS_SUCCESS;
+}
+
+static inline
+QDF_STATUS ol_mlo_dev_ctxt_vdev_attach(struct cdp_soc_t *soc_hdl,
+				       uint8_t vdev_id,
+				       uint8_t *mld_mac_addr)
+{
+	return QDF_STATUS_SUCCESS;
+}
+
+static inline
+QDF_STATUS ol_mlo_dev_ctxt_vdev_detach(struct cdp_soc_t *soc_hdl,
+				       uint8_t vdev_id,
+				       uint8_t *mld_mac_addr)
+{
+	return QDF_STATUS_SUCCESS;
+}
 #endif /* WLAN_FEATURE_11BE_MLO */
 
 #ifdef DP_COLOGNE_HL
@@ -7284,6 +7314,15 @@ static struct cdp_raw_ops ol_ops_raw = {
 	/* EMPTY FOR MCL */
 };
 
+#ifdef WLAN_FEATURE_11BE_MLO
+static struct cdp_cmn_mlo_ops ol_ops_mlo = {
+	.mlo_dev_ctxt_create = ol_mlo_dev_ctxt_create,
+	.mlo_dev_ctxt_attach = ol_mlo_dev_ctxt_vdev_attach,
+	.mlo_dev_ctxt_detach = ol_mlo_dev_ctxt_vdev_detach,
+	.mlo_dev_ctxt_destroy = ol_mlo_dev_ctxt_destroy,
+};
+#endif
+
 static struct cdp_ops ol_txrx_ops = {
 	.cmn_drv_ops = &ol_ops_cmn,
 	.ctrl_ops = &ol_ops_ctrl,
@@ -7311,6 +7350,9 @@ static struct cdp_ops ol_txrx_ops = {
 	.mob_stats_ops = &ol_ops_mob_stats,
 	.delay_ops = &ol_ops_delay,
 	.pmf_ops = &ol_ops_pmf,
+#ifdef WLAN_FEATURE_11BE_MLO
+	.cmn_mlo_ops = &ol_ops_mlo,
+#endif
 };
 
 ol_txrx_soc_handle ol_txrx_soc_attach(void *scn_handle,
