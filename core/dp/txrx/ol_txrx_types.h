@@ -1490,6 +1490,21 @@ struct ol_txrx_mld_link_peers {
 #define OL_TXRX_MAX_MLO_LINKS 0
 #endif
 
+/*
+ * OL RX per TID info
+ * stored in separate arrays to avoid alignment padding mem overhead
+ */
+struct ol_rx_tids {
+	struct ol_rx_reorder_t tids_rx_reorder[OL_TXRX_NUM_EXT_TIDS];
+	union htt_rx_pn_t tids_last_pn[OL_TXRX_NUM_EXT_TIDS];
+	uint8_t tids_last_pn_valid[OL_TXRX_NUM_EXT_TIDS];
+	uint8_t tids_rekey_flag[OL_TXRX_NUM_EXT_TIDS];
+	uint16_t tids_next_rel_idx[OL_TXRX_NUM_EXT_TIDS];
+	uint16_t tids_last_seq[OL_TXRX_NUM_EXT_TIDS];
+	uint16_t tids_mcast_last_seq[OL_TXRX_NUM_EXT_TIDS];
+	struct ol_txrx_peer_t *peer;
+};
+
 struct ol_txrx_peer_t {
 	struct ol_txrx_vdev_t *vdev;
 
@@ -1540,17 +1555,7 @@ struct ol_txrx_peer_t {
 	/* node in the pdev's inactive list of peers */
 	TAILQ_ENTRY(ol_txrx_peer_t)inactive_peer_list_elem;
 
-	/*
-	 * per TID info -
-	 * stored in separate arrays to avoid alignment padding mem overhead
-	 */
-	struct ol_rx_reorder_t tids_rx_reorder[OL_TXRX_NUM_EXT_TIDS];
-	union htt_rx_pn_t tids_last_pn[OL_TXRX_NUM_EXT_TIDS];
-	uint8_t tids_last_pn_valid[OL_TXRX_NUM_EXT_TIDS];
-	uint8_t tids_rekey_flag[OL_TXRX_NUM_EXT_TIDS];
-	uint16_t tids_next_rel_idx[OL_TXRX_NUM_EXT_TIDS];
-	uint16_t tids_last_seq[OL_TXRX_NUM_EXT_TIDS];
-	uint16_t tids_mcast_last_seq[OL_TXRX_NUM_EXT_TIDS];
+	struct ol_rx_tids *rx_tid;
 
 	struct {
 		enum htt_sec_type sec_type;

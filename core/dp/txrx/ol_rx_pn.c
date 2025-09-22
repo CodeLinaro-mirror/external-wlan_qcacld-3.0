@@ -95,6 +95,7 @@ ol_rx_pn_check_base(struct ol_txrx_vdev_t *vdev,
 	int pn_len;
 	void *rx_desc;
 	int last_pn_valid;
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
 
 	/* Make sure host pn check is not redundant */
 	if ((qdf_atomic_read(&peer->fw_pn_check)) ||
@@ -111,8 +112,11 @@ ol_rx_pn_check_base(struct ol_txrx_vdev_t *vdev,
 	if (pn_len == 0)
 		return msdu_list;
 
-	last_pn_valid = peer->tids_last_pn_valid[tid];
-	last_pn = &peer->tids_last_pn[tid];
+	if (!rx_tid)
+		return msdu_list;
+
+	last_pn_valid = rx_tid->tids_last_pn_valid[tid];
+	last_pn = &rx_tid->tids_last_pn[tid];
 	mpdu = msdu_list;
 	while (mpdu) {
 		qdf_nbuf_t mpdu_tail, next_mpdu;
@@ -145,7 +149,8 @@ ol_rx_pn_check_base(struct ol_txrx_vdev_t *vdev,
 				cmp(&new_pn, last_pn, index == txrx_sec_ucast,
 				    vdev->opmode, strict_chk);
 		} else {
-			last_pn_valid = peer->tids_last_pn_valid[tid] = 1;
+			peer->rx_tid->tids_last_pn_valid[tid] = 1;
+			last_pn_valid = 1;
 		}
 
 		if (pn_is_replay) {
@@ -236,9 +241,9 @@ ol_rx_pn_check_base(struct ol_txrx_vdev_t *vdev,
 			 */
 			if ((peer->security[index].sec_type
 				== htt_sec_type_wapi) &&
-			    (peer->tids_rekey_flag[tid] == 1) &&
+			    (rx_tid->tids_rekey_flag[tid] == 1) &&
 			    (index == txrx_sec_ucast)) {
-				peer->tids_rekey_flag[tid] = 0;
+				rx_tid->tids_rekey_flag[tid] = 0;
 			} else {
 				last_pn->pn128[0] = new_pn.pn128[0];
 				last_pn->pn128[1] = new_pn.pn128[1];

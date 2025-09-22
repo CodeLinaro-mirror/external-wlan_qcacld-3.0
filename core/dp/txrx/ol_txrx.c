@@ -2574,6 +2574,13 @@ ol_txrx_peer_attach(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 
 	peer->rx_opt_proc = pdev->rx_opt_proc;
 
+	if (ol_peer_rx_tids_create(peer) != QDF_STATUS_SUCCESS) {
+		ol_txrx_alert("RX tid alloc fail for peer %pK ("
+			      QDF_MAC_ADDR_FMT ")", peer,
+			      QDF_MAC_ADDR_REF(peer->mac_addr.raw));
+		return QDF_STATUS_E_FAILURE;
+	}
+
 	ol_rx_peer_init(pdev, peer);
 
 	/* initialize the peer_id */
@@ -3327,6 +3334,11 @@ ol_txrx_peer_qoscapable_get(struct ol_txrx_pdev_t *txrx_pdev, uint16_t peer_id)
 static inline void ol_txrx_peer_free_tids(ol_txrx_peer_handle peer)
 {
 	int i = 0;
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
+
+	if (!rx_tid)
+		return;
+
 	/*
 	 * 'array' is allocated in addba handler and is supposed to be
 	 * freed in delba handler. There is the case (for example, in
@@ -3336,11 +3348,11 @@ static inline void ol_txrx_peer_free_tids(ol_txrx_peer_handle peer)
 	 * point to base.
 	 */
 	for (i = 0; i < OL_TXRX_NUM_EXT_TIDS; i++) {
-		if (peer->tids_rx_reorder[i].array !=
-		    &peer->tids_rx_reorder[i].base) {
+		if (rx_tid->tids_rx_reorder[i].array !=
+		    &rx_tid->tids_rx_reorder[i].base) {
 			ol_txrx_dbg("delete reorder arr, tid:%d", i);
-			qdf_mem_free(peer->tids_rx_reorder[i].array);
-			ol_rx_reorder_init(&peer->tids_rx_reorder[i],
+			qdf_mem_free(rx_tid->tids_rx_reorder[i].array);
+			ol_rx_reorder_init(&rx_tid->tids_rx_reorder[i],
 					   (uint8_t)i);
 		}
 	}
@@ -3471,6 +3483,9 @@ int ol_txrx_peer_release_ref(ol_txrx_peer_handle peer,
 
 		/* cleanup the Rx reorder queues for this peer */
 		ol_rx_peer_cleanup(vdev, peer);
+
+		/* destroy peer rx tids */
+		ol_peer_rx_tids_destroy(peer);
 
 		qdf_spinlock_destroy(&peer->peer_info_lock);
 		qdf_spinlock_destroy(&peer->bufq_info.bufq_lock);
@@ -6753,6 +6768,16 @@ QDF_STATUS ol_txrx_peer_mlo_setup(struct cdp_soc_t *soc_hdl,
 		     QDF_MAC_ADDR_REF(setup_info->mld_peer_mac),
 		     peer->first_link, peer->primary_link);
 
+	if (setup_info->is_first_link) {
+		/* assign rx_tid to mld peer */
+		mld_peer->rx_tid = peer->rx_tid;
+	} else {
+		/* free link peer original rx_tids mem */
+		ol_peer_rx_tids_destroy(peer);
+		/* assign mld peer rx_tid to link peer */
+		peer->rx_tid = mld_peer->rx_tid;
+	}
+
 	if (setup_info->is_primary_link && !setup_info->is_first_link) {
 		/*
 		 * if first link is not the primary link,
@@ -6930,6 +6955,9 @@ static QDF_STATUS ol_txrx_peer_setup_hl(struct cdp_soc_t *soc_hdl,
 	status = ol_peer_rx_reorder_multi_queue_setup(soc, peer);
 	if (QDF_IS_STATUS_ERROR(status))
 		ol_txrx_err("Failed to setup multiple reorder queues");
+
+	if (vdev->opmode != wlan_op_mode_monitor)
+		ol_peer_rx_tids_init(peer);
 
 exit:
 	ol_txrx_peer_release_ref(peer, PEER_DEBUG_ID_OL_INTERNAL);

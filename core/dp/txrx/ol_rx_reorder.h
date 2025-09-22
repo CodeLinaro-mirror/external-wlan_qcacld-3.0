@@ -75,8 +75,8 @@ ol_rx_seq_num_check(struct ol_txrx_pdev_t *pdev,
  */
 
 #define OL_RX_SEQ_NUM_CHECK(pdev, peer, tid, rx_mpdu_desc)	\
-	(pdev->rx.flags.dup_check && peer->tids_rx_reorder[tid].win_sz_mask == \
-	0) ? ol_rx_seq_num_check(pdev, peer, tid, rx_mpdu_desc) : \
-	htt_rx_status_ok
+	(pdev->rx.flags.dup_check && peer->rx_tid && \
+	 peer->rx_tid->tids_rx_reorder[tid].win_sz_mask == 0) ? \
+	ol_rx_seq_num_check(pdev, peer, tid, rx_mpdu_desc) : htt_rx_status_ok
 
 #endif /* _OL_RX_REORDER__H_ */

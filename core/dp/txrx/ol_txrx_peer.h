@@ -35,6 +35,10 @@
 #define OL_TXRX_PEER_SET_TYPE(_peer, _type_val) \
 	((_peer)->peer_type = (_type_val))
 
+/* is first link peer */
+#define IS_OL_TXRX_FIRST_LINK_PEER(_peer) \
+	((_peer)->first_link)
+
 /* is legacy peer */
 #define IS_OL_TXRX_LEGACY_PEER(_peer) \
 	((_peer)->peer_type == CDP_LINK_PEER_TYPE && !((_peer)->mld_peer))
@@ -148,6 +152,7 @@ struct ol_txrx_peer_t *ol_txrx_get_tgt_peer_from_peer(
 
 #define OL_TXRX_PEER_SET_TYPE(_peer, _type_val) /* no op */
 #define IS_OL_TXRX_LEGACY_PEER(_peer) true
+#define IS_OL_TXRX_FIRST_LINK_PEER(_peer) false
 #define IS_MLO_OL_TXRX_LINK_PEER(_peer) false
 #define IS_MLO_OL_TXRX_MLD_PEER(_peer) false
 #define OL_TXRX_GET_MLD_PEER_FROM_PEER(link_peer) NULL

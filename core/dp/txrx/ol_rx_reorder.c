@@ -102,10 +102,11 @@ ol_rx_reorder_seq_num_check(
 			    unsigned int tid, unsigned int seq_num)
 {
 	unsigned int seq_num_delta;
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
 
 	/* don't check the new seq_num against last_seq
 	   if last_seq is not valid */
-	if (peer->tids_last_seq[tid] == IEEE80211_SEQ_MAX)
+	if (rx_tid->tids_last_seq[tid] == IEEE80211_SEQ_MAX)
 		return htt_rx_status_ok;
 
 	/*
@@ -119,7 +120,7 @@ ol_rx_reorder_seq_num_check(
 	 * the retry bit for now.
 	 */
 	/* note: if new seq_num == old seq_num, seq_num_delta = 4095 */
-	seq_num_delta = (seq_num - 1 - peer->tids_last_seq[tid]) &
+	seq_num_delta = (seq_num - 1 - rx_tid->tids_last_seq[tid]) &
 		(IEEE80211_SEQ_MAX - 1);     /* account for wraparound */
 
 	if (seq_num_delta > (IEEE80211_SEQ_MAX >> 1)) {
@@ -162,6 +163,7 @@ ol_rx_seq_num_check(struct ol_txrx_pdev_t *pdev,
 	uint16_t pkt_tid = 0xffff;
 	uint16_t seq_num = IEEE80211_SEQ_MAX;
 	bool retry = 0;
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
 
 	seq_num = htt_rx_mpdu_desc_seq_num(pdev->htt_pdev, rx_mpdu_desc, false);
 
@@ -188,7 +190,7 @@ ol_rx_seq_num_check(struct ol_txrx_pdev_t *pdev,
 		 * Hence "seq_num <= last_seq_num" check is not necessary.
 		 */
 		if (qdf_unlikely(retry &&
-			(seq_num == peer->tids_mcast_last_seq[pkt_tid]))) {
+			(seq_num == rx_tid->tids_mcast_last_seq[pkt_tid]))) {
 			/* drop mcast */
 			TXRX_STATS_INCR(pdev, priv.rx.err.msdu_mc_dup_drop);
 			return htt_rx_status_err_replay;
@@ -204,7 +206,7 @@ ol_rx_seq_num_check(struct ol_txrx_pdev_t *pdev,
 		 *    always on the mcast packets, so likely to be
 		 *    immediatedly released.
 		 */
-		peer->tids_mcast_last_seq[pkt_tid] = seq_num;
+		rx_tid->tids_mcast_last_seq[pkt_tid] = seq_num;
 		return htt_rx_status_ok;
 	} else
 		return ol_rx_reorder_seq_num_check(pdev, peer, tid, seq_num);
@@ -218,15 +220,16 @@ ol_rx_reorder_store(struct ol_txrx_pdev_t *pdev,
 		    unsigned int idx, qdf_nbuf_t head_msdu,
 		    qdf_nbuf_t tail_msdu)
 {
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
 	struct ol_rx_reorder_array_elem_t *rx_reorder_array_elem;
 
-	idx &= peer->tids_rx_reorder[tid].win_sz_mask;
-	rx_reorder_array_elem = &peer->tids_rx_reorder[tid].array[idx];
+	idx &= rx_tid->tids_rx_reorder[tid].win_sz_mask;
+	rx_reorder_array_elem = &rx_tid->tids_rx_reorder[tid].array[idx];
 	if (rx_reorder_array_elem->head) {
 		qdf_nbuf_set_next(rx_reorder_array_elem->tail, head_msdu);
 	} else {
 		rx_reorder_array_elem->head = head_msdu;
-		OL_RX_REORDER_MPDU_CNT_INCR(&peer->tids_rx_reorder[tid], 1);
+		OL_RX_REORDER_MPDU_CNT_INCR(&rx_tid->tids_rx_reorder[tid], 1);
 	}
 	rx_reorder_array_elem->tail = tail_msdu;
 }
@@ -242,29 +245,30 @@ ol_rx_reorder_release(struct ol_txrx_vdev_t *vdev,
 	struct ol_rx_reorder_array_elem_t *rx_reorder_array_elem;
 	qdf_nbuf_t head_msdu;
 	qdf_nbuf_t tail_msdu;
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
 
 	OL_RX_REORDER_IDX_START_SELF_SELECT(peer, tid, &idx_start);
 	/* may get reset below */
-	peer->tids_next_rel_idx[tid] = (uint16_t) idx_end;
+	rx_tid->tids_next_rel_idx[tid] = (uint16_t) idx_end;
 
-	win_sz = peer->tids_rx_reorder[tid].win_sz;
-	win_sz_mask = peer->tids_rx_reorder[tid].win_sz_mask;
+	win_sz = rx_tid->tids_rx_reorder[tid].win_sz;
+	win_sz_mask = rx_tid->tids_rx_reorder[tid].win_sz_mask;
 	idx_start &= win_sz_mask;
 	idx_end &= win_sz_mask;
-	rx_reorder_array_elem = &peer->tids_rx_reorder[tid].array[idx_start];
+	rx_reorder_array_elem = &rx_tid->tids_rx_reorder[tid].array[idx_start];
 
 	head_msdu = rx_reorder_array_elem->head;
 	tail_msdu = rx_reorder_array_elem->tail;
 	rx_reorder_array_elem->head = rx_reorder_array_elem->tail = NULL;
 	if (head_msdu)
-		OL_RX_REORDER_MPDU_CNT_DECR(&peer->tids_rx_reorder[tid], 1);
+		OL_RX_REORDER_MPDU_CNT_DECR(&rx_tid->tids_rx_reorder[tid], 1);
 
 	idx = (idx_start + 1);
 	OL_RX_REORDER_IDX_WRAP(idx, win_sz, win_sz_mask);
 	while (idx != idx_end) {
-		rx_reorder_array_elem = &peer->tids_rx_reorder[tid].array[idx];
+		rx_reorder_array_elem = &rx_tid->tids_rx_reorder[tid].array[idx];
 		if (rx_reorder_array_elem->head) {
-			OL_RX_REORDER_MPDU_CNT_DECR(&peer->tids_rx_reorder[tid],
+			OL_RX_REORDER_MPDU_CNT_DECR(&rx_tid->tids_rx_reorder[tid],
 						    1);
 			OL_RX_REORDER_LIST_APPEND(head_msdu, tail_msdu,
 						  rx_reorder_array_elem);
@@ -296,7 +300,7 @@ ol_rx_reorder_release(struct ol_txrx_vdev_t *vdev,
 			htt_pdev,
 			htt_rx_msdu_desc_retrieve(htt_pdev,
 						  head_msdu), false);
-		peer->tids_last_seq[tid] = seq_num;
+		rx_tid->tids_last_seq[tid] = seq_num;
 		/* rx_opt_proc takes a NULL-terminated list of msdu netbufs */
 		qdf_nbuf_set_next(tail_msdu, NULL);
 		peer->rx_opt_proc(vdev, peer, tid, head_msdu);
@@ -322,10 +326,17 @@ ol_rx_reorder_flush(struct ol_txrx_vdev_t *vdev,
 	struct ol_rx_reorder_array_elem_t *rx_reorder_array_elem;
 	qdf_nbuf_t head_msdu = NULL;
 	qdf_nbuf_t tail_msdu = NULL;
+	struct ol_rx_tids *rx_tid;
 
+	if (!peer || !peer->rx_tid) {
+		ol_txrx_err("peer rx tid invalid");
+		return;
+	}
+
+	rx_tid = peer->rx_tid;
 	pdev = vdev->pdev;
-	win_sz = peer->tids_rx_reorder[tid].win_sz;
-	win_sz_mask = peer->tids_rx_reorder[tid].win_sz_mask;
+	win_sz = rx_tid->tids_rx_reorder[tid].win_sz;
+	win_sz_mask = rx_tid->tids_rx_reorder[tid].win_sz_mask;
 
 	OL_RX_REORDER_IDX_START_SELF_SELECT(peer, tid, &idx_start);
 	/* a idx_end value of 0xffff means to flush the entire array */
@@ -339,10 +350,10 @@ ol_rx_reorder_flush(struct ol_txrx_vdev_t *vdev,
 		 * Thus, since the block ack window is essentially being reset,
 		 * reset the "next release index".
 		 */
-		peer->tids_next_rel_idx[tid] =
+		rx_tid->tids_next_rel_idx[tid] =
 			OL_RX_REORDER_IDX_INIT(0 /*n/a */, win_sz, win_sz_mask);
 	} else {
-		peer->tids_next_rel_idx[tid] = (uint16_t) idx_end;
+		rx_tid->tids_next_rel_idx[tid] = (uint16_t) idx_end;
 	}
 
 	idx_start &= win_sz_mask;
@@ -350,12 +361,12 @@ ol_rx_reorder_flush(struct ol_txrx_vdev_t *vdev,
 
 	do {
 		rx_reorder_array_elem =
-			&peer->tids_rx_reorder[tid].array[idx_start];
+			&rx_tid->tids_rx_reorder[tid].array[idx_start];
 		idx_start = (idx_start + 1);
 		OL_RX_REORDER_IDX_WRAP(idx_start, win_sz, win_sz_mask);
 
 		if (rx_reorder_array_elem->head) {
-			OL_RX_REORDER_MPDU_CNT_DECR(&peer->tids_rx_reorder[tid],
+			OL_RX_REORDER_MPDU_CNT_DECR(&rx_tid->tids_rx_reorder[tid],
 						    1);
 			if (!head_msdu) {
 				head_msdu = rx_reorder_array_elem->head;
@@ -381,7 +392,7 @@ ol_rx_reorder_flush(struct ol_txrx_vdev_t *vdev,
 		seq_num = htt_rx_mpdu_desc_seq_num(
 			htt_pdev,
 			htt_rx_msdu_desc_retrieve(htt_pdev, head_msdu), false);
-		peer->tids_last_seq[tid] = seq_num;
+		rx_tid->tids_last_seq[tid] = seq_num;
 		/* rx_opt_proc takes a NULL-terminated list of msdu netbufs */
 		qdf_nbuf_set_next(tail_msdu, NULL);
 		if (action == htt_rx_flush_release) {
@@ -402,8 +413,8 @@ ol_rx_reorder_flush(struct ol_txrx_vdev_t *vdev,
 	 * it is likely that a BAR or a sequence number shift caused the
 	 * sequence number to jump, so the old last_seq value is not relevant.
 	 */
-	if (OL_RX_REORDER_NO_HOLES(&peer->tids_rx_reorder[tid]))
-		peer->tids_last_seq[tid] = IEEE80211_SEQ_MAX;   /* invalid */
+	if (OL_RX_REORDER_NO_HOLES(&rx_tid->tids_rx_reorder[tid]))
+		rx_tid->tids_last_seq[tid] = IEEE80211_SEQ_MAX;   /* invalid */
 
 	OL_RX_REORDER_TIMEOUT_REMOVE(peer, tid);
 }
@@ -414,22 +425,23 @@ ol_rx_reorder_first_hole(struct ol_txrx_peer_t *peer,
 {
 	unsigned int win_sz, win_sz_mask;
 	unsigned int idx_start = 0, tmp_idx = 0;
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
 
-	win_sz = peer->tids_rx_reorder[tid].win_sz;
-	win_sz_mask = peer->tids_rx_reorder[tid].win_sz_mask;
+	win_sz = rx_tid->tids_rx_reorder[tid].win_sz;
+	win_sz_mask = rx_tid->tids_rx_reorder[tid].win_sz_mask;
 
 	OL_RX_REORDER_IDX_START_SELF_SELECT(peer, tid, &idx_start);
 	tmp_idx++;
 	OL_RX_REORDER_IDX_WRAP(tmp_idx, win_sz, win_sz_mask);
 	/* bypass the initial hole */
 	while (tmp_idx != idx_start &&
-	       !peer->tids_rx_reorder[tid].array[tmp_idx].head) {
+	       !rx_tid->tids_rx_reorder[tid].array[tmp_idx].head) {
 		tmp_idx++;
 		OL_RX_REORDER_IDX_WRAP(tmp_idx, win_sz, win_sz_mask);
 	}
 	/* bypass the present frames following the initial hole */
 	while (tmp_idx != idx_start &&
-	       peer->tids_rx_reorder[tid].array[tmp_idx].head) {
+	       rx_tid->tids_rx_reorder[tid].array[tmp_idx].head) {
 		tmp_idx++;
 		OL_RX_REORDER_IDX_WRAP(tmp_idx, win_sz, win_sz_mask);
 	}
@@ -457,22 +469,23 @@ static void ol_rx_reorder_detect_hole(struct ol_txrx_peer_t *peer,
 					uint32_t idx_start)
 {
 	uint32_t win_sz_mask, next_rel_idx, hole_size;
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
 
 	if (tid >= OL_TXRX_NUM_EXT_TIDS) {
 		ol_txrx_err("Invalid tid: %u", tid);
 		return;
 	}
 
-	if (peer->tids_next_rel_idx[tid] == INVALID_REORDER_INDEX)
+	if (rx_tid->tids_next_rel_idx[tid] == INVALID_REORDER_INDEX)
 		return;
 
-	win_sz_mask = peer->tids_rx_reorder[tid].win_sz_mask;
+	win_sz_mask = rx_tid->tids_rx_reorder[tid].win_sz_mask;
 	/* Return directly if block-ack not enable */
 	if (win_sz_mask == 0)
 		return;
 
 	idx_start &= win_sz_mask;
-	next_rel_idx = peer->tids_next_rel_idx[tid] & win_sz_mask;
+	next_rel_idx = rx_tid->tids_next_rel_idx[tid] & win_sz_mask;
 
 	if (idx_start != next_rel_idx) {
 		hole_size = ((int)idx_start - (int)next_rel_idx) & win_sz_mask;
@@ -528,6 +541,7 @@ ol_rx_addba_handler(ol_txrx_pdev_handle pdev,
 	struct ol_txrx_peer_t *peer;
 	struct ol_rx_reorder_t *rx_reorder;
 	void *array_mem = NULL;
+	struct ol_rx_tids *rx_tid;
 
 	if (tid >= OL_TXRX_NUM_EXT_TIDS) {
 		ol_txrx_err("invalid tid, %u", tid);
@@ -548,8 +562,9 @@ ol_rx_addba_handler(ol_txrx_pdev_handle pdev,
 	if (failed)
 		return;
 
-	peer->tids_last_seq[tid] = IEEE80211_SEQ_MAX;   /* invalid */
-	rx_reorder = &peer->tids_rx_reorder[tid];
+	rx_tid = peer->rx_tid;
+	rx_tid->tids_last_seq[tid] = IEEE80211_SEQ_MAX;   /* invalid */
+	rx_reorder = &rx_tid->tids_rx_reorder[tid];
 
 	TXRX_ASSERT2(win_sz <= 64);
 	round_pwr2_win_sz = OL_RX_REORDER_ROUND_PWR2(win_sz);
@@ -572,7 +587,7 @@ ol_rx_addba_handler(ol_txrx_pdev_handle pdev,
 	rx_reorder->win_sz_mask = round_pwr2_win_sz - 1;
 	rx_reorder->num_mpdus = 0;
 
-	peer->tids_next_rel_idx[tid] =
+	rx_tid->tids_next_rel_idx[tid] =
 		OL_RX_REORDER_IDX_INIT(start_seq_num, rx_reorder->win_sz,
 				       rx_reorder->win_sz_mask);
 }
@@ -580,6 +595,7 @@ ol_rx_addba_handler(ol_txrx_pdev_handle pdev,
 void
 ol_rx_delba_handler(ol_txrx_pdev_handle pdev, uint16_t peer_id, uint8_t tid)
 {
+	struct ol_rx_tids *rx_tid;
 	struct ol_txrx_peer_t *peer;
 	struct ol_rx_reorder_t *rx_reorder;
 
@@ -595,8 +611,9 @@ ol_rx_delba_handler(ol_txrx_pdev_handle pdev, uint16_t peer_id, uint8_t tid)
 		return;
 	}
 
-	peer->tids_next_rel_idx[tid] = INVALID_REORDER_INDEX;
-	rx_reorder = &peer->tids_rx_reorder[tid];
+	rx_tid = peer->rx_tid;
+	rx_tid->tids_next_rel_idx[tid] = INVALID_REORDER_INDEX;
+	rx_reorder = &rx_tid->tids_rx_reorder[tid];
 
 	/* check that there really was a block ack agreement */
 	TXRX_ASSERT1(rx_reorder->win_sz_mask != 0);
@@ -630,6 +647,7 @@ ol_rx_flush_handler(ol_txrx_pdev_handle pdev,
 	int idx;
 	struct ol_rx_reorder_array_elem_t *rx_reorder_array_elem;
 	htt_pdev_handle htt_pdev = pdev->htt_pdev;
+	struct ol_rx_tids *rx_tid;
 
 	if (tid >= OL_TXRX_NUM_EXT_TIDS) {
 		ol_txrx_err("Invalid tid: %u", tid);
@@ -644,8 +662,9 @@ ol_rx_flush_handler(ol_txrx_pdev_handle pdev,
 
 	OL_RX_REORDER_TIMEOUT_MUTEX_LOCK(pdev);
 
-	idx = idx_start & peer->tids_rx_reorder[tid].win_sz_mask;
-	rx_reorder_array_elem = &peer->tids_rx_reorder[tid].array[idx];
+	rx_tid = peer->rx_tid;
+	idx = idx_start & rx_tid->tids_rx_reorder[tid].win_sz_mask;
+	rx_reorder_array_elem = &rx_tid->tids_rx_reorder[tid].array[idx];
 	if (rx_reorder_array_elem->head) {
 		rx_desc =
 			htt_rx_msdu_desc_retrieve(htt_pdev,
@@ -691,6 +710,7 @@ ol_rx_pn_ind_handler(ol_txrx_pdev_handle pdev,
 	htt_pdev_handle htt_pdev = pdev->htt_pdev;
 	uint16_t seq_num;
 	int i = 0;
+	struct ol_rx_tids *rx_tid;
 
 	if (tid >= OL_TXRX_NUM_EXT_TIDS) {
 		ol_txrx_err("Invalid tid: %u", tid);
@@ -715,14 +735,15 @@ ol_rx_pn_ind_handler(ol_txrx_pdev_handle pdev,
 
 	qdf_atomic_set(&peer->fw_pn_check, 1);
 	/*TODO: Fragmentation case */
-	win_sz_mask = peer->tids_rx_reorder[tid].win_sz_mask;
+	rx_tid = peer->rx_tid;
+	win_sz_mask = rx_tid->tids_rx_reorder[tid].win_sz_mask;
 	seq_num_start &= win_sz_mask;
 	seq_num_end &= win_sz_mask;
 	seq_num = seq_num_start;
 
 	do {
 		rx_reorder_array_elem =
-			&peer->tids_rx_reorder[tid].array[seq_num];
+			&rx_tid->tids_rx_reorder[tid].array[seq_num];
 
 		if (rx_reorder_array_elem->head) {
 			if (pn_ie_cnt && seq_num == (int)(pn_ie[i])) {

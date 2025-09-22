@@ -35,6 +35,7 @@
 #include <ol_rx_defrag.h>       /* ol_rx_defrag_waitlist_flush */
 #include <ol_txrx_internal.h>
 #include <ol_txrx.h>
+#include <ol_txrx_peer.h>
 #include <wdi_event.h>
 #ifdef QCA_SUPPORT_SW_TXRX_ENCAP
 #include <ol_txrx_encap.h>      /* ol_rx_decap_info_t, etc */
@@ -415,6 +416,7 @@ static void process_reorder(ol_txrx_pdev_handle pdev,
 	htt_pdev_handle htt_pdev = pdev->htt_pdev;
 	enum htt_rx_status mpdu_status;
 	int reorder_idx;
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
 
 	reorder_idx = htt_rx_mpdu_desc_reorder_idx(htt_pdev, rx_mpdu_desc,
 						   true);
@@ -474,8 +476,8 @@ static void process_reorder(ol_txrx_pdev_handle pdev,
 	} else {
 		ol_rx_reorder_store(pdev, peer, tid,
 				    reorder_idx, head_msdu, tail_msdu);
-		if (peer->tids_rx_reorder[tid].win_sz_mask == 0) {
-			peer->tids_last_seq[tid] = htt_rx_mpdu_desc_seq_num(
+		if (rx_tid->tids_rx_reorder[tid].win_sz_mask == 0) {
+			rx_tid->tids_last_seq[tid] = htt_rx_mpdu_desc_seq_num(
 				htt_pdev,
 				rx_mpdu_desc, false);
 		}
@@ -801,6 +803,7 @@ ol_rx_sec_ind_handler(ol_txrx_pdev_handle pdev,
 {
 	struct ol_txrx_peer_t *peer;
 	int sec_index, i;
+	struct ol_rx_tids *rx_tid;
 
 	peer = ol_txrx_peer_find_by_id(pdev, peer_id);
 	if (!peer) {
@@ -824,27 +827,28 @@ ol_rx_sec_ind_handler(ol_txrx_pdev_handle pdev,
 		     michael_key,
 		     sizeof(peer->security[sec_index].michael_key));
 
+	rx_tid = peer->rx_tid;
 	if (sec_type != htt_sec_type_wapi) {
-		qdf_mem_zero(peer->tids_last_pn_valid,
+		qdf_mem_zero(rx_tid->tids_last_pn_valid,
 			    OL_TXRX_NUM_EXT_TIDS);
-	} else if (sec_index == txrx_sec_mcast || peer->tids_last_pn_valid[0]) {
+	} else if (sec_index == txrx_sec_mcast || rx_tid->tids_last_pn_valid[0]) {
 		for (i = 0; i < OL_TXRX_NUM_EXT_TIDS; i++) {
 			/*
 			 * Setting PN valid bit for WAPI sec_type,
 			 * since WAPI PN has to be started with predefined value
 			 */
-			peer->tids_last_pn_valid[i] = 1;
-			qdf_mem_copy((uint8_t *) &peer->tids_last_pn[i],
+			rx_tid->tids_last_pn_valid[i] = 1;
+			qdf_mem_copy((uint8_t *) &rx_tid->tids_last_pn[i],
 				     (uint8_t *) rx_pn,
 				     sizeof(union htt_rx_pn_t));
-			peer->tids_last_pn[i].pn128[1] =
+			rx_tid->tids_last_pn[i].pn128[1] =
 				qdf_cpu_to_le64(
-					peer->tids_last_pn[i].pn128[1]);
-			peer->tids_last_pn[i].pn128[0] =
+					rx_tid->tids_last_pn[i].pn128[1]);
+			rx_tid->tids_last_pn[i].pn128[0] =
 				qdf_cpu_to_le64(
-					peer->tids_last_pn[i].pn128[0]);
+					rx_tid->tids_last_pn[i].pn128[0]);
 			if (sec_index == txrx_sec_ucast)
-				peer->tids_rekey_flag[i] = 1;
+				rx_tid->tids_rekey_flag[i] = 1;
 		}
 	}
 }
@@ -1502,19 +1506,69 @@ ol_rx_discard(struct ol_txrx_vdev_t *vdev,
 	}
 }
 
-void ol_rx_peer_init(struct ol_txrx_pdev_t *pdev, struct ol_txrx_peer_t *peer)
+QDF_STATUS ol_peer_rx_tids_create(struct ol_txrx_peer_t *peer)
 {
-	uint8_t tid;
+	if (IS_MLO_OL_TXRX_MLD_PEER(peer)) {
+		ol_txrx_info("skip for mld peer");
+		return QDF_STATUS_SUCCESS;
+	}
+
+	if (peer->rx_tid) {
+		QDF_BUG(0);
+		ol_txrx_err("peer rx_tid mem already exist");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	peer->rx_tid = qdf_mem_malloc(sizeof(struct ol_rx_tids));
+	if (!peer->rx_tid) {
+		ol_txrx_err("fail to alloc tid for peer" QDF_MAC_ADDR_FMT,
+			    QDF_MAC_ADDR_REF(peer->mac_addr.raw));
+		return QDF_STATUS_E_NOMEM;
+	}
+
+	return QDF_STATUS_SUCCESS;
+}
+
+void ol_peer_rx_tids_destroy(struct ol_txrx_peer_t *peer)
+{
+	if (!IS_MLO_OL_TXRX_LINK_PEER(peer) && peer->rx_tid) {
+		qdf_mem_free(peer->rx_tid);
+		peer->rx_tid = NULL;
+	}
+}
+
+/**
+ * ol_peer_rx_tids_init() - initialize each tids in peer
+ * @peer: peer pointer
+ *
+ * Return: None
+ */
+void ol_peer_rx_tids_init(struct ol_txrx_peer_t *peer)
+{
+	int tid;
+	struct ol_rx_tids *rx_tid;
+
+	rx_tid = peer->rx_tid;
+	if (!rx_tid)
+		return;
 
 	for (tid = 0; tid < OL_TXRX_NUM_EXT_TIDS; tid++) {
-		ol_rx_reorder_init(&peer->tids_rx_reorder[tid], tid);
+		ol_rx_reorder_init(&rx_tid->tids_rx_reorder[tid], tid);
 
 		/* invalid sequence number */
-		peer->tids_last_seq[tid] = IEEE80211_SEQ_MAX;
+		rx_tid->tids_last_seq[tid] = IEEE80211_SEQ_MAX;
 		/* invalid reorder index number */
-		peer->tids_next_rel_idx[tid] = INVALID_REORDER_INDEX;
-
+		rx_tid->tids_next_rel_idx[tid] = INVALID_REORDER_INDEX;
 	}
+
+	if (IS_MLO_OL_TXRX_LINK_PEER(peer))
+		rx_tid->peer = OL_TXRX_GET_MLD_PEER_FROM_PEER(peer);
+	else
+		rx_tid->peer = peer;
+}
+
+void ol_rx_peer_init(struct ol_txrx_pdev_t *pdev, struct ol_txrx_peer_t *peer)
+{
 	/*
 	 * Set security defaults: no PN check, no security.
 	 * The target may send a HTT SEC_IND message to overwrite

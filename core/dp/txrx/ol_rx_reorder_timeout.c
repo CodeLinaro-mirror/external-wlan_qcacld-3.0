@@ -35,11 +35,15 @@ void ol_rx_reorder_timeout_remove(struct ol_txrx_peer_t *peer, unsigned int tid)
 	struct ol_tx_reorder_cat_timeout_t *rx_reorder_timeout_ac;
 	struct ol_rx_reorder_timeout_list_elem_t *list_elem;
 	int ac;
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
+
+	if (!rx_tid)
+		return;
 
 	pdev = peer->vdev->pdev;
 	ac = TXRX_TID_TO_WMM_AC(tid);
 	rx_reorder_timeout_ac = &pdev->rx.reorder_timeout.access_cats[ac];
-	list_elem = &peer->tids_rx_reorder[tid].timeout;
+	list_elem = &rx_tid->tids_rx_reorder[tid].timeout;
 	if (!list_elem->active) {
 		/* this element has already been removed */
 		return;
@@ -71,11 +75,15 @@ ol_rx_reorder_timeout_add(struct ol_txrx_peer_t *peer, uint8_t tid)
 	struct ol_rx_reorder_timeout_list_elem_t *list_elem;
 	int ac;
 	int start;
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
+
+	if (!rx_tid)
+		return;
 
 	pdev = peer->vdev->pdev;
 	ac = TXRX_TID_TO_WMM_AC(tid);
 	rx_reorder_timeout_ac = &pdev->rx.reorder_timeout.access_cats[ac];
-	list_elem = &peer->tids_rx_reorder[tid].timeout;
+	list_elem = &rx_tid->tids_rx_reorder[tid].timeout;
 
 	list_elem->active = 1;
 	list_elem->peer = peer;
@@ -96,21 +104,27 @@ ol_rx_reorder_timeout_add(struct ol_txrx_peer_t *peer, uint8_t tid)
 
 void ol_rx_reorder_timeout_update(struct ol_txrx_peer_t *peer, uint8_t tid)
 {
+	struct ol_rx_tids *rx_tid;
+
 	if (!peer)
+		return;
+
+	rx_tid = peer->rx_tid;
+	if (!rx_tid)
 		return;
 
 	/*
 	 * If there are no holes, i.e. no queued frames,
 	 * then timeout doesn't apply.
 	 */
-	if (peer->tids_rx_reorder[tid].num_mpdus == 0)
+	if (rx_tid->tids_rx_reorder[tid].num_mpdus == 0)
 		return;
 
 	/*
 	 * If the virtual timer for this peer-TID is already running,
 	 * then leave it.
 	 */
-	if (peer->tids_rx_reorder[tid].timeout.active)
+	if (rx_tid->tids_rx_reorder[tid].timeout.active)
 		return;
 
 	ol_rx_reorder_timeout_add(peer, tid);
@@ -188,9 +202,13 @@ void ol_rx_reorder_timeout_init(struct ol_txrx_pdev_t *pdev)
 void ol_rx_reorder_timeout_peer_cleanup(struct ol_txrx_peer_t *peer)
 {
 	int tid;
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
+
+	if (!rx_tid)
+		return;
 
 	for (tid = 0; tid < OL_TXRX_NUM_EXT_TIDS; tid++) {
-		if (peer->tids_rx_reorder[tid].timeout.active)
+		if (rx_tid->tids_rx_reorder[tid].timeout.active)
 			ol_rx_reorder_timeout_remove(peer, tid);
 	}
 }

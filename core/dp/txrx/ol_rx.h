@@ -71,6 +71,10 @@ void ol_rx_peer_init(struct ol_txrx_pdev_t *pdev, struct ol_txrx_peer_t *peer);
 void
 ol_rx_peer_cleanup(struct ol_txrx_vdev_t *vdev, struct ol_txrx_peer_t *peer);
 
+QDF_STATUS ol_peer_rx_tids_create(struct ol_txrx_peer_t *peer);
+void ol_peer_rx_tids_destroy(struct ol_txrx_peer_t *peer);
+void ol_peer_rx_tids_init(struct ol_txrx_peer_t *peer);
+
 #ifdef WDI_EVENT_ENABLE
 void ol_rx_send_pktlog_event(struct ol_txrx_pdev_t *pdev,
 			     struct ol_txrx_peer_t *peer, qdf_nbuf_t msdu,

@@ -401,9 +401,13 @@ ol_rx_reorder_flush_frag(htt_pdev_handle htt_pdev,
 {
 	struct ol_rx_reorder_array_elem_t *rx_reorder_array_elem;
 	int seq;
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
 
-	seq = seq_num & peer->tids_rx_reorder[tid].win_sz_mask;
-	rx_reorder_array_elem = &peer->tids_rx_reorder[tid].array[seq];
+	if (!rx_tid)
+		return;
+
+	seq = seq_num & rx_tid->tids_rx_reorder[tid].win_sz_mask;
+	rx_reorder_array_elem = &rx_tid->tids_rx_reorder[tid].array[seq];
 	if (rx_reorder_array_elem->head) {
 		ol_rx_frames_free(htt_pdev, rx_reorder_array_elem->head);
 		rx_reorder_array_elem->head = NULL;
@@ -426,10 +430,14 @@ ol_rx_reorder_store_frag(ol_txrx_pdev_handle pdev,
 	htt_pdev_handle htt_pdev = pdev->htt_pdev;
 	void *rx_desc;
 	uint8_t index;
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
 
-	seq = seq_num & peer->tids_rx_reorder[tid].win_sz_mask;
+	if (!rx_tid)
+		return;
+
+	seq = seq_num & rx_tid->tids_rx_reorder[tid].win_sz_mask;
 	qdf_assert(seq == 0);
-	rx_reorder_array_elem = &peer->tids_rx_reorder[tid].array[seq];
+	rx_reorder_array_elem = &rx_tid->tids_rx_reorder[tid].array[seq];
 
 	mac_hdr = (struct ieee80211_frame *)
 		ol_rx_frag_get_mac_hdr(htt_pdev, frag);
@@ -503,12 +511,12 @@ ol_rx_reorder_store_frag(ol_txrx_pdev_handle pdev,
 		ol_rx_defrag(pdev, peer, tid, rx_reorder_array_elem->head);
 		rx_reorder_array_elem->head = NULL;
 		rx_reorder_array_elem->tail = NULL;
-		peer->tids_rx_reorder[tid].defrag_timeout_ms = 0;
-		peer->tids_last_seq[tid] = seq_num;
+		rx_tid->tids_rx_reorder[tid].defrag_timeout_ms = 0;
+		rx_tid->tids_last_seq[tid] = seq_num;
 	} else if (pdev->rx.flags.defrag_timeout_check) {
 		uint32_t now_ms = qdf_system_ticks_to_msecs(qdf_system_ticks());
 
-		peer->tids_rx_reorder[tid].defrag_timeout_ms =
+		rx_tid->tids_rx_reorder[tid].defrag_timeout_ms =
 			now_ms + pdev->rx.defrag.timeout_ms;
 		ol_rx_defrag_waitlist_add(peer, tid);
 	}
@@ -603,7 +611,13 @@ ol_rx_fraglist_insert(htt_pdev_handle htt_pdev,
 void ol_rx_defrag_waitlist_add(struct ol_txrx_peer_t *peer, unsigned int tid)
 {
 	struct ol_txrx_pdev_t *pdev = peer->vdev->pdev;
-	struct ol_rx_reorder_t *rx_reorder = &peer->tids_rx_reorder[tid];
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
+	struct ol_rx_reorder_t *rx_reorder;
+
+	if (!rx_tid)
+		return;
+
+	rx_reorder = &rx_tid->tids_rx_reorder[tid];
 
 	TAILQ_INSERT_TAIL(&pdev->rx.defrag.waitlist, rx_reorder,
 			  defrag_waitlist_elem);
@@ -615,8 +629,13 @@ void ol_rx_defrag_waitlist_add(struct ol_txrx_peer_t *peer, unsigned int tid)
 void ol_rx_defrag_waitlist_remove(struct ol_txrx_peer_t *peer, unsigned int tid)
 {
 	struct ol_txrx_pdev_t *pdev = peer->vdev->pdev;
-	struct ol_rx_reorder_t *rx_reorder = &peer->tids_rx_reorder[tid];
+	struct ol_rx_tids *rx_tid = peer->rx_tid;
+	struct ol_rx_reorder_t *rx_reorder;
 
+	if (!rx_tid)
+		return;
+
+	rx_reorder = &rx_tid->tids_rx_reorder[tid];
 	if (rx_reorder->defrag_waitlist_elem.tqe_next) {
 
 		TAILQ_REMOVE(&pdev->rx.defrag.waitlist, rx_reorder,
@@ -631,11 +650,6 @@ void ol_rx_defrag_waitlist_remove(struct ol_txrx_peer_t *peer, unsigned int tid)
 	}
 }
 
-#ifndef container_of
-#define container_of(ptr, type, member) \
-	((type *)((char *)(ptr) - (char *)(&((type *)0)->member)))
-#endif
-
 /*
  * flush stale fragments from the waitlist
  */
@@ -647,8 +661,10 @@ void ol_rx_defrag_waitlist_flush(struct ol_txrx_pdev_t *pdev)
 	TAILQ_FOREACH_SAFE(rx_reorder, &pdev->rx.defrag.waitlist,
 			   defrag_waitlist_elem, tmp) {
 		struct ol_txrx_peer_t *peer;
+		struct ol_rx_tids *rx_tid;
 		struct ol_rx_reorder_t *rx_reorder_base;
 		unsigned int tid;
+
 
 		if (rx_reorder->defrag_timeout_ms > now_ms)
 			break;
@@ -661,9 +677,8 @@ void ol_rx_defrag_waitlist_flush(struct ol_txrx_pdev_t *pdev)
 		}
 		/* get index 0 of the rx_reorder array */
 		rx_reorder_base = rx_reorder - tid;
-		peer =
-			container_of(rx_reorder_base, struct ol_txrx_peer_t,
-				     tids_rx_reorder[0]);
+		rx_tid = (struct ol_rx_tids *)rx_reorder_base;
+		peer = rx_tid->peer;
 
 		ol_rx_defrag_waitlist_remove(peer, tid);
 		ol_rx_reorder_flush_frag(pdev->htt_pdev, peer, tid,
