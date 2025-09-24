@@ -93,6 +93,7 @@
 #include "wlan_dp_ucfg_api.h"
 #include "son_api.h"
 #include "wlan_hdd_tx_powerboost.h"
+#include "wlan_hdd_ioctl.h"
 
 /* Preprocessor definitions and constants */
 #ifdef QCA_WIFI_EMULATION
@@ -1150,6 +1151,7 @@ static void __wlan_hdd_ipv4_changed(struct net_device *net_dev)
 	struct hdd_adapter *adapter = WLAN_HDD_GET_PRIV_PTR(net_dev);
 	struct hdd_context *hdd_ctx;
 	int errno;
+	struct wlan_hdd_link_info *link_info;
 
 	hdd_enter_dev(net_dev);
 
@@ -1165,6 +1167,13 @@ static void __wlan_hdd_ipv4_changed(struct net_device *net_dev)
 	if (adapter->device_mode == QDF_STA_MODE ||
 	    adapter->device_mode == QDF_P2P_CLIENT_MODE) {
 		hdd_dhcp_v4_done_ind(hdd_ctx->mac_handle, adapter);
+
+		if (adapter->dhcp_config_setsuspend) {
+			link_info = hdd_get_link_info_by_vdev(hdd_ctx,
+						adapter->deflink->vdev_id);
+			hdd_handle_apf_mode_on_idle(hdd_ctx, link_info, 1);
+			adapter->dhcp_config_setsuspend = false;
+		}
 
 		if (!ucfg_pmo_is_arp_offload_enabled(hdd_ctx->psoc)) {
 			hdd_debug("Offload not enabled");
@@ -3029,9 +3038,11 @@ hdd_update_send_idle_roam_bitmap(struct wlan_hdd_link_info *link_info,
 		else
 			qdf_set_bit(IDLE_ROAM_ENABLED,
 				    link_info->link_idle_roam_bitmap);
-
-	} else if (!ps_bit_set && !suspend_bit_set) {
-		hdd_debug("Both PS and Suspend are unset, sending disable to FW");
+	} else if ((!ps_bit_set || !suspend_bit_set) &&
+		   qdf_test_bit(IDLE_ROAM_ENABLED,
+				link_info->link_idle_roam_bitmap)) {
+		hdd_debug("PS :%d and Suspend: %d, sending disable to FW",
+			  ps_bit_set, suspend_bit_set);
 		status =
 			ucfg_pmo_tgt_psoc_send_idle_roam_suspend_mode(hdd_ctx->psoc,
 								      enable);
@@ -3177,11 +3188,11 @@ static int __wlan_hdd_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 
 	status = wlan_hdd_set_ps(link_info, adapter->mac_addr.bytes,
 				 allow_power_save, timeout);
-
+exit:
 	hdd_update_send_idle_roam_bitmap(link_info, hdd_ctx,
 					 allow_power_save,
 					 IDLE_ROAM_POWER_SAVE_CMD);
-exit:
+
 	/* Cache the powersave state for success case */
 	if (!status)
 		adapter->allow_power_save = allow_power_save;

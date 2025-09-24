@@ -2655,8 +2655,10 @@ int wlan_hdd_cfg80211_start_acs(struct wlan_hdd_link_info *link_info)
 		hdd_err("ACS channel select failed");
 		return -EINVAL;
 	}
-	if (sap_is_auto_channel_select(sap_ctx))
+	if (sap_is_auto_channel_select(sap_ctx)) {
 		sap_config->acs_cfg.acs_mode = true;
+		mlme_set_is_acs_sap(sap_ctx->vdev, true);
+	}
 
 	return 0;
 }
@@ -4474,6 +4476,7 @@ static int __wlan_hdd_cfg80211_do_acs(struct wiphy *wiphy,
 		hdd_err("get_external_acs_policy failed");
 
 	sap_config->acs_cfg.acs_mode = true;
+	mlme_set_is_acs_sap(link_info->vdev, true);
 
 	if (wlan_reg_get_keep_6ghz_sta_cli_connection(hdd_ctx->pdev))
 		hdd_remove_6ghz_freq_from_acs_list(
@@ -7378,6 +7381,7 @@ hdd_set_roam_with_control_config(struct hdd_context *hdd_ctx,
 		}
 
 		hdd_debug("Received min roam score delta value: %d", value);
+		value *= cfg_max(CFG_CAND_MIN_ROAM_SCORE_DELTA)/100;
 		status = hdd_send_min_roam_score_delta_to_sme(hdd_ctx, vdev_id,
 							      value);
 
@@ -9756,6 +9760,8 @@ wlan_hdd_wifi_test_config_policy[
 		[QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_BTM_REQ_RESP] = {
 			.type = NLA_NESTED},
 		[QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_EHT_RTWT_SUPPORT] = {
+			.type = NLA_U8},
+		[QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_EHT_BTM_RECOMM_MULTI_AP_SUPPORT] = {
 			.type = NLA_U8},
 };
 
@@ -12915,11 +12921,12 @@ static int hdd_set_channel_width(struct wlan_hdd_link_info *link_info,
 	uint8_t link_id = WLAN_INVALID_LINK_ID;
 	struct nlattr *tb2[QCA_WLAN_VENDOR_ATTR_CONFIG_MAX + 1];
 	struct nlattr *curr_attr, *chn_bd = NULL, *mlo_link_id;
-	enum eSirMacHTChannelWidth chwidth;
 	struct wlan_objmgr_psoc *psoc;
 	struct wlan_objmgr_vdev *vdev;
 	struct wlan_objmgr_pdev *pdev;
 	bool update_cw_allowed;
+	/* Default or safe chan width fallback */
+	enum eSirMacHTChannelWidth chwidth = eHT_CHANNEL_WIDTH_20MHZ;
 
 	vdev = hdd_objmgr_get_vdev_by_user(link_info, WLAN_OSIF_ID);
 	if (!vdev) {
@@ -18104,6 +18111,24 @@ BTM_REQ_RESP_DONE:
 
 		if (ret_val)
 			hdd_err("Failed to set EHT RTWT support");
+	}
+
+	cmd_id = QCA_WLAN_VENDOR_ATTR_WIFI_TEST_CONFIG_EHT_BTM_RECOMM_MULTI_AP_SUPPORT;
+	if (tb[cmd_id]) {
+		cfg_val = nla_get_u8(tb[cmd_id]);
+		hdd_debug("EHT BTM recommended Multi-AP support: %d", cfg_val);
+		if (cfg_val) {
+			ret_val = wlan_mlme_set_ext_mld_cap_supp(hdd_ctx->psoc,
+								 true);
+			if (ret_val)
+				hdd_err("Failed to set BTM rec Multi-AP supp");
+
+			ret_val =
+				wlan_mlme_set_exclude_ext_mld_cap(hdd_ctx->psoc,
+								  false);
+			if (ret_val)
+				hdd_err("Failed to set exclude ext MLD cap");
+		}
 	}
 
 	if (update_sme_cfg)
@@ -29371,7 +29396,7 @@ static int wlan_hdd_add_key_mlo_vdev(mac_handle_t mac_handle,
 	if (link_vdev)
 		ucfg_tdls_put_tdls_link_vdev(link_vdev, WLAN_OSIF_TDLS_ID);
 
-	if (wlan_vdev_get_link_id(adapter->deflink->vdev) == link_id) {
+	if (wlan_vdev_get_link_id(vdev) == link_id) {
 		hdd_debug("add_key for same vdev: %d",
 			  adapter->deflink->vdev_id);
 		return wlan_hdd_add_key_vdev(mac_handle, vdev, key_index,
@@ -29385,6 +29410,17 @@ static int wlan_hdd_add_key_mlo_vdev(mac_handle_t mac_handle,
 		errno = wlan_add_key_standby_link(adapter, vdev, link_id,
 						  key_index, pairwise, params);
 		return errno;
+	} else if (wlan_vdev_mlme_is_mlo_link_switch_in_progress(link_vdev)) {
+		/*
+		 * Use standby link key add for link switch VDEV because the
+		 * link ID is in transitioning on that VDEV and can lead to
+		 * peer not found issue.
+		 */
+		hdd_debug("Link switch in progress for %d",
+			  wlan_vdev_get_id(link_vdev));
+		errno = wlan_add_key_standby_link(adapter, link_vdev, link_id,
+						  key_index, pairwise, params);
+		goto release_ref;
 	}
 
 	hdd_ctx = WLAN_HDD_GET_CTX(adapter);
@@ -34544,6 +34580,7 @@ static int __wlan_hdd_cfg80211_set_bitrate_mask(struct wiphy *wiphy,
 						const u8 *peer,
 				       const struct cfg80211_bitrate_mask *mask)
 {
+	enum wlan_phymode phymode = WLAN_PHYMODE_AUTO;
 	enum nl80211_band band;
 	int errno;
 	struct hdd_adapter *adapter = netdev_priv(dev);
@@ -34572,6 +34609,9 @@ static int __wlan_hdd_cfg80211_set_bitrate_mask(struct wiphy *wiphy,
 		return errno;
 
 	vdev_id = adapter->deflink->vdev_id;
+	if (wlan_is_vdev_id_up(hdd_ctx->pdev, vdev_id))
+		phymode = ucfg_mlme_get_vdev_phy_mode(hdd_ctx->psoc,
+						      vdev_id);
 
 	for (band = NL80211_BAND_2GHZ; band <= NL80211_BAND_5GHZ; band++) {
 		/* Support configuring only one bitrate */
@@ -34617,7 +34657,9 @@ static int __wlan_hdd_cfg80211_set_bitrate_mask(struct wiphy *wiphy,
 			}
 		}
 
-		if (qdf_get_hweight32(mask->control[band].legacy) == 1) {
+		if (qdf_get_hweight32(mask->control[band].legacy) == 1 &&
+		    !IS_WLAN_PHYMODE_HE(phymode) &&
+		    !IS_WLAN_PHYMODE_EHT(phymode)) {
 			rate_index = (ffs(mask->control[band].legacy) - 1);
 			nss = 0;
 			if (band == NL80211_BAND_5GHZ)
@@ -34637,7 +34679,8 @@ static int __wlan_hdd_cfg80211_set_bitrate_mask(struct wiphy *wiphy,
 
 configure_fw:
 		if (bit_rate != -1) {
-			hdd_debug("wmi_vdev_param_fixed_rate val %d", bit_rate);
+			hdd_debug("wmi_vdev_param_fixed_rate val %d phymode %d",
+				  bit_rate, phymode);
 
 			errno = wma_cli_set_command(adapter->deflink->vdev_id,
 						    wmi_vdev_param_fixed_rate,
@@ -34646,6 +34689,8 @@ configure_fw:
 			if (errno)
 				hdd_err("Failed to set firmware, errno %d",
 					errno);
+		} else {
+			hdd_err("bit rate invalid, phymode %d", phymode);
 		}
 
 
