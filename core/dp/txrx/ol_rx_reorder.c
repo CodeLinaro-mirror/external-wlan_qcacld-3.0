@@ -360,12 +360,15 @@ ol_rx_reorder_flush(struct ol_txrx_vdev_t *vdev,
 	idx_end &= win_sz_mask;
 
 	do {
+		if (!rx_tid->tids_rx_reorder[tid].array)
+			break;
+
 		rx_reorder_array_elem =
 			&rx_tid->tids_rx_reorder[tid].array[idx_start];
 		idx_start = (idx_start + 1);
 		OL_RX_REORDER_IDX_WRAP(idx_start, win_sz, win_sz_mask);
 
-		if (rx_reorder_array_elem->head) {
+		if (rx_reorder_array_elem && rx_reorder_array_elem->head) {
 			OL_RX_REORDER_MPDU_CNT_DECR(&rx_tid->tids_rx_reorder[tid],
 						    1);
 			if (!head_msdu) {
@@ -396,7 +399,8 @@ ol_rx_reorder_flush(struct ol_txrx_vdev_t *vdev,
 		/* rx_opt_proc takes a NULL-terminated list of msdu netbufs */
 		qdf_nbuf_set_next(tail_msdu, NULL);
 		if (action == htt_rx_flush_release) {
-			peer->rx_opt_proc(vdev, peer, tid, head_msdu);
+			if (peer->rx_opt_proc)
+				peer->rx_opt_proc(vdev, peer, tid, head_msdu);
 		} else {
 			do {
 				qdf_nbuf_t next;
