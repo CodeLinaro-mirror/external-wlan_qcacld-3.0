@@ -2987,4 +2987,9 @@ config QCACLD_FEATURE_COEX_CONFIG
 config IPA_P2P_SUPPORT
 	bool "support p2p when IPA is enabled"
 	default n
+
+config SAP_PERF_TUNING
+	bool "Enable SAP performance tuning"
+	default n
+
 endif # QCA_CLD_WLAN
