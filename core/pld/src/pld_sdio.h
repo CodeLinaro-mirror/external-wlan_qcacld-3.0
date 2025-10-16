@@ -80,6 +80,10 @@ static inline uint8_t *pld_sdio_get_wlan_mac_address(struct device *dev,
 	*num = 0;
 	return NULL;
 }
+static inline int pld_sdio_set_fw_log_mode(struct device *dev, u8 fw_log_mode)
+{
+	return 0;
+}
 #else
 /**
  * pld_sdio_register_driver() - Register SDIO device callback functions
@@ -108,6 +112,8 @@ void pld_sdio_unregister_driver(void);
  */
 int pld_sdio_get_fw_files_for_target(struct pld_fw_files *pfw_files,
 				     u32 target_type, u32 target_version);
+
+int pld_sdio_set_fw_log_mode(struct device *dev, u8 fw_log_mode);
 #ifdef CONFIG_CNSS
 static inline uint8_t *pld_sdio_get_wlan_mac_address(struct device *dev,
 						     uint32_t *num)

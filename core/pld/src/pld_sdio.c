@@ -460,6 +460,16 @@ void pld_sdio_unregister_driver(void)
 }
 #endif
 
+int pld_sdio_set_fw_log_mode(struct device *dev, u8 fw_log_mode)
+{
+	if (!dev) {
+		pr_err("%s: dev is NULL\n", __func__);
+		return -ENODEV;
+	}
+
+	return cnss_set_fw_log_mode(dev, fw_log_mode);
+}
+
 #ifdef CONFIG_PLD_SDIO_CNSS
 #ifdef CONFIG_TUFELLO_DUAL_FW_SUPPORT
 static inline int pld_sdio_is_tufello_dual_fw_supported(void)
