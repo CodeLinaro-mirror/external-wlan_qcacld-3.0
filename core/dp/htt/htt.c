@@ -40,6 +40,7 @@
 #include "hif.h"
 #include <cdp_txrx_handle.h>
 #include <ol_txrx_peer_find.h>
+#include <ani_global.h>
 
 #define HTT_HTC_PKT_POOL_INIT_SIZE 100  /* enough for a large A-MPDU */
 
@@ -219,6 +220,12 @@ htt_htc_tx_htt2_service_start(struct htt_pdev_t *pdev,
 			      struct htc_service_connect_resp *connect_resp)
 {
 	QDF_STATUS status;
+	struct mac_context *mac_ctx;
+
+	mac_ctx = cds_get_context(QDF_MODULE_ID_PE);
+	if (!mac_ctx) {
+		qdf_print("mac context is NULL, disable htt credit as default\n");
+	}
 
 	qdf_mem_zero(connect_req, sizeof(struct htc_service_connect_req));
 	qdf_mem_zero(connect_resp, sizeof(struct htc_service_connect_resp));
@@ -228,9 +235,15 @@ htt_htc_tx_htt2_service_start(struct htt_pdev_t *pdev,
 	connect_req->EpCallbacks.EpTxComplete = htt_h2t_send_complete;
 	connect_req->EpCallbacks.EpSendFull = htt_h2t_full;
 	connect_req->MaxSendQueueDepth = HTT_MAX_SEND_QUEUE_DEPTH;
-	/* Should NOT support credit flow control. */
-	connect_req->ConnectionFlags |=
-				HTC_CONNECT_FLAGS_DISABLE_CREDIT_FLOW_CTRL;
+
+	/* HTT credit need combo with firmware. */
+	if (mac_ctx && mac_ctx->psoc && cfg_get(mac_ctx->psoc, CFG_HTT_CREDIT_ENABLE)) {
+		connect_req->ConnectionFlags |=
+					HTC_CONNECT_FLAGS_REDUCE_CREDIT_DRIBBLE;
+	} else {
+		connect_req->ConnectionFlags |=
+					HTC_CONNECT_FLAGS_DISABLE_CREDIT_FLOW_CTRL;
+	}
 	/* Enable HTC schedule mechanism for TX HTT2 service. */
 	connect_req->ConnectionFlags |= HTC_CONNECT_FLAGS_ENABLE_HTC_SCHEDULE;
 
@@ -802,6 +815,12 @@ int htt_htc_attach(struct htt_pdev_t *pdev, uint16_t service_id)
 	struct htc_service_connect_req connect;
 	struct htc_service_connect_resp response;
 	QDF_STATUS status;
+	struct mac_context *mac_ctx;
+
+	mac_ctx = cds_get_context(QDF_MODULE_ID_PE);
+	if (!mac_ctx) {
+		qdf_print("mac context is NULL, disable htt credit as default\n");
+	}
 
 	qdf_mem_zero(&connect, sizeof(connect));
 	qdf_mem_zero(&response, sizeof(response));
@@ -828,8 +847,10 @@ int htt_htc_attach(struct htt_pdev_t *pdev, uint16_t service_id)
 	 */
 	connect.MaxSendQueueDepth = HTT_MAX_SEND_QUEUE_DEPTH;
 
-	/* disable flow control for HTT data message service */
-	htt_htc_credit_flow_disable(pdev, &connect);
+	if (!(mac_ctx && mac_ctx->psoc && cfg_get(mac_ctx->psoc, CFG_HTT_CREDIT_ENABLE))) {
+		/* disable flow control for HTT data message service */
+		htt_htc_credit_flow_disable(pdev, &connect);
+	}
 
 	/* connect to control service */
 	connect.service_id = service_id;

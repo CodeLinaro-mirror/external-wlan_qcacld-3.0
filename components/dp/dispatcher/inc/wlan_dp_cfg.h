@@ -1585,6 +1585,24 @@
 		CFG_VALUE_OR_DEFAULT, \
 		"enable or disable amsdu support in addba response")
 
+/*
+ * <ini>
+ * htt_credit - capbility of htt tx credit
+ *
+ * @Min: 0
+ * @Max: 1
+ * @Default: 0
+ *
+ * Switch for htt datapath credit flow control.
+ *
+ * </ini>
+ */
+#define CFG_HTT_CREDIT_ENABLE \
+		CFG_INI_UINT("htt_credit", \
+		0, 1, 0, \
+		CFG_VALUE_OR_DEFAULT, \
+		"enable or disable htt credit support")
+
 #define CFG_DP_ALL \
 	CFG(CFG_DP_RX_THREAD_CPU_MASK) \
 	CFG(CFG_DP_RX_THREAD_UL_CPU_MASK) \
@@ -1620,6 +1638,7 @@
 	CFG(CFG_DP_IPA_DEBUG_ENABLE) \
 	CFG(CFG_DP_IRQ_AFFINITY_MASK) \
 	CFG(CFG_DP_ADDBA_BUFSIZE) \
-	CFG(CFG_DP_RX_AMSDU_ENABLE)
+	CFG(CFG_DP_RX_AMSDU_ENABLE) \
+	CFG(CFG_HTT_CREDIT_ENABLE)
 
 #endif /* WLAN_DP_CFG_H__ */
