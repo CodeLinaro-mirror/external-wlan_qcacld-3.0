@@ -2230,6 +2230,20 @@ QDF_STATUS hdd_roam_register_sta(struct hdd_adapter *adapter,
 }
 
 #ifndef FEATURE_CM_ENABLE
+#ifdef CFG80211_SINGLE_NETDEV_MULTI_LINK_SUPPORT
+static void hdd_set_roam_info(struct cfg80211_roam_info *info,
+			      struct cfg80211_bss *bss)
+{
+	info->links[0].bss = bss;
+}
+#else
+static void hdd_set_roam_info(struct cfg80211_roam_info *info,
+			      struct cfg80211_bss *bss)
+{
+	info->bss = bss;
+}
+#endif
+
 /**
  * hdd_send_roamed_ind() - send roamed indication to cfg80211
  * @dev: network device
@@ -2250,7 +2264,7 @@ static void hdd_send_roamed_ind(struct net_device *dev,
 {
 	struct cfg80211_roam_info info = {0};
 
-	info.bss = bss;
+	hdd_set_roam_info(&info, bss);
 	info.req_ie = req_ie;
 	info.req_ie_len = req_ie_len;
 	info.resp_ie = resp_ie;

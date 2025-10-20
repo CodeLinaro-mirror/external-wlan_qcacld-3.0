@@ -47,6 +47,15 @@
 #include <wlan_objmgr_psoc_obj.h>
 #include <cdp_txrx_handle.h>
 
+/*
+ * The following commit was introduced in v5.17:
+ * cead18552660 ("exit: Rename complete_and_exit to kthread_complete_and_exit")
+ * Use the old name for kernels before 5.17
+ */
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 0))
+#define kthread_complete_and_exit(c, s) complete_and_exit(c, s)
+#endif
+
 /* Amount of time to wait for WMA to perform an asynchronous activity.
  * This value should be larger than the timeout used by WMI to wait for
  * a response from target

@@ -23,6 +23,7 @@
 #include "wlan_pkt_capture_mon_thread.h"
 #include <linux/kthread.h>
 #include "cds_ieee80211_common.h"
+#include "cds_api.h"
 #include "wlan_mgmt_txrx_utils_api.h"
 #include "cdp_txrx_ctrl.h"
 #include "cfg_ucfg_api.h"
@@ -357,7 +358,7 @@ static int pkt_capture_mon_thread(void *arg)
 		}
 	}
 	pkt_capture_debug("Exiting packet capture mon thread");
-	complete_and_exit(&mon_ctx->mon_shutdown, 0);
+	kthread_complete_and_exit(&mon_ctx->mon_shutdown, 0);
 
 	return 0;
 }

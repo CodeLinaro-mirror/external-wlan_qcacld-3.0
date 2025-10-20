@@ -30,7 +30,6 @@
 #ifndef __UTILS_PARSE_H__
 #define __UTILS_PARSE_H__
 
-#include <stdarg.h>
 #include "sir_api.h"
 #include "dot11f.h"
 #include "utils_api.h"

@@ -859,7 +859,7 @@ static int cds_ol_rx_thread(void *arg)
 	}
 
 	cds_debug("Exiting CDS OL rx thread");
-	complete_and_exit(&pSchedContext->ol_rx_shutdown, 0);
+	kthread_complete_and_exit(&pSchedContext->ol_rx_shutdown, 0);
 
 	return 0;
 }

@@ -67,8 +67,7 @@
 
 #ifdef TXRX_PRINT_ENABLE
 
-#include <stdarg.h>             /* va_list */
-#include <qdf_types.h>          /* qdf_vprint */
+#include "qdf_types.h"          /* qdf_vprint */
 
 #define ol_txrx_alert(params...) \
 	QDF_TRACE_FATAL(QDF_MODULE_ID_TXRX, params)

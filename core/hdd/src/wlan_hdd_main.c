@@ -4774,7 +4774,8 @@ static int __hdd_set_mac_address(struct net_device *dev, void *addr)
 
 	hdd_update_dynamic_mac(hdd_ctx, &adapter->mac_addr, &mac_addr);
 	memcpy(&adapter->mac_addr, psta_mac_addr->sa_data, ETH_ALEN);
-	memcpy(dev->dev_addr, psta_mac_addr->sa_data, ETH_ALEN);
+	qdf_net_update_net_device_dev_addr(dev, psta_mac_addr->sa_data,
+					   ETH_ALEN);
 
 	hdd_exit();
 	return qdf_ret_status;
@@ -5407,7 +5408,7 @@ hdd_alloc_station_adapter(struct hdd_context *hdd_ctx, tSirMacAddr mac_addr,
 	/* Init the net_device structure */
 	strlcpy(dev->name, name, IFNAMSIZ);
 
-	qdf_mem_copy(dev->dev_addr, mac_addr, sizeof(tSirMacAddr));
+	qdf_net_update_net_device_dev_addr(dev, mac_addr, sizeof(tSirMacAddr));
 	qdf_mem_copy(adapter->mac_addr.bytes, mac_addr, sizeof(tSirMacAddr));
 	dev->watchdog_timeo = HDD_TX_TIMEOUT;
 
@@ -8187,6 +8188,24 @@ void hdd_update_hlp_info(struct net_device *dev,
 	hdd_debug("send HLP packet to netif successfully");
 }
 
+#ifdef CFG80211_SINGLE_NETDEV_MULTI_LINK_SUPPORT
+static void hdd_set_connect_info(struct cfg80211_connect_resp_params *fils_params,
+				 struct cfg80211_bss *bss,
+				 const u8 *bssid)
+{
+	fils_params->links[0].bss = bss;
+	fils_params->links[0].bssid = bssid;
+}
+#else
+static void hdd_set_connect_info(struct cfg80211_connect_resp_params *fils_params,
+				 struct cfg80211_bss *bss,
+				 const u8 *bssid)
+{
+	fils_params->bss = bss;
+	fils_params->bssid = bssid;
+}
+#endif
+
 /**
  * hdd_connect_done() - Wrapper API to call cfg80211_connect_done
  * @dev: network device
@@ -8226,14 +8245,13 @@ static void hdd_connect_done(struct net_device *dev, const u8 *bssid,
 		fils_params.status = WLAN_STATUS_UNSPECIFIED_FAILURE;
 	} else {
 		fils_params.status = status;
-		fils_params.bssid = bssid;
 		fils_params.timeout_reason =
 				hdd_convert_timeout_reason(timeout_reason);
 		fils_params.req_ie = req_ie;
 		fils_params.req_ie_len = req_ie_len;
 		fils_params.resp_ie = resp_ie;
 		fils_params.resp_ie_len = resp_ie_len;
-		fils_params.bss = bss;
+		hdd_set_connect_info(&fils_params, bss, bssid);
 		hdd_populate_fils_params(&fils_params, roam_fils_params->kek,
 					 roam_fils_params->kek_len,
 					 roam_fils_params->fils_pmk,
@@ -16500,6 +16518,18 @@ const struct file_operations wlan_hdd_state_fops = {
 	.release = wlan_hdd_state_ctrl_param_release,
 };
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0))
+static struct class *wlan_hdd_class_create(const char *name)
+{
+	return class_create(THIS_MODULE, name);
+}
+#else
+static struct class *wlan_hdd_class_create(const char *name)
+{
+	return class_create(name);
+}
+#endif
+
 static int  wlan_hdd_state_ctrl_param_create(void)
 {
 	unsigned int wlan_hdd_state_major = 0;
@@ -16518,7 +16548,7 @@ static int  wlan_hdd_state_ctrl_param_create(void)
 	}
 	wlan_hdd_state_major = MAJOR(device);
 
-	class = class_create(THIS_MODULE, WLAN_MODULE_NAME);
+	class = wlan_hdd_class_create(WLAN_MODULE_NAME);
 	if (IS_ERR(class)) {
 		pr_err("wlan_hdd_state class_create error");
 		goto class_err;

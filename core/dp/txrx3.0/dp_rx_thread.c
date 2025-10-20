@@ -22,6 +22,7 @@
 #include <cdp_txrx_cmn_struct.h>
 #include <cdp_txrx_peer_ops.h>
 #include <cds_sched.h>
+#include "qdf_net_if.h"
 
 /* Timeout in ms to wait for a DP rx thread */
 #define DP_RX_THREAD_WAIT_TIMEOUT 1000
@@ -594,7 +595,6 @@ static int dp_rx_thread_loop(void *arg)
 	dp_info("exiting (%s) id %d pid %d", qdf_get_current_comm(),
 		rx_thread->id, qdf_get_current_pid());
 	qdf_event_set(&rx_thread->shutdown_event);
-	qdf_exit_thread(QDF_STATUS_SUCCESS);
 
 	return 0;
 }
@@ -623,9 +623,9 @@ static void dp_rx_tm_thread_napi_init(struct dp_rx_thread *rx_thread)
 {
 	/* Todo - optimize to use only one dummy netdev for all thread napis */
 	init_dummy_netdev(&rx_thread->netdev);
-	netif_napi_add(&rx_thread->netdev, &rx_thread->napi,
-		       dp_rx_tm_thread_napi_poll, 64);
-	napi_enable(&rx_thread->napi);
+	qdf_netif_napi_add(&rx_thread->netdev, &rx_thread->napi,
+			   dp_rx_tm_thread_napi_poll, 64);
+	qdf_napi_enable(&rx_thread->napi);
 }
 
 /**
@@ -636,7 +636,7 @@ static void dp_rx_tm_thread_napi_init(struct dp_rx_thread *rx_thread)
  */
 static void dp_rx_tm_thread_napi_deinit(struct dp_rx_thread *rx_thread)
 {
-	netif_napi_del(&rx_thread->napi);
+	qdf_netif_napi_del(&rx_thread->napi);
 }
 
 /*
