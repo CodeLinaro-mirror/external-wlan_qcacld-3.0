@@ -456,7 +456,9 @@ int pld_set_fw_log_mode(struct device *dev, u8 fw_log_mode)
 	case PLD_BUS_TYPE_PCIE_FW_SIM:
 	case PLD_BUS_TYPE_IPCI_FW_SIM:
 	case PLD_BUS_TYPE_SNOC_FW_SIM:
+		break;
 	case PLD_BUS_TYPE_SDIO:
+		ret = pld_sdio_set_fw_log_mode(dev, fw_log_mode);
 		break;
 	case PLD_BUS_TYPE_IPCI:
 		ret = pld_ipci_set_fw_log_mode(dev, fw_log_mode);
