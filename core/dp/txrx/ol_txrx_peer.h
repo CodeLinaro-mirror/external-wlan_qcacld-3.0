@@ -239,6 +239,94 @@ void ol_txrx_peer_vdev_list_remove(struct ol_txrx_pdev_t *pdev,
 				   struct ol_txrx_vdev_t *vdev,
 				   struct ol_txrx_peer_t *peer);
 
+#ifdef OL_TXRX_PEER_UNMAP_TRACK
+/**
+ * ol_txrx_peer_unmap_track_update() - update for peer unmap tracking
+ * @pdev: ol txrx pdev handle
+ * @peer: ol txrx peer handle
+ *
+ * If peer ID is still valid, then it means this peer has not received
+ * unmap before, queue one element into list and start timer to track
+ * peer unmap next.
+ *
+ * Return: None
+ */
+void ol_txrx_peer_unmap_track_update(struct ol_txrx_pdev_t *pdev,
+				     struct ol_txrx_peer_t *peer);
+
+/**
+ * ol_txrx_peer_unmap_track_init() - Initial ol txrx peer unmap tracking
+ * @pdev: ol txrx pdev handle
+ *
+ * Return: None
+ */
+void ol_txrx_peer_unmap_track_init(struct ol_txrx_pdev_t *pdev);
+
+/**
+ * ol_txrx_peer_unmap_track_deinit() - De-initial peer unmap tracking
+ * @pdev: ol txrx pdev handle
+ *
+ * Return: None
+ */
+void ol_txrx_peer_unmap_track_deinit(struct ol_txrx_pdev_t *pdev);
+
+/**
+ * ol_txrx_peer_unmap_track_cookie_init()
+ * - Initial cookie inside peer for unmap tracking
+ *
+ * @pdev: ol txrx pdev handle
+ * @peer: ol txrx peer handle
+ *
+ * return: None
+ */
+static inline
+void ol_txrx_peer_unmap_track_cookie_init(struct ol_txrx_pdev_t *pdev,
+					  struct ol_txrx_peer_t *peer)
+{
+	peer->unmap_track_cookie =
+		qdf_atomic_inc_return(&pdev->peer_unmap_track_cookie);
+}
+
+/**
+ * ol_txrx_soc_peer_unmap_track_cookie_init - Initial global cookie
+ * @pdev: ol txrx pdev handle
+ *
+ * return: None
+ */
+static inline
+void ol_txrx_pdev_peer_unmap_track_cookie_init(struct ol_txrx_pdev_t *pdev)
+{
+	qdf_atomic_init(&pdev->peer_unmap_track_cookie);
+}
+#else
+static inline
+void ol_txrx_peer_unmap_track_update(struct ol_txrx_pdev_t *pdev,
+				     struct ol_txrx_peer_t *peer)
+{
+}
+
+static inline
+void ol_txrx_peer_unmap_track_init(struct ol_txrx_pdev_t *pdev)
+{
+}
+
+static inline
+void ol_txrx_peer_unmap_track_deinit(struct ol_txrx_pdev_t *pdev)
+{
+}
+
+static inline
+void ol_txrx_peer_unmap_track_cookie_init(struct ol_txrx_pdev_t *pdev,
+					  struct ol_txrx_peer_t *peer)
+{
+}
+
+static inline
+void ol_txrx_pdev_peer_unmap_track_cookie_init(struct ol_txrx_pdev_t *pdev)
+{
+}
+#endif
+
 #if 0
 /**
  * dp_peer_cleanup() - Cleanup peer information

@@ -91,6 +91,33 @@ struct ol_txrx_peer_t *ol_txrx_peer_find_by_id(struct ol_txrx_pdev_t *pdev,
 	return NULL;
 }
 
+/**
+ * ol_txrx_peer_find_get_ref_by_id
+ * - function to find peer from pdev->peer_id_to_obj_map by peer_id
+ *   and get reference
+ *
+ * @pdev: ol txrx pdev handle
+ * @peer_id: ol txrx peer id
+ * @dbg_id: id of module requesting reference.
+ *
+ * return: peer in success, NULL in failure
+ */
+static inline
+struct ol_txrx_peer_t *ol_txrx_peer_find_get_ref_by_id(
+	struct ol_txrx_pdev_t *pdev, uint16_t peer_id,
+	enum peer_debug_id_type dbg_id)
+{
+	struct ol_txrx_peer_t *peer = ol_txrx_peer_find_by_id(pdev, peer_id);
+
+	if (!peer ||
+	    ol_txrx_peer_get_ref(peer, PEER_DEBUG_ID_OL_INTERNAL) < 0) {
+		ol_txrx_dbg("Fail to find peer with peer_id %d", peer_id);
+		return NULL;
+	}
+
+	return peer;
+}
+
 void
 ol_txrx_peer_find_hash_add(struct ol_txrx_pdev_t *pdev,
 			   struct ol_txrx_peer_t *peer);

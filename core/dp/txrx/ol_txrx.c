@@ -981,6 +981,9 @@ ol_txrx_pdev_attach(ol_txrx_soc_handle soc,
 		pdev->peer_id_unmap_ref_cnt =
 			TXRX_RFS_DISABLE_PEER_ID_UNMAP_COUNT;
 
+	ol_txrx_pdev_peer_unmap_track_cookie_init(pdev);
+	ol_txrx_peer_unmap_track_init(pdev);
+
 	if (cds_get_conparam() == QDF_GLOBAL_MONITOR_MODE)
 		pdev->chan_noise_floor = NORMALIZED_TO_NOISE_FLOOR;
 
@@ -1843,6 +1846,8 @@ static QDF_STATUS ol_txrx_pdev_detach(struct cdp_soc_t *soc_hdl, uint8_t pdev_id
 		return QDF_STATUS_E_FAILURE;
 	}
 
+	ol_txrx_peer_unmap_track_deinit(pdev);
+
 	qdf_spin_lock_bh(&pdev->req_list_spinlock);
 	if (pdev->req_list_depth > 0)
 		ol_txrx_err(
@@ -2608,9 +2613,8 @@ ol_txrx_peer_attach(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 	qdf_atomic_init(&peer->fw_create_pending);
 	qdf_atomic_set(&peer->fw_create_pending, 1);
 
+	ol_txrx_peer_unmap_track_cookie_init(pdev, peer);
 	peer->valid = 1;
-	qdf_timer_init(pdev->osdev, &peer->peer_unmap_timer,
-		       peer_unmap_timer_handler, peer, QDF_TIMER_TYPE_SW);
 
 	/* add this peer into the vdev's list */
 	ol_txrx_peer_vdev_list_add(pdev, vdev, peer);
@@ -3502,9 +3506,6 @@ int ol_txrx_peer_release_ref(ol_txrx_peer_handle peer,
 			vdev->wait_on_peer_id = OL_TXRX_INVALID_LOCAL_PEER_ID;
 		}
 
-		qdf_timer_sync_cancel(&peer->peer_unmap_timer);
-		qdf_timer_free(&peer->peer_unmap_timer);
-
 		/* check whether the parent vdev has no peers left */
 		if (TAILQ_EMPTY(&vdev->peer_list)) {
 			/*
@@ -3663,30 +3664,6 @@ ol_txrx_clear_peer(struct cdp_soc_t *soc_hdl, uint8_t pdev_id,
 }
 
 /**
- * peer_unmap_timer_handler() - peer unmap timer function
- * @data: peer object pointer
- *
- * Return: none
- */
-void peer_unmap_timer_handler(void *data)
-{
-	ol_txrx_peer_handle peer = (ol_txrx_peer_handle)data;
-
-	if (!peer)
-		return;
-
-	ol_txrx_err("all unmap events not received for peer %pK, ref_cnt %d",
-		    peer, qdf_atomic_read(&peer->ref_cnt));
-	ol_txrx_err("peer %pK ("QDF_MAC_ADDR_FMT")",
-		    peer,
-		    QDF_MAC_ADDR_REF(peer->mac_addr.raw));
-	ol_register_peer_recovery_notifier(peer);
-
-	cds_trigger_recovery(QDF_PEER_UNMAP_TIMEDOUT);
-}
-
-
-/**
  * ol_txrx_peer_detach() - Delete a peer's data object.
 
  * @soc_hdl: datapath soc handle
@@ -3776,15 +3753,7 @@ static QDF_STATUS ol_txrx_peer_detach(struct cdp_soc_t *soc_hdl,
 				&peer->mac_addr,
 				sizeof(union ol_txrx_align_mac_addr_t));
 
-			/*
-			 * Create a timer to track unmap events when the
-			 * sta peer gets deleted.
-			 */
-			qdf_timer_start(&peer->peer_unmap_timer,
-					OL_TXRX_PEER_UNMAP_TIMEOUT);
-			ol_txrx_info_high
-				("started peer_unmap_timer for peer %pK",
-				  peer);
+			ol_txrx_peer_unmap_track_update(pdev, peer);
 		}
 	}
 
@@ -6862,7 +6831,6 @@ static QDF_STATUS ol_peer_rx_reorder_multi_queue_setup(
 	int tid;
 	uint16_t ba_win_size;
 	struct mac_context *mac_ctx;
-	QDF_STATUS status = QDF_STATUS_SUCCESS;
 	struct multi_rx_reorder_queue_setup_params tid_params = {0};
 
 	if (!soc || !peer)

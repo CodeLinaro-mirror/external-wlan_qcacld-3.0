@@ -1150,8 +1150,6 @@ void ol_rx_peer_unmap_handler(ol_txrx_pdev_handle pdev, uint16_t peer_id)
 		return;
 	}
 
-	qdf_timer_stop(&peer->peer_unmap_timer);
-
 	if (qdf_atomic_dec_and_test
 		(&pdev->peer_id_to_obj_map[peer_id].peer_id_ref_cnt)) {
 		peer->peer_id = HTT_INVALID_PEER;

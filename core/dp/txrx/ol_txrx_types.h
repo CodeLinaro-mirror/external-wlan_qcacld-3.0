@@ -553,6 +553,29 @@ struct ol_txrx_peer_id_map {
 	qdf_atomic_t peer_id_unmap_cnt;
 };
 
+#ifdef OL_TXRX_PEER_UNMAP_TRACK
+/* timer expire in unit ms */
+#define OL_TXRX_PEER_UNMAP_TRACK_TIMEOUT 3000
+
+/**
+ * struct ol_txrx_peer_unmap_track_elem
+ * - structure to maintain peer info for HTT unmap tracking
+ * @node: node in list
+ * @peer: DP peer which waits HTT peer unmap
+ * @peer_id: Peer ID mapped before
+ * @track_start_time: Timestamp that peer unmap tracking start
+ * @unmap_track_cookie: peer's cookie under tracking
+ */
+struct ol_txrx_peer_unmap_track_elem {
+	/* Do not add new entries here */
+	qdf_list_node_t node;
+	struct ol_txrx_peer_t *peer;
+	uint16_t peer_id;
+	uint64_t track_start_time;
+	uint32_t unmap_track_cookie;
+};
+#endif
+
 /*
  * ol_txrx_stats_req_internal - specifications of the requested
  * statistics internally
@@ -876,6 +899,19 @@ struct ol_txrx_pdev_t {
 	qdf_spinlock_t peer_map_unmap_lock;
 
 	ol_txrx_peer_unmap_sync_cb peer_unmap_sync_cb;
+
+#ifdef OL_TXRX_PEER_UNMAP_TRACK
+	/* flag to indicate if the timer start already */
+	bool peer_unmap_track_timer_start;
+	/* protect peer_unmap_track_list */
+	qdf_spinlock_t peer_unmap_track_lock;
+	/* list to store dp_peer_unmap_track_elem */
+	qdf_list_t peer_unmap_track_list;
+	/* timer for peer unmap tracking */
+	qdf_timer_t peer_unmap_track_timer;
+	/* global source cookie for peer initialization */
+	qdf_atomic_t peer_unmap_track_cookie;
+#endif
 
 	struct {
 		struct {
@@ -1432,10 +1468,6 @@ typedef A_STATUS (*ol_tx_filter_func)(struct ol_txrx_msdu_info_t *
 #define OL_TXRX_PEER_SECURITY_UNICAST    1
 #define OL_TXRX_PEER_SECURITY_MAX        2
 
-
-/* Allow 6000 ms to receive peer unmap events after peer is deleted */
-#define OL_TXRX_PEER_UNMAP_TIMEOUT (6000)
-
 struct ol_txrx_cached_bufq_t {
 	/* cached_bufq is used to enqueue the pending RX frames from a peer
 	 * before the peer is registered for data service. The list will be
@@ -1617,9 +1649,12 @@ struct ol_txrx_peer_t {
 	qdf_time_t last_disassoc_rcvd;
 	qdf_time_t last_deauth_rcvd;
 	qdf_atomic_t fw_create_pending;
-	qdf_timer_t peer_unmap_timer;
 	bool is_tdls_peer; /* Mark peer as tdls peer */
 	bool tdls_offchan_enabled; /* TDLS OffChan operation in use */
+
+#ifdef OL_TXRX_PEER_UNMAP_TRACK
+	uint32_t unmap_track_cookie;
+#endif
 
 #ifdef WLAN_FEATURE_11BE_MLO
 	uint8_t first_link:1, /* Indicate this is the first link peer for MLO */
