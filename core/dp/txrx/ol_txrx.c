@@ -6883,6 +6883,8 @@ static QDF_STATUS ol_peer_rx_reorder_multi_queue_setup(
 	tid_params.peer_macaddr = peer->mac_addr.raw;
 
 	/* Set up TID bitmap and queue parameters */
+	tid_params.tid_bitmap = OL_TXRX_TID_FULL_BITMASK(OL_TX_NUM_QOS_TIDS);
+	tid_params.tid_num = OL_TX_NUM_QOS_TIDS;
 	ba_win_size = cfg_get(mac_ctx->psoc, CFG_DP_ADDBA_BUFSIZE);
 	for (tid = 0; tid < OL_TX_NUM_QOS_TIDS; tid++) {
 		/* hw_qdesc_paddr will be set by firmware */
