@@ -5274,7 +5274,8 @@ QDF_STATUS cm_process_peer_create(struct scheduler_msg *msg)
 	}
 
 continue_peer_create:
-	wlan_objmgr_peer_release_ref(peer, WLAN_MLME_CM_ID);
+	if (peer)
+		wlan_objmgr_peer_release_ref(peer, WLAN_MLME_CM_ID);
 
 	lim_get_mld_info_sta(req, &peer_mld_addr, &is_assoc_peer);
 	status = wma_add_bss_peer_sta(req->vdev_id, req->peer_mac.bytes, true,
