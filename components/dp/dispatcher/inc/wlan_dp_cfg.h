@@ -1603,6 +1603,42 @@
 		CFG_VALUE_OR_DEFAULT, \
 		"enable or disable htt credit support")
 
+/*
+ * <ini>
+ * h2t_bundle_num - number of the tx bundle for sdio HL
+ *
+ * @Min: 1
+ * @Max: 8
+ * @Default: 1
+ *
+ * Used in tx datapath
+ *
+ * </ini>
+ */
+#define CFG_DP_TX_BUNDLE_NUM \
+		CFG_INI_UINT("h2t_bundle_num", \
+		1, 8, 1, \
+		CFG_VALUE_OR_DEFAULT, \
+		"set the tx bundle num for sdio HL")
+
+/*
+ * <ini>
+ * t2h_bundle_num - number of the rx bundle for sdio HL
+ *
+ * @Min: 1
+ * @Max: 8
+ * @Default: 1
+ *
+ * Used in rx datapath
+ *
+ * </ini>
+ */
+#define CFG_DP_RX_BUNDLE_NUM \
+		CFG_INI_UINT("t2h_bundle_num", \
+		1, 8, 1, \
+		CFG_VALUE_OR_DEFAULT, \
+		"set the rx bundle num for sdio HL")
+
 #define CFG_DP_ALL \
 	CFG(CFG_DP_RX_THREAD_CPU_MASK) \
 	CFG(CFG_DP_RX_THREAD_UL_CPU_MASK) \
@@ -1639,6 +1675,8 @@
 	CFG(CFG_DP_IRQ_AFFINITY_MASK) \
 	CFG(CFG_DP_ADDBA_BUFSIZE) \
 	CFG(CFG_DP_RX_AMSDU_ENABLE) \
-	CFG(CFG_HTT_CREDIT_ENABLE)
+	CFG(CFG_HTT_CREDIT_ENABLE) \
+	CFG(CFG_DP_TX_BUNDLE_NUM) \
+	CFG(CFG_DP_RX_BUNDLE_NUM)
 
 #endif /* WLAN_DP_CFG_H__ */
