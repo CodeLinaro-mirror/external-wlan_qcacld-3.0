@@ -1411,7 +1411,7 @@ end:
  */
 static bool wlan_ipa_uc_find_add_assoc_sta(struct wlan_ipa_priv *ipa_ctx,
 					   bool sta_add,
-					   uint8_t *mac_addr)
+					   const unsigned char *mac_addr)
 {
 	bool sta_found = false;
 	uint8_t idx;
@@ -2067,7 +2067,7 @@ void wlan_ipa_uc_bw_monitor(struct wlan_ipa_priv *ipa_ctx, bool stop)
  */
 static QDF_STATUS wlan_ipa_send_msg(qdf_netdev_t net_dev,
 				    qdf_ipa_wlan_event type,
-				    uint8_t *mac_addr)
+				    const unsigned char *mac_addr)
 {
 	qdf_ipa_msg_meta_t meta;
 	qdf_ipa_wlan_msg_t *msg;
@@ -2141,7 +2141,7 @@ void wlan_ipa_handle_multiple_sap_evt(struct wlan_ipa_priv *ipa_ctx,
 
 static inline void
 wlan_ipa_save_bssid_iface_ctx(struct wlan_ipa_priv *ipa_ctx, uint8_t iface_id,
-			      uint8_t *mac_addr)
+			      const unsigned char *mac_addr)
 {
 	qdf_mem_copy(ipa_ctx->iface_context[iface_id].bssid.bytes,
 		     mac_addr, QDF_MAC_ADDR_SIZE);
@@ -2162,7 +2162,7 @@ wlan_ipa_save_bssid_iface_ctx(struct wlan_ipa_priv *ipa_ctx, uint8_t iface_id,
 static QDF_STATUS __wlan_ipa_wlan_evt(qdf_netdev_t net_dev, uint8_t device_mode,
 				      uint8_t session_id,
 				      qdf_ipa_wlan_event type,
-				      uint8_t *mac_addr)
+				      const unsigned char *mac_addr)
 {
 	struct wlan_ipa_priv *ipa_ctx = gp_ipa;
 	struct wlan_ipa_iface_context *iface_ctx = NULL;
@@ -2852,7 +2852,7 @@ wlan_host_to_ipa_wlan_event(enum wlan_ipa_wlan_event wlan_ipa_event_type)
 QDF_STATUS wlan_ipa_wlan_evt(qdf_netdev_t net_dev, uint8_t device_mode,
 		      uint8_t session_id,
 		      enum wlan_ipa_wlan_event ipa_event_type,
-		      uint8_t *mac_addr)
+		      const unsigned char *mac_addr)
 {
 	qdf_ipa_wlan_event type = wlan_host_to_ipa_wlan_event(ipa_event_type);
 	QDF_STATUS status = QDF_STATUS_SUCCESS;

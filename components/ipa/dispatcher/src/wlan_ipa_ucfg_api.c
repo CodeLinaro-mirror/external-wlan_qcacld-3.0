@@ -176,7 +176,7 @@ QDF_STATUS ucfg_ipa_wlan_evt(struct wlan_objmgr_pdev *pdev,
 			     qdf_netdev_t net_dev, uint8_t device_mode,
 			     uint8_t session_id,
 			     enum wlan_ipa_wlan_event ipa_event_type,
-			     uint8_t *mac_addr)
+			     const unsigned char *mac_addr)
 {
 	return ipa_wlan_evt(pdev, net_dev, device_mode, session_id,
 			    ipa_event_type, mac_addr);

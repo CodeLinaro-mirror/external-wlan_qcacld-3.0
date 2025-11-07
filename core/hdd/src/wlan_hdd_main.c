@@ -8961,7 +8961,7 @@ struct hdd_adapter *hdd_get_adapter_by_rand_macaddr(
 }
 
 struct hdd_adapter *hdd_get_adapter_by_macaddr(struct hdd_context *hdd_ctx,
-					       tSirMacAddr mac_addr)
+					       const unsigned char *mac_addr)
 {
 	struct hdd_adapter *adapter, *next_adapter = NULL;
 	wlan_net_dev_ref_dbgid dbgid = NET_DEV_HOLD_GET_ADAPTER_BY_MACADDR;

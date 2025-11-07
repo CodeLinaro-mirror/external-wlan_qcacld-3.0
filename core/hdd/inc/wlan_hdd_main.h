@@ -2652,7 +2652,7 @@ struct hdd_adapter *hdd_adapter_get_by_reference(struct hdd_context *hdd_ctx,
 void hdd_adapter_put(struct hdd_adapter *adapter);
 
 struct hdd_adapter *hdd_get_adapter_by_macaddr(struct hdd_context *hdd_ctx,
-					       tSirMacAddr mac_addr);
+					       const unsigned char *mac_addr);
 
 /**
  * hdd_get_adapter_home_channel() - return home channel of adapter
