@@ -1937,6 +1937,7 @@ struct wlan_mlme_sta_cfg {
 	bool mlo_5gl_5gh_mlsr;
 	bool ext_mld_cap_supp;
 	bool exclude_ext_mld_cap;
+	bool set_mlo_reserved_bits;
 #endif
 #ifdef WLAN_FEATURE_11BE
 	bool epcs_capability;

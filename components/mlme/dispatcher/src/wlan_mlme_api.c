@@ -2006,6 +2006,36 @@ wlan_mlme_get_exclude_ext_mld_cap(struct wlan_objmgr_psoc *psoc)
 
 	return mlme_obj->cfg.sta.exclude_ext_mld_cap;
 }
+
+QDF_STATUS
+wlan_mlme_set_eht_mlo_ie_reserved_bits(struct wlan_objmgr_psoc *psoc,
+					bool value)
+{
+	struct wlan_mlme_psoc_ext_obj *mlme_obj;
+
+	mlme_obj = mlme_get_psoc_ext_obj(psoc);
+	if (!mlme_obj)
+		return QDF_STATUS_E_FAILURE;
+
+	mlme_obj->cfg.sta.set_mlo_reserved_bits = value;
+
+	return QDF_STATUS_SUCCESS;
+}
+
+bool
+wlan_mlme_get_eht_mlo_ie_reserved_bits(struct wlan_objmgr_psoc *psoc)
+{
+	struct wlan_mlme_psoc_ext_obj *mlme_obj;
+
+	mlme_obj = mlme_get_psoc_ext_obj(psoc);
+	if (!mlme_obj)
+		return false;
+
+	mlme_debug("Set MLO IE reserved bits: %d",
+		mlme_obj->cfg.sta.set_mlo_reserved_bits);
+
+	return mlme_obj->cfg.sta.set_mlo_reserved_bits;
+}
 #endif
 
 QDF_STATUS wlan_mlme_update_dual_sap_sta_cap(struct wlan_objmgr_psoc *psoc)

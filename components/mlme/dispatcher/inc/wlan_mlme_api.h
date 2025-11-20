@@ -4781,6 +4781,13 @@ bool wlan_mlme_get_ext_mld_cap_supp(struct wlan_objmgr_psoc *psoc);
  * Return: bool to check if Extended MLD capability is excluded
  */
 bool wlan_mlme_get_exclude_ext_mld_cap(struct wlan_objmgr_psoc *psoc);
+
+QDF_STATUS
+wlan_mlme_set_eht_mlo_ie_reserved_bits(struct wlan_objmgr_psoc *psoc,
+				       bool value);
+
+bool
+wlan_mlme_get_eht_mlo_ie_reserved_bits(struct wlan_objmgr_psoc *psoc);
 #else
 static inline
 void wlan_mlme_set_ml_link_control_mode(struct wlan_objmgr_psoc *psoc,
@@ -4873,6 +4880,19 @@ wlan_mlme_get_ext_mld_cap_supp(struct wlan_objmgr_psoc *psoc)
 
 static inline bool
 wlan_mlme_get_exclude_ext_mld_cap(struct wlan_objmgr_psoc *psoc)
+{
+	return false;
+}
+
+QDF_STATUS
+wlan_mlme_set_eht_mlo_ie_reserved_bits(struct wlan_objmgr_psoc *psoc,
+				       bool value)
+{
+	return QDF_STATUS_E_NOSUPPORT;
+}
+
+bool
+wlan_mlme_get_eht_mlo_ie_reserved_bits(struct wlan_objmgr_psoc *psoc)
 {
 	return false;
 }
