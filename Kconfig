@@ -3006,4 +3006,8 @@ config SAP_PERF_TUNING
 	bool "Enable SAP performance tuning"
 	default n
 
+config SCAN_RANDOM_MAC_ADDR
+       bool "Enable SCAN Random MAC addr"
+       default n
+
 endif # QCA_CLD_WLAN
