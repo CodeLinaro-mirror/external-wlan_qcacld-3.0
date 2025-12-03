@@ -1943,6 +1943,7 @@ struct wlan_mlme_sta_cfg {
 	bool usr_disable_eht;
 	bool eht_disable_punct_in_us_lpi;
 #endif
+	bool exclude_qcn_ie_support;
 };
 
 /**
