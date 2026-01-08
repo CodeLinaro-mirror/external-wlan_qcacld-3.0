@@ -75,6 +75,7 @@
 #include "parser_api.h"
 #include <../../core/src/wlan_cm_vdev_api.h>
 #include <wlan_mlme_twt_api.h>
+#include "wma_internal.h"
 
 static QDF_STATUS init_sme_cmd_list(struct mac_context *mac);
 
@@ -10533,6 +10534,55 @@ sme_send_peer_tid_rate_custom_cmd(struct wmi_host_peer_tid_rate *tid_rate)
 	return wma_send_peer_tid_rate_custom_cmd(tid_rate);
 }
 #endif /* WLAN_PEER_TID_RATE_CTRL */
+
+#ifdef WLAN_ACK_RATE_CTRL
+bool sme_is_valid_ack_rate(uint32_t rate) {
+	switch (rate) {
+	case ACK_24MBPS_OFDM:
+	case ACK_12MBPS_OFDM:
+	case ACK_6MBPS_OFDM:
+	case ACK_RATE_DEFAULT:
+		return true;
+	default:
+		return false;
+	}
+}
+
+QDF_STATUS
+sme_set_ack_rate(uint32_t vdev_id, uint32_t ack_rate)
+{
+	QDF_STATUS status;
+	tp_wma_handle wma;
+	struct wmi_unified *wmi_handle;
+
+	if (!sme_is_valid_ack_rate(ack_rate)) {
+	        sme_err("ack_rate is invalid");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	wma = cds_get_context(QDF_MODULE_ID_WMA);
+	if (!wma) {
+		sme_err("WMA context is NULL");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	wmi_handle = wma->wmi_handle;
+	if (!wmi_handle) {
+		sme_err("WMI handle is NULL");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	status = wma_vdev_set_param(wmi_handle, vdev_id,
+				    WMI_VDEV_PARAM_ACK_RATE,
+				    ack_rate);
+
+	if (QDF_IS_STATUS_ERROR(status))
+		sme_err("Fail to Set WMI_VDEV_PARAM_ACK_RATE(%d), status = %d",
+			ack_rate, status);
+
+	return status;
+}
+#endif /* WLAN_ACK_RATE_CTRL */
 
 #ifdef WLAN_FEATURE_GPIO_LED_FLASHING
 /*

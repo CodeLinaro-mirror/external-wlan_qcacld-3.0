@@ -146,6 +146,7 @@
 #include <dp_rx_thread.h>
 #include "wlan_hdd_sysfs.h"
 #include "wlan_hdd_sysfs_peer_tid_rate.h"
+#include "wlan_hdd_sysfs_ack_rate.h"
 #include "wlan_disa_ucfg_api.h"
 #include "wlan_disa_obj_mgmt_api.h"
 #include "wlan_action_oui_ucfg_api.h"
@@ -4259,6 +4260,7 @@ int hdd_wlan_start_modules(struct hdd_context *hdd_ctx, bool reinit)
 sched_disable:
 	dispatcher_disable();
 	hdd_deinit_and_free_tid_rate_peer_table();
+	hdd_reset_ack_rate_config();
 	hdd_destroy_sysfs_files();
 	cds_post_disable();
 unregister_notifiers:
@@ -7395,6 +7397,8 @@ QDF_STATUS hdd_stop_adapter(struct hdd_context *hdd_ctx,
 		}
 		hdd_cleanup_conn_info(adapter);
 		hdd_vdev_destroy(adapter);
+		if (!policy_mgr_get_connection_count(hdd_ctx->psoc))
+			hdd_reset_ack_rate_config();
 		break;
 
 	case QDF_MONITOR_MODE:
@@ -7581,6 +7585,8 @@ QDF_STATUS hdd_stop_adapter(struct hdd_context *hdd_ctx,
 		hdd_vdev_destroy(adapter);
 
 		mutex_unlock(&hdd_ctx->sap_lock);
+		if (!policy_mgr_get_connection_count(hdd_ctx->psoc))
+			hdd_reset_ack_rate_config();
 		break;
 	case QDF_OCB_MODE:
 		sta_ctx = WLAN_HDD_GET_STATION_CTX_PTR(adapter);
@@ -14584,6 +14590,7 @@ int hdd_wlan_stop_modules(struct hdd_context *hdd_ctx, bool ftm_mode)
 	}
 
 	hdd_deinit_and_free_tid_rate_peer_table();
+	hdd_reset_ack_rate_config();
 	hdd_destroy_sysfs_files();
 	hdd_debug("Closing CDS modules!");
 

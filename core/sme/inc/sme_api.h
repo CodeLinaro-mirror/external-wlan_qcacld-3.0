@@ -1405,6 +1405,45 @@ QDF_STATUS
 sme_send_peer_tid_rate_custom_cmd(struct wmi_host_peer_tid_rate *tid_rate);
 #endif /* WLAN_PEER_TID_RATE_CTRL */
 
+#ifdef WLAN_ACK_RATE_CTRL
+/**
+ * enum ack_rate_code - ack rate code type
+ * @ACK_24MBPS_OFDM:    24Mbps OFDM ACK rate
+ * @ACK_12MBPS_OFDM:    12Mbps OFDM ACK rate
+ * @ACK_6MBPS_OFDM:     6Mbps OFDM ACK rate
+ * @ACK_RATE_DEFAULT:   Restore defalut ACK rate
+ * @ACK_RATE_MAX:       Max ACK rate code
+ */
+enum ack_rate_code {
+	ACK_24MBPS_OFDM       = 0x1,
+	ACK_12MBPS_OFDM       = 0x2,
+	ACK_6MBPS_OFDM        = 0x3,
+	ACK_RATE_DEFAULT      = 0xFFFF,
+	ACK_RATE_MAX          = ACK_RATE_DEFAULT,
+};
+
+/**
+ * sme_is_valid_ack_rate() - check ack rate param is valid
+ * @ack_rate: ack rate parameter
+ *
+ * Return: true if rate is valid
+ */
+bool sme_is_valid_ack_rate(uint32_t rate);
+
+/**
+ * sme_set_ack_rate() - set ack rate to lower layer
+ * @vdev_id: vdev identifier
+ * @ack_rate: ack rate parameter
+ *
+ * This API exposed to HDD layer which takes the argument from user and sends
+ * down to lower layer for further processing
+ *
+ * Return: QDF_STATUS based on overall success
+ */
+QDF_STATUS
+sme_set_ack_rate(uint32_t vdev_id, uint32_t ack_rate);
+#endif /* WLAN_ACK_RATE_CTRL */
+
 typedef struct sStatsExtRequestReq {
 	uint32_t request_data_len;
 	uint8_t *request_data;
