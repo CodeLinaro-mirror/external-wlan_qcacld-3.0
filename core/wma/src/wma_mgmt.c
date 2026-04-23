@@ -4106,7 +4106,7 @@ int wma_form_rx_packet(qdf_nbuf_t buf,
 	if (mgt_type == IEEE80211_FC0_TYPE_MGT &&
 	    (mgt_subtype == MGMT_SUBTYPE_DISASSOC ||
 	     mgt_subtype == MGMT_SUBTYPE_DEAUTH ||
-	     mgt_subtype == MGMT_SUBTYPE_ACTION)) {
+		wlan_mgmt_is_robust_action_frame(buf))) {
 		if (wma_find_vdev_id_by_bssid(wma_handle, wh->i_addr3,
 					      &vdev_id) == QDF_STATUS_SUCCESS) {
 			status = wma_check_and_process_rmf_frame(wma_handle,
