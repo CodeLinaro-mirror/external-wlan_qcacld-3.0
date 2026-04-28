@@ -5167,6 +5167,7 @@ endif
 
 ifeq ($(CONFIG_DP_COLOGNE_HL), y)
     ccflags-y += -DDP_COLOGNE_HL
+    ccflags-y += -DQCA_TX_HTT2_SUPPORT
 endif
 
 # Currently, for versions of gcc which support it, the kernel Makefile
