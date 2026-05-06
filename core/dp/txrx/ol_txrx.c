@@ -2629,8 +2629,9 @@ ol_txrx_peer_attach(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 	/*
 	 * For every peer MAp message search and set if bss_peer
 	 */
-	if (qdf_mem_cmp(peer->mac_addr.raw, vdev->mac_addr.raw,
-				QDF_MAC_ADDR_SIZE))
+	if ((wlan_op_mode_sta != vdev->opmode) &&
+	    !qdf_mem_cmp(peer->mac_addr.raw, vdev->mac_addr.raw,
+			 QDF_MAC_ADDR_SIZE))
 		peer->bss_peer = 1;
 
 	/*
