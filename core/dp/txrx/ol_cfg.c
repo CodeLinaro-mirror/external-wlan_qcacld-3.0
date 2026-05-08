@@ -53,12 +53,21 @@ void ol_pdev_cfg_credit_update(struct txrx_pdev_cfg_t *cfg_ctx)
 	cfg_ctx->credit_update_enabled = 1;
 }
 #else
+#ifdef CONFIG_TX_DOWNLOAD_FREE_NO_CREDIT_UPDATE
+static inline
+void ol_pdev_cfg_credit_update(struct txrx_pdev_cfg_t *cfg_ctx)
+{
+	cfg_ctx->tx_free_at_download = 1;
+	cfg_ctx->credit_update_enabled = 0;
+}
+#else
 static inline
 void ol_pdev_cfg_credit_update(struct txrx_pdev_cfg_t *cfg_ctx)
 {
 	cfg_ctx->tx_free_at_download = 0;
 	cfg_ctx->credit_update_enabled = 0;
 }
+#endif /* CONFIG_TX_DOWNLOAD_FREE_NO_CREDIT_UPDATE */
 #endif /* CONFIG_CREDIT_REP_THROUGH_CREDIT_UPDATE */
 
 /**

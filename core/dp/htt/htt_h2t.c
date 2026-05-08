@@ -96,6 +96,8 @@ static void htt_t2h_adjust_bus_target_delta(struct htt_pdev_t *pdev)
 		if (credit_delta)
 			ol_tx_credit_completion_handler(pdev->txrx_pdev,
 							credit_delta);
+		else if (!pdev->cfg.credit_update_enabled)
+			ol_tx_flow_ct_unpause_os_q(pdev->txrx_pdev);
 	}
 }
 #else
