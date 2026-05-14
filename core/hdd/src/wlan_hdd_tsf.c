@@ -546,6 +546,51 @@ hdd_convert_qtime_to_us(uint64_t time)
 }
 #endif
 
+#ifdef WLAN_FEATURE_TSF_PLUS
+static inline void
+hdd_tsf_capture_req_timer_start(struct hdd_adapter *adapter, uint32_t ms)
+{
+	qdf_mc_timer_start(&adapter->tsf.host_capture_req_timer, ms);
+}
+
+static inline void
+hdd_tsf_capture_req_timer_stop(struct hdd_adapter *adapter)
+{
+	qdf_mc_timer_stop(&adapter->tsf.host_capture_req_timer);
+}
+
+static inline int
+hdd_tsf_capture_req_timer_check_stop(struct hdd_adapter *adapter)
+{
+	QDF_TIMER_STATE status =
+		qdf_mc_timer_get_current_state(
+				&adapter->tsf.host_capture_req_timer);
+
+	if (status == QDF_TIMER_STATE_UNUSED) {
+		hdd_warn("invalid timer status");
+		return -EINVAL;
+	}
+	qdf_mc_timer_stop(&adapter->tsf.host_capture_req_timer);
+	return 0;
+}
+#else
+static inline void
+hdd_tsf_capture_req_timer_start(struct hdd_adapter *adapter, uint32_t ms)
+{
+}
+
+static inline void
+hdd_tsf_capture_req_timer_stop(struct hdd_adapter *adapter)
+{
+}
+
+static inline int
+hdd_tsf_capture_req_timer_check_stop(struct hdd_adapter *adapter)
+{
+	return 0;
+}
+#endif /* WLAN_FEATURE_TSF_PLUS */
+
 /**
  * hdd_capture_tsf_internal_via_wmi() - convert qtime to us
  * @adapter: pointer to adapter
@@ -569,7 +614,7 @@ hdd_capture_tsf_internal_via_wmi(struct hdd_adapter *adapter, uint32_t *buf,
 		buf[0] = TSF_CAPTURE_FAIL;
 		hddctx->tsf.cap_tsf_context = NULL;
 		qdf_atomic_set(&hddctx->tsf.cap_tsf_flag, 0);
-		qdf_mc_timer_stop(&adapter->tsf.host_capture_req_timer);
+		hdd_tsf_capture_req_timer_stop(adapter);
 	}
 	return HDD_TSF_OP_SUCC;
 }
@@ -718,7 +763,6 @@ static enum hdd_tsf_op_result hdd_capture_tsf_internal(
 {
 	enum hdd_tsf_op_result ret;
 	struct hdd_context *hddctx;
-	qdf_mc_timer_t *cap_timer;
 
 	if (!adapter || !buf) {
 		hdd_err("invalid pointer");
@@ -758,8 +802,7 @@ static enum hdd_tsf_op_result hdd_capture_tsf_internal(
 	hddctx->tsf.cap_tsf_context = adapter;
 
 	hdd_debug("+ioctl issue cap tsf cmd");
-	cap_timer = &adapter->tsf.host_capture_req_timer;
-	qdf_mc_timer_start(cap_timer, WLAN_HDD_CAPTURE_TSF_REQ_TIMEOUT_MS);
+	hdd_tsf_capture_req_timer_start(adapter, WLAN_HDD_CAPTURE_TSF_REQ_TIMEOUT_MS);
 
 	/* Reset TSF value for new capture */
 	adapter->tsf.cur_target_time = 0;
@@ -3397,8 +3440,6 @@ int hdd_get_tsf_cb(void *pcb_cxt, struct stsf *ptsf)
 	struct wlan_hdd_link_info *link_info;
 	int ret;
 	uint64_t tsf_sync_soc_time;
-	QDF_TIMER_STATE capture_req_timer_status;
-	qdf_mc_timer_t *capture_timer;
 	struct hdd_vdev_tsf *tsf;
 
 	if (!pcb_cxt || !ptsf) {
@@ -3437,15 +3478,10 @@ int hdd_get_tsf_cb(void *pcb_cxt, struct stsf *ptsf)
 	wlan_hdd_tsf_reg_update_details(adapter, ptsf);
 
 	tsf = &adapter->tsf;
-	capture_timer = &tsf->host_capture_req_timer;
-	capture_req_timer_status =
-		qdf_mc_timer_get_current_state(capture_timer);
-	if (capture_req_timer_status == QDF_TIMER_STATE_UNUSED) {
-		hdd_warn("invalid timer status");
-		return -EINVAL;
-	}
+	ret = hdd_tsf_capture_req_timer_check_stop(adapter);
+	if (ret)
+		return ret;
 
-	qdf_mc_timer_stop(capture_timer);
 	tsf->cur_target_time = ((uint64_t)ptsf->tsf_high << 32 |
 			 ptsf->tsf_low);
 
