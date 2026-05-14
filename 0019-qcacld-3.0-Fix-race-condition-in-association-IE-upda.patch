@@ -1,0 +1,59 @@
+From 26bc070d781da74872269c1d8b03b6e2303c3c2e Mon Sep 17 00:00:00 2001
+From: Wu Gao <wugao@qti.qualcomm.com>
+Date: Thu, 15 Jan 2026 18:22:04 -0800
+Subject: [PATCH 19/40] qcacld-3.0: Fix race condition in association IE update
+ during roaming
+
+Fix a race condition between wpa_supplicant and the roaming process that
+could lead to a use-after-free vulnerability. During roaming, the host
+processes the association IE via cm_update_driver_assoc_ies() while
+wpa_supplicant might concurrently free and reallocate the same memory
+through cm_update_session_assoc_ie().
+
+This patch prevents the race condition by skipping association IE updates
+from wpa_supplicant when roaming is in progress. This ensures that the
+memory pointed to by rso_cfg->assoc_ie.ptr is not freed while it's being
+used by the roaming process.
+
+Change-Id: I3e5b7ef7eb7d2b3513c585748b19b6e4fb3aafdd
+CRs-Fixed: 4406300
+---
+ core/hdd/src/wlan_hdd_cfg80211.c | 20 ++++++++++++--------
+ 1 file changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/core/hdd/src/wlan_hdd_cfg80211.c b/core/hdd/src/wlan_hdd_cfg80211.c
+index 042ad9307c..b67e4779c3 100644
+--- a/core/hdd/src/wlan_hdd_cfg80211.c
++++ b/core/hdd/src/wlan_hdd_cfg80211.c
+@@ -31320,16 +31320,20 @@ __wlan_hdd_cfg80211_update_connect_params(struct wiphy *wiphy,
+ 	mac_handle = hdd_ctx->mac_handle;
+ 
+ 	if (changed & UPDATE_ASSOC_IE) {
+-		assoc_ie.len = req->ie_len;
+-		assoc_ie.ptr = (uint8_t *)req->ie;
+-		/*
+-		 * Update this assoc IE received from user space to
+-		 * umac. RSO command will pick up the assoc
+-		 * IEs to be sent to firmware from the umac.
+-		 */
+-		ucfg_cm_update_session_assoc_ie(hdd_ctx->psoc,
++		if (!hdd_cm_is_vdev_roaming(adapter->deflink)) {
++			assoc_ie.len = req->ie_len;
++			assoc_ie.ptr = (uint8_t *)req->ie;
++			/*
++			 * Update this assoc IE received from user space to
++			 * umac. RSO command will pick up the assoc
++			 * IEs to be sent to firmware from the umac.
++			 */
++			ucfg_cm_update_session_assoc_ie(
++						hdd_ctx->psoc,
+ 						adapter->deflink->vdev_id,
+ 						&assoc_ie);
++		} else
++			hdd_debug("skip assoc ie during roam");
+ 	}
+ 
+ 	if ((changed & UPDATE_FILS_ERP_INFO) ||
+-- 
+2.34.1
+

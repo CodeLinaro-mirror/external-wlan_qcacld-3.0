@@ -1,0 +1,83 @@
+From 7670d2aa838788574845fd9d7cff13dcf066d129 Mon Sep 17 00:00:00 2001
+From: Hangtian Zhu <hangtian@qti.qualcomm.com>
+Date: Sun, 15 Mar 2026 19:36:12 +0800
+Subject: [PATCH 08/40] qcacld-3.0: support CFG80211_PROP_MULTI_LINK_SUPPORT
+
+On Pakala LE platform, to co-exist with WKK MLO, cfg80211 is disabled in
+kernel config, and build as an out of tree module. Passing
+CONFIG_NL80211_TESTMODE in build script.
+Fix cfg80211_mgmt_tx_status parameter issue with enabling
+CFG80211_PROP_MULTI_LINK_SUPPORT. Enable QCA_WIFI_FTM_NL80211 based on
+CONFIG_NL80211_TESTMODE.
+Enable CONFIG_WLAN_DISABLE_EXPORT_SYMBOL, avoid duplicate symbol export
+on Pakala LE (Ganges + WKK)
+
+Change-Id: Ieda54aa149250db03eeaa24c865fabdaccd00fb5
+---
+ Kbuild                             | 3 +++
+ configs/sun_gki_peach-v2_defconfig | 6 ++++++
+ os_if/p2p/src/wlan_cfg80211_p2p.c  | 8 ++++++++
+ 3 files changed, 17 insertions(+)
+
+diff --git a/Kbuild b/Kbuild
+index f67ac93591..771056dcad 100644
+--- a/Kbuild
++++ b/Kbuild
+@@ -3719,6 +3719,7 @@ endif
+ 
+ #Enable NL80211 test mode
+ ccflags-$(CONFIG_NL80211_TESTMODE) += -DWLAN_NL80211_TESTMODE
++ccflags-$(CONFIG_NL80211_TESTMODE) += -DCONFIG_NL80211_TESTMODE
+ 
+ # Flag to enable bus auto suspend
+ ifeq ($(CONFIG_BUS_AUTO_SUSPEND), y)
+@@ -5216,6 +5217,8 @@ ifneq ($(WLAN_CTRL_NAME),)
+ ccflags-y += -DWLAN_CTRL_NAME=\"$(WLAN_CTRL_NAME)\"
+ endif
+ 
++ccflags-$(CONFIG_CFG80211_PROP_MULTI_LINK_SUPPORT) += -DCFG80211_PROP_MULTI_LINK_SUPPORT
++
+ # inject some build related information
+ ifeq ($(CONFIG_BUILD_TAG), y)
+ CLD_CHECKOUT = $(shell cd "$(WLAN_ROOT)" && \
+diff --git a/configs/sun_gki_peach-v2_defconfig b/configs/sun_gki_peach-v2_defconfig
+index a9b4de4997..f25d75e4c5 100644
+--- a/configs/sun_gki_peach-v2_defconfig
++++ b/configs/sun_gki_peach-v2_defconfig
+@@ -423,3 +423,9 @@ CONFIG_WLAN_CHIPSET_LOG_MAX_SIZE=y
+ CONFIG_DP_FTM_MODE_SKIP_WBM_RING_INIT=y
+ CONFIG_FEATURE_WLAN_SUPPORT_USD=y
+ CONFIG_DP_TX_TRACKING=y
++CONFIG_WLAN_DISABLE_EXPORT_SYMBOL=y
++ifeq ($(CONFIG_NL80211_TESTMODE), y)
++       QCA_WIFI_FTM_NL80211 :=y
++else
++       QCA_WIFI_FTM_NL80211 :=n
++endif
+diff --git a/os_if/p2p/src/wlan_cfg80211_p2p.c b/os_if/p2p/src/wlan_cfg80211_p2p.c
+index 19085fc218..5686c26c92 100644
+--- a/os_if/p2p/src/wlan_cfg80211_p2p.c
++++ b/os_if/p2p/src/wlan_cfg80211_p2p.c
+@@ -279,11 +279,19 @@ static void wlan_p2p_action_tx_cnf_callback(void *user_data,
+ 
+ 	osif_debug("send indication to %s interface", wdev->netdev->name);
+ 	is_success = tx_cnf->status ? false : true;
++#ifdef CFG80211_PROP_MULTI_LINK_SUPPORT
++	cfg80211_mgmt_tx_status(
++		wdev,
++		tx_cnf->action_cookie,
++		tx_cnf->buf, tx_cnf->buf_len,
++		is_success, -1, GFP_KERNEL);
++#else
+ 	cfg80211_mgmt_tx_status(
+ 		wdev,
+ 		tx_cnf->action_cookie,
+ 		tx_cnf->buf, tx_cnf->buf_len,
+ 		is_success, GFP_KERNEL);
++#endif
+ fail:
+ 	wlan_objmgr_vdev_release_ref(vdev, WLAN_P2P_ID);
+ }
+-- 
+2.34.1
+

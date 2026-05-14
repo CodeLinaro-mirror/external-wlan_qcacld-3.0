@@ -1,0 +1,47 @@
+From ab163f5bec399df18c44f4078d28cbfb4a9ec698 Mon Sep 17 00:00:00 2001
+From: Liangwei Dong <liangwei@qti.qualcomm.com>
+Date: Fri, 26 Sep 2025 10:27:27 +0800
+Subject: [PATCH 29/40] qcacld-3.0: Fix potential OOB access of ch switch
+ wrapper ie
+
+1. The `len` and `sub_ele_len` variables in
+ `wma_parse_ch_switch_wrapper_ie` will be changed to `int16_t`
+because len is extracted from OTA frame and it may be
+got integer underflow when do "- sub_ele_len" operation.
+
+2. The loop condition will be changed to
+`while (len >= sizeof(struct ie_header))`
+because the "ele->ie_len" will access the "ele" buffer's subelement
+in the while loop, we have to make sure the len >= ie header size.
+
+CRs-Fixed: 4301391
+Change-Id: I70b49c94772f0f3c4c3c3ce317923c98ab666888
+---
+ core/wma/src/wma_features.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/core/wma/src/wma_features.c b/core/wma/src/wma_features.c
+index 0f062defee..68930650cf 100644
+--- a/core/wma/src/wma_features.c
++++ b/core/wma/src/wma_features.c
+@@ -1344,7 +1344,7 @@ static uint8_t *
+ wma_parse_ch_switch_wrapper_ie(uint8_t *ch_wr_ie, uint8_t sub_ele_id,
+ 			       uint8_t ie_extn_id)
+ {
+-	uint8_t len = 0, sub_ele_len = 0;
++	int16_t len = 0, sub_ele_len = 0;
+ 	struct ie_header *ele;
+ 	struct extn_ie_header *extn_ie;
+ 
+@@ -1357,7 +1357,7 @@ wma_parse_ch_switch_wrapper_ie(uint8_t *ch_wr_ie, uint8_t sub_ele_id,
+ 	len = ele->ie_len;
+ 	ele = (struct ie_header *)(ch_wr_ie + sizeof(struct ie_header));
+ 
+-	while (len > 0) {
++	while (len >= sizeof(struct ie_header)) {
+ 		sub_ele_len = sizeof(struct ie_header) + ele->ie_len;
+ 		if (sub_ele_len > len) {
+ 			wma_debug("invalid sub element len :%d id:%d ie len:%d",
+-- 
+2.34.1
+

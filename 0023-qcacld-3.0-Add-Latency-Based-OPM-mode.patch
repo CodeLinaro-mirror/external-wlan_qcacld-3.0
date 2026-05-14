@@ -1,0 +1,451 @@
+From e203e8ed452362947dc15c8eac5d578b563c5972 Mon Sep 17 00:00:00 2001
+From: AJAY SINGH DAHIYA <asinghda@qti.qualcomm.com>
+Date: Mon, 16 Jun 2025 16:02:18 +0530
+Subject: [PATCH 23/40] qcacld-3.0: Add Latency-Based OPM mode
+
+Allow userspace to configure power save opm level and
+opm speculative wake interval through vendor NL interface.
+STA enters into power save mode(PM=1) after TX/RX inactivity of
+time duration based on the opm level selected.
+
+STA speculatively wakes up to look for buffered data by AP at
+QCA_WLAN_VENDOR_ATTR_CONFIG_SPEC_WAKE_INTERVAL interval after
+entering into power save.
+
+Change-Id: If0771b29cea9e3e17f98b67b03286343df461d7a
+CRs-Fixed: 4185139
+---
+ components/pmo/core/inc/wlan_pmo_priv.h       |  3 +-
+ .../inc/wlan_pmo_common_public_struct.h       | 10 +++-
+ .../dispatcher/src/wlan_pmo_obj_mgmt_api.c    |  4 +-
+ .../pmo/src/target_if_pmo_suspend_resume.c    |  5 +-
+ core/hdd/inc/wlan_hdd_power.h                 |  5 +-
+ core/hdd/src/wlan_hdd_cfg80211.c              | 57 +++++++++++++++++--
+ core/hdd/src/wlan_hdd_power.c                 | 16 +++++-
+ core/wma/inc/wma_api.h                        | 13 +++++
+ core/wma/src/wma_power.c                      | 33 +++++++++++
+ 9 files changed, 131 insertions(+), 15 deletions(-)
+
+diff --git a/components/pmo/core/inc/wlan_pmo_priv.h b/components/pmo/core/inc/wlan_pmo_priv.h
+index 4d58a0f0c6..77b2809695 100644
+--- a/components/pmo/core/inc/wlan_pmo_priv.h
++++ b/components/pmo/core/inc/wlan_pmo_priv.h
+@@ -1,6 +1,6 @@
+ /*
+  * Copyright (c) 2017-2019, 2021 The Linux Foundation. All rights reserved.
+- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
++ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+  *
+  * Permission to use, copy, modify, and/or distribute this software for
+  * any purpose with or without fee is hereby granted, provided that the
+@@ -36,6 +36,7 @@
+ #include "wlan_pmo_mc_addr_filtering_public_struct.h"
+ 
+ #define PMO_PS_DATA_INACTIVITY_TIMEOUT (200)
++#define PMO_PS_DATA_OPM_LEVEL (1)
+ #define PMO_PS_DATA_SPEC_WAKE (0)
+ 
+ /**
+diff --git a/components/pmo/dispatcher/inc/wlan_pmo_common_public_struct.h b/components/pmo/dispatcher/inc/wlan_pmo_common_public_struct.h
+index f83d2b5116..4bb70622e6 100644
+--- a/components/pmo/dispatcher/inc/wlan_pmo_common_public_struct.h
++++ b/components/pmo/dispatcher/inc/wlan_pmo_common_public_struct.h
+@@ -1,6 +1,6 @@
+ /*
+  * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+- * Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
++ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+  *
+  * Permission to use, copy, modify, and/or distribute this software for
+  * any purpose with or without fee is hereby granted, provided that the
+@@ -103,6 +103,7 @@ enum pmo_beacon_dtim_policy {
+  *  before the entering the Active state
+  * @pmo_sta_ps_param_ito_repeat_count: Indicates ito repeated count
+  * @pmo_sta_ps_param_spec_wake_interval: OPM speculative wake interval
++ * @pmo_sta_ps_param_opm_level: OPM power save level
+  */
+ enum pmo_sta_powersave_param {
+ 	pmo_sta_ps_param_rx_wake_policy = 0,
+@@ -115,6 +116,7 @@ enum pmo_sta_powersave_param {
+ 	pmo_sta_ps_param_advanced_power_max_tx_before_wake = 7,
+ 	pmo_sta_ps_param_ito_repeat_count = 8,
+ 	pmo_sta_ps_param_spec_wake_interval = 9,
++	pmo_sta_ps_param_opm_level = 10,
+ };
+ 
+ /**
+@@ -170,11 +172,13 @@ enum pmo_wow_enable_type {
+  * @PMO_PS_ADVANCED_POWER_SAVE_DISABLE: Disable advanced power save mode
+  * @PMO_PS_ADVANCED_POWER_SAVE_ENABLE: Enable power save mode
+  * @PMO_PS_ADVANCED_POWER_SAVE_USER_DEFINED: User Defined
++ * @PMO_PS_ADVANCED_POWER_SAVE_LATENCY_BASED : Latency Enabled
+  */
+ enum powersave_mode {
+ 	PMO_PS_ADVANCED_POWER_SAVE_DISABLE = 0,
+ 	PMO_PS_ADVANCED_POWER_SAVE_ENABLE = 1,
+-	PMO_PS_ADVANCED_POWER_SAVE_USER_DEFINED = 2
++	PMO_PS_ADVANCED_POWER_SAVE_USER_DEFINED = 2,
++	PMO_PS_ADVANCED_POWER_SAVE_LATENCY_BASED = 3
+ };
+ 
+ /**
+@@ -569,11 +573,13 @@ struct pmo_igmp_offload_req {
+  * struct pmo_ps_params - structure to hold OPM params
+  *
+  * @opm_mode: OPM mode
++ * @ps_opm_level: power save opm level
+  * @ps_ito: power save inactivity timeout
+  * @spec_wake: OPM speculative wake interval
+  */
+ struct pmo_ps_params {
+ 	enum powersave_mode opm_mode;
++	uint8_t ps_opm_level;
+ 	uint16_t ps_ito;
+ 	uint16_t spec_wake;
+ };
+diff --git a/components/pmo/dispatcher/src/wlan_pmo_obj_mgmt_api.c b/components/pmo/dispatcher/src/wlan_pmo_obj_mgmt_api.c
+index 433e8ba69e..42a7caadbb 100644
+--- a/components/pmo/dispatcher/src/wlan_pmo_obj_mgmt_api.c
++++ b/components/pmo/dispatcher/src/wlan_pmo_obj_mgmt_api.c
+@@ -1,6 +1,6 @@
+ /*
+  * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
+- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
++ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+  *
+  * Permission to use, copy, modify, and/or distribute this software for
+  * any purpose with or without fee is hereby granted, provided that the
+@@ -290,9 +290,11 @@ QDF_STATUS pmo_vdev_object_created_notification(
+ 	 * 0 - PMO_PS_ADVANCED_POWER_SAVE_DISABLE
+ 	 * 1 - PMO_PS_ADVANCED_POWER_SAVE_ENABLE
+ 	 * 2 - PMO_PS_ADVANCED_POWER_SAVE_USER_DEFINED
++	 * 3 - PMO_PS_ADVANCED_POWER_SAVE_LATENCY_BASED
+ 	 */
+ 	vdev_ctx->ps_params.opm_mode = psoc_ctx->psoc_cfg.power_save_mode;
+ 	vdev_ctx->ps_params.ps_ito = PMO_PS_DATA_INACTIVITY_TIMEOUT;
++	vdev_ctx->ps_params.ps_opm_level = PMO_PS_DATA_OPM_LEVEL;
+ 	vdev_ctx->ps_params.spec_wake = PMO_PS_DATA_SPEC_WAKE;
+ 
+ out:
+diff --git a/components/target_if/pmo/src/target_if_pmo_suspend_resume.c b/components/target_if/pmo/src/target_if_pmo_suspend_resume.c
+index a28a668eec..50fbb6b699 100644
+--- a/components/target_if/pmo/src/target_if_pmo_suspend_resume.c
++++ b/components/target_if/pmo/src/target_if_pmo_suspend_resume.c
+@@ -1,6 +1,6 @@
+ /*
+  * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
++ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+  *
+  * Permission to use, copy, modify, and/or distribute this software for
+  * any purpose with or without fee is hereby granted, provided that the
+@@ -162,6 +162,9 @@ QDF_STATUS target_if_pmo_send_vdev_ps_param_req(
+ 	case pmo_sta_ps_param_ito_repeat_count:
+ 		param_id = WMI_STA_PS_PARAM_MAX_RESET_ITO_COUNT_ON_TIM_NO_TXRX;
+ 		break;
++	case pmo_sta_ps_param_opm_level:
++		param_id = WMI_STA_PS_PARAM_ITO_LEVEL;
++		break;
+ 	case pmo_sta_ps_param_spec_wake_interval:
+ 		param_id = WMI_STA_PS_PARAM_SPEC_WAKE_INTERVAL;
+ 		break;
+diff --git a/core/hdd/inc/wlan_hdd_power.h b/core/hdd/inc/wlan_hdd_power.h
+index 19571e0d96..3dec388c6a 100644
+--- a/core/hdd/inc/wlan_hdd_power.h
++++ b/core/hdd/inc/wlan_hdd_power.h
+@@ -554,13 +554,14 @@ int hdd_set_power_config(struct hdd_context *hddctx,
+  * @hddctx: HDD context
+  * @adapter: HDD adapter
+  * @ps_ito: power save inactivitiy duration in ms
++ * @ps_opm_level: power save opm level
+  * @spec_wake: power save speculative wake duration in ms
+  *
+  * Return: 0 on success; Errno on failure
+  */
+ int hdd_set_power_config_params(struct hdd_context *hddctx,
+-				struct hdd_adapter *adapter,
+-				uint16_t ps_ito, uint16_t spec_wake);
++				struct hdd_adapter *adapter, uint16_t ps_ito,
++				uint8_t ps_opm_level, uint16_t spec_wake);
+ #ifdef FEATURE_WLAN_DIAG_SUPPORT
+ /**
+  * hdd_wlan_suspend_resume_event()- send suspend/resume state
+diff --git a/core/hdd/src/wlan_hdd_cfg80211.c b/core/hdd/src/wlan_hdd_cfg80211.c
+index b67e4779c3..76d7b0c5fb 100644
+--- a/core/hdd/src/wlan_hdd_cfg80211.c
++++ b/core/hdd/src/wlan_hdd_cfg80211.c
+@@ -8890,6 +8890,10 @@ const struct nla_policy wlan_hdd_wifi_config_policy[
+ 	[QCA_WLAN_VENDOR_ATTR_CONFIG_OPM_ITO] = {.type = NLA_U16 },
+ 	[QCA_WLAN_VENDOR_ATTR_CONFIG_OPM_SPEC_WAKE_INTERVAL] = {
+ 		.type = NLA_U16 },
++	[QCA_WLAN_VENDOR_ATTR_CONFIG_OPM_LEVEL] = {
++		.type = NLA_U8 },
++	[QCA_WLAN_VENDOR_ATTR_CONFIG_OPM_LATENCY_TOLERANCE] = {
++		.type = NLA_U16 },
+ 	[QCA_WLAN_VENDOR_ATTR_CONFIG_UDP_QOS_UPGRADE] = {
+ 		.type = NLA_U8 },
+ 	[QCA_WLAN_VENDOR_ATTR_CONFIG_NUM_TX_CHAINS] = {.type = NLA_U8 },
+@@ -10741,6 +10745,8 @@ hdd_vendor_opm_to_pmo_opm(enum qca_wlan_vendor_opm_mode opm_mode)
+ 		return PMO_PS_ADVANCED_POWER_SAVE_ENABLE;
+ 	case QCA_WLAN_VENDOR_OPM_MODE_USER_DEFINED:
+ 		return PMO_PS_ADVANCED_POWER_SAVE_USER_DEFINED;
++	case QCA_WLAN_VENDOR_OPM_MODE_LATENCY_BASED:
++		return PMO_PS_ADVANCED_POWER_SAVE_LATENCY_BASED;
+ 	default:
+ 		hdd_debug("Invalid opm_mode: %d", opm_mode);
+ 		return PMO_PS_ADVANCED_POWER_SAVE_DISABLE;
+@@ -10755,6 +10761,7 @@ static int hdd_config_power(struct wlan_hdd_link_info *link_info,
+ 	struct wlan_objmgr_vdev *vdev;
+ 	enum qca_wlan_vendor_opm_mode opm_mode;
+ 	struct pmo_ps_params ps_params = {0};
++	struct pmo_ps_params curr_ps_params = {0};
+ 	struct nlattr *power_attr =
+ 		tb[QCA_WLAN_VENDOR_ATTR_CONFIG_QPOWER];
+ 	struct nlattr *opm_attr =
+@@ -10763,6 +10770,10 @@ static int hdd_config_power(struct wlan_hdd_link_info *link_info,
+ 		tb[QCA_WLAN_VENDOR_ATTR_CONFIG_OPM_ITO];
+ 	struct nlattr *spec_wake_attr =
+ 		tb[QCA_WLAN_VENDOR_ATTR_CONFIG_OPM_SPEC_WAKE_INTERVAL];
++	struct nlattr *ps_opm_level_attr =
++		tb[QCA_WLAN_VENDOR_ATTR_CONFIG_OPM_LEVEL];
++	struct nlattr *ps_latency_tolerance_attr =
++		tb[QCA_WLAN_VENDOR_ATTR_CONFIG_OPM_LATENCY_TOLERANCE];
+ 	int ret;
+ 
+ 	hdd_enter_dev(adapter->dev);
+@@ -10793,14 +10804,33 @@ static int hdd_config_power(struct wlan_hdd_link_info *link_info,
+ 		}
+ 	}
+ 
++	if (opm_mode == QCA_WLAN_VENDOR_OPM_MODE_LATENCY_BASED) {
++		if (!ps_opm_level_attr || !ps_latency_tolerance_attr) {
++			hdd_err_rl("Invalid Latency enabled OPM attributes");
++			return -EINVAL;
++		}
++	}
++
+ 	ret = hdd_set_power_config(hdd_ctx, adapter, &opm_mode);
+ 	if (ret)
+ 		return ret;
+ 
+ 	ps_params.opm_mode = hdd_vendor_opm_to_pmo_opm(opm_mode);
++
++	vdev = hdd_objmgr_get_vdev_by_user(link_info, WLAN_OSIF_POWER_ID);
++	if (!vdev) {
++		hdd_err("vdev is null");
++		return 0;
++	}
++
++	if ((opm_mode == QCA_WLAN_VENDOR_OPM_MODE_USER_DEFINED) ||
++	    (opm_mode == QCA_WLAN_VENDOR_OPM_MODE_LATENCY_BASED))
++		ucfg_pmo_get_ps_params(vdev, &curr_ps_params);
++
+ 	if (opm_mode == QCA_WLAN_VENDOR_OPM_MODE_USER_DEFINED) {
+ 		ps_params.ps_ito = nla_get_u16(ps_ito_attr);
+ 		ps_params.spec_wake = nla_get_u16(spec_wake_attr);
++		ps_params.ps_opm_level = curr_ps_params.ps_opm_level;
+ 
+ 		if (!ps_params.ps_ito)
+ 			return -EINVAL;
+@@ -10811,19 +10841,36 @@ static int hdd_config_power(struct wlan_hdd_link_info *link_info,
+ 
+ 		ret = hdd_set_power_config_params(hdd_ctx, adapter,
+ 						  ps_params.ps_ito,
++						  ps_params.ps_opm_level,
+ 						  ps_params.spec_wake);
+ 
+ 		if (ret)
+ 			return ret;
+ 	}
+ 
+-	vdev = hdd_objmgr_get_vdev_by_user(link_info, WLAN_OSIF_POWER_ID);
+-	if (!vdev) {
+-		hdd_err("vdev is null");
+-		return 0;
++	if (opm_mode == QCA_WLAN_VENDOR_OPM_MODE_LATENCY_BASED) {
++		ps_params.ps_opm_level = nla_get_u8(ps_opm_level_attr);
++		ps_params.spec_wake = nla_get_u16(ps_latency_tolerance_attr);
++		ps_params.ps_ito = curr_ps_params.ps_ito;
++
++		if (!ps_params.ps_opm_level)
++			return -EINVAL;
++
++		hdd_debug("ps_opm_level %d latency_tolerance %d opm_mode %d",
++			  ps_params.ps_opm_level, ps_params.spec_wake,
++			  ps_params.opm_mode);
++
++		ret = hdd_set_power_config_params(hdd_ctx, adapter,
++						  ps_params.ps_ito,
++						  ps_params.ps_opm_level,
++						  ps_params.spec_wake);
++
++		if (ret)
++			return ret;
+ 	}
+ 
+-	if (opm_mode == QCA_WLAN_VENDOR_OPM_MODE_USER_DEFINED)
++	if ((opm_mode == QCA_WLAN_VENDOR_OPM_MODE_USER_DEFINED) ||
++	    (opm_mode == QCA_WLAN_VENDOR_OPM_MODE_LATENCY_BASED))
+ 		ucfg_pmo_set_ps_params(vdev, &ps_params);
+ 	else
+ 		ucfg_pmo_core_vdev_set_ps_opm_mode(vdev, ps_params.opm_mode);
+diff --git a/core/hdd/src/wlan_hdd_power.c b/core/hdd/src/wlan_hdd_power.c
+index dd26d33d3d..cf52b8c1e6 100644
+--- a/core/hdd/src/wlan_hdd_power.c
++++ b/core/hdd/src/wlan_hdd_power.c
+@@ -3558,6 +3558,8 @@ hdd_convert_opm_mode(enum qca_wlan_vendor_opm_mode opm_mode)
+ 		return WMA_STA_PS_OPM_AGGRESSIVE;
+ 	case QCA_WLAN_VENDOR_OPM_MODE_USER_DEFINED:
+ 		return WMA_STA_PS_USER_DEF;
++	case QCA_WLAN_VENDOR_OPM_MODE_LATENCY_BASED:
++		return WMA_STA_PS_LATENCY_DEF;
+ 	default:
+ 		hdd_err("Invalid opm_mode: %d", opm_mode);
+ 		return WMA_STA_PS_OPM_CONSERVATIVE;
+@@ -3577,7 +3579,7 @@ int hdd_set_power_config(struct hdd_context *hddctx,
+ 		return -EINVAL;
+ 	}
+ 
+-	if (*opm_mode > QCA_WLAN_VENDOR_OPM_MODE_USER_DEFINED ||
++	if (*opm_mode > QCA_WLAN_VENDOR_OPM_MODE_LATENCY_BASED ||
+ 	    *opm_mode < QCA_WLAN_VENDOR_OPM_MODE_DISABLE) {
+ 		hdd_err("invalid power value: %d", *opm_mode);
+ 		return -EINVAL;
+@@ -3599,11 +3601,19 @@ int hdd_set_power_config(struct hdd_context *hddctx,
+ }
+ 
+ int hdd_set_power_config_params(struct hdd_context *hddctx,
+-				struct hdd_adapter *adapter,
+-				uint16_t ps_ito, uint16_t spec_wake)
++				struct hdd_adapter *adapter, uint16_t ps_ito,
++				uint8_t ps_opm_level, uint16_t spec_wake)
+ {
+ 	QDF_STATUS status;
+ 
++	status =
++	      wma_set_power_config_opm_level(adapter->deflink->vdev_id,
++					     ps_opm_level);
++	if (status != QDF_STATUS_SUCCESS) {
++		hdd_err("failed to configure opm level: %d", status);
++		return -EINVAL;
++	}
++
+ 	status = wma_set_power_config_ito(adapter->deflink->vdev_id, ps_ito);
+ 	if (status != QDF_STATUS_SUCCESS) {
+ 		hdd_err("failed to configure power ito: %d", status);
+diff --git a/core/wma/inc/wma_api.h b/core/wma/inc/wma_api.h
+index fa84526c61..4508581a75 100644
+--- a/core/wma/inc/wma_api.h
++++ b/core/wma/inc/wma_api.h
+@@ -97,6 +97,7 @@ struct wma_caps_per_phy {
+ 
+ struct wma_ps_params {
+ 	enum wmi_sta_ps_scheme_cfg opm_mode;
++	uint8_t ps_opm_level;
+ 	uint16_t ps_ito;
+ 	uint16_t spec_wake;
+ };
+@@ -106,11 +107,13 @@ struct wma_ps_params {
+  * @WMA_STA_PS_OPM_CONSERVATIVE: Conservative OPM mode
+  * @WMA_STA_PS_OPM_AGGRESSIVE: Aggressive OPM mode
+  * @WMA_STA_PS_USER_DEF: User defined OPM mode
++ * @WMA_STA_PS_LATENCY_DEF: Latency based opm mode
+  */
+ enum wma_sta_ps_scheme_cfg {
+ 	WMA_STA_PS_OPM_CONSERVATIVE = 0,
+ 	WMA_STA_PS_OPM_AGGRESSIVE = 1,
+ 	WMA_STA_PS_USER_DEF = 2,
++	WMA_STA_PS_LATENCY_DEF = 3,
+ };
+ 
+ #define VDEV_CMD 1
+@@ -480,6 +483,16 @@ QDF_STATUS wma_set_power_config(uint8_t vdev_id,
+  */
+ QDF_STATUS wma_set_power_config_ito(uint8_t vdev_id, uint16_t ps_ito);
+ 
++/**
++ * wma_set_power_config_opm_level() - update power save opm level
++ * @vdev_id:	  the Id of the vdev to configure
++ * @ps_opm_level: new power save inactivity timeout level
++ *
++ * Return: QDF_STATUS_SUCCESS on success, error number otherwise
++ */
++QDF_STATUS
++wma_set_power_config_opm_level(uint8_t vdev_id, uint8_t ps_opm_level);
++
+ /**
+  * wma_set_power_config_spec_wake() - update opm speculative wake interval
+  * @vdev_id:	the Id of the vdev to configure
+diff --git a/core/wma/src/wma_power.c b/core/wma/src/wma_power.c
+index ffed801591..2decf1cfe4 100644
+--- a/core/wma/src/wma_power.c
++++ b/core/wma/src/wma_power.c
+@@ -545,6 +545,18 @@ static QDF_STATUS wma_set_force_sleep(tp_wma_handle wma,
+ 	wma_debug("Set Tx/Rx InActivity vdevId %d InAct %d",
+ 		  vdev_id, ps_params->ps_ito);
+ 
++	ret = wma_unified_set_sta_ps_param(wma->wmi_handle, vdev_id,
++					   WMI_STA_PS_PARAM_ITO_LEVEL,
++					   ps_params->ps_opm_level);
++
++	if (QDF_IS_STATUS_ERROR(ret)) {
++		wma_err("Setting opm level Failed vdevId %d InAct %d",
++			vdev_id, ps_params->ps_opm_level);
++		return ret;
++	}
++	wma_debug("Set opm level vdevId %d InAct %d",
++		  vdev_id, ps_params->ps_opm_level);
++
+ 	ret = wma_unified_set_sta_ps_param(wma->wmi_handle, vdev_id,
+ 					   WMI_STA_PS_PARAM_SPEC_WAKE_INTERVAL,
+ 					   ps_params->spec_wake);
+@@ -652,11 +664,15 @@ static QDF_STATUS wma_wlan_pmo_get_ps_params(struct wlan_objmgr_vdev *vdev,
+ 	case PMO_PS_ADVANCED_POWER_SAVE_USER_DEFINED:
+ 		ps_params->opm_mode = WMI_STA_PS_USER_DEF;
+ 		break;
++	case PMO_PS_ADVANCED_POWER_SAVE_LATENCY_BASED:
++		ps_params->opm_mode = WMI_STA_PS_LATENCY_DEF;
++		break;
+ 	default:
+ 		wma_err("Invalid opm_mode:%d", pmo_ps_param.opm_mode);
+ 		return QDF_STATUS_E_INVAL;
+ 	}
+ 	ps_params->ps_ito = pmo_ps_param.ps_ito;
++	ps_params->ps_opm_level = pmo_ps_param.ps_opm_level;
+ 	ps_params->spec_wake = pmo_ps_param.spec_wake;
+ 
+ 	return status;
+@@ -826,6 +842,8 @@ wma_convert_opm_mode(enum wma_sta_ps_scheme_cfg opm_mode)
+ 		return WMI_STA_PS_OPM_AGGRESSIVE;
+ 	case WMA_STA_PS_USER_DEF:
+ 		return WMI_STA_PS_USER_DEF;
++	case WMA_STA_PS_LATENCY_DEF:
++		return WMI_STA_PS_LATENCY_DEF;
+ 	default:
+ 		wma_err("Invalid opm_mode: %d", opm_mode);
+ 		return WMI_STA_PS_OPM_CONSERVATIVE;
+@@ -861,6 +879,21 @@ QDF_STATUS wma_set_power_config_ito(uint8_t vdev_id, uint16_t ps_ito)
+ 					   ps_ito);
+ }
+ 
++QDF_STATUS
++wma_set_power_config_opm_level(uint8_t vdev_id, uint8_t ps_opm_level)
++{
++	tp_wma_handle wma = cds_get_context(QDF_MODULE_ID_WMA);
++
++	if (!wma) {
++		wma_err("wma_handle is NULL");
++		return QDF_STATUS_E_INVAL;
++	}
++
++	return wma_unified_set_sta_ps_param(wma->wmi_handle, vdev_id,
++					   WMI_STA_PS_PARAM_ITO_LEVEL,
++					   ps_opm_level);
++}
++
+ QDF_STATUS wma_set_power_config_spec_wake(uint8_t vdev_id, uint16_t spec_wake)
+ {
+ 	tp_wma_handle wma = cds_get_context(QDF_MODULE_ID_WMA);
+-- 
+2.34.1
+

@@ -1,0 +1,37 @@
+From 54867a7be8b0248cb2d2d654191836e4d84712fc Mon Sep 17 00:00:00 2001
+From: Ashutosh Rawat <ashurawa@qti.qualcomm.com>
+Date: Fri, 13 Mar 2026 12:12:21 +0530
+Subject: [PATCH 10/40] qcacld-3.0: Fix OOB access in
+ target_if_cp_stats_extract_pdev_extd_stats
+
+Possible OOB access in function target_if_cp_stats_extract_pdev_extd_stats.
+
+Added bound check to prevent the OOB access.
+
+CRs-Fixed: 4452648
+Change-Id: I87c50941a46c13a66ee4aa66117786c57ee520c4
+---
+ components/target_if/cp_stats/src/target_if_mc_cp_stats.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/components/target_if/cp_stats/src/target_if_mc_cp_stats.c b/components/target_if/cp_stats/src/target_if_mc_cp_stats.c
+index 7c62ba1527..cc4b6de028 100644
+--- a/components/target_if/cp_stats/src/target_if_mc_cp_stats.c
++++ b/components/target_if/cp_stats/src/target_if_mc_cp_stats.c
+@@ -495,6 +495,13 @@ target_if_cp_stats_extract_pdev_extd_stats(struct wmi_unified *wmi_hdl,
+ 	if (!(stats_param->stats_id & WMI_REQUEST_PDEV_EXTD_STAT))
+ 		return QDF_STATUS_SUCCESS;
+ 
++	if (stats_param->num_pdev_ext_stats > WLAN_UMAC_MAX_RP_PID) {
++		cp_stats_err("Invalid PDEV stats received from FW: received=%u, max=%u",
++			     stats_param->num_pdev_ext_stats,
++			     WLAN_UMAC_MAX_RP_PID);
++		return QDF_STATUS_E_INVAL;
++	}
++
+ 	ev->pdev_extd_stats = qdf_mem_malloc(sizeof(*ev->pdev_extd_stats) *
+ 					     WLAN_UMAC_MAX_RP_PID);
+ 	if (!ev->pdev_extd_stats)
+-- 
+2.34.1
+

@@ -1,0 +1,43 @@
+From cdd5a03689a77880945b76aa682839c23645fd84 Mon Sep 17 00:00:00 2001
+From: Abhinav Kumar <abhikuma@qti.qualcomm.com>
+Date: Sat, 19 Jul 2025 00:21:42 -0700
+Subject: [PATCH 14/40] qcacld-3.0: Add bounds check before allocating vendor
+ control param buffer
+
+Currently, memory is allocated for roam_vendor_handoff_params before
+validating num_vendor_control_param from the event buffer.
+
+If num_vendor_control_param exceeds MAX_VENDOR_CONTROL_PARAMS, it
+causes an out-of-bounds write to the param_info array, leading to
+undefined behavior and potential security issues.
+
+This change adds a check to ensure num_vendor_control_param does not
+exceed MAX_VENDOR_CONTROL_PARAMS before memory allocation. This avoids
+invalid memory access and unnecessary allocation.
+
+Change-Id: I39557ff0920d5b7c8c3af368b2aa65bf91ec2069
+CRs-Fixed: 4216987
+---
+ components/wmi/src/wmi_unified_roam_tlv.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/components/wmi/src/wmi_unified_roam_tlv.c b/components/wmi/src/wmi_unified_roam_tlv.c
+index 9270abe01b..366607d795 100644
+--- a/components/wmi/src/wmi_unified_roam_tlv.c
++++ b/components/wmi/src/wmi_unified_roam_tlv.c
+@@ -3709,6 +3709,12 @@ extract_roam_vendor_control_param_event_tlv(wmi_unified_t wmi_handle,
+ 		return QDF_STATUS_E_FAILURE;
+ 	}
+ 
++	if (num_entries > MAX_VENDOR_CONTROL_PARAMS) {
++		wmi_err("Too many vendor control params: %u (max allowed: %u)",
++			num_entries, MAX_VENDOR_CONTROL_PARAMS);
++		return QDF_STATUS_E_FAILURE;
++	}
++
+ 	dst_list = qdf_mem_malloc(sizeof(struct roam_vendor_handoff_params));
+ 	if (!dst_list)
+ 		return QDF_STATUS_E_FAILURE;
+-- 
+2.34.1
+

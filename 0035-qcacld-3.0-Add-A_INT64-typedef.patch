@@ -1,0 +1,56 @@
+From f2b91dd71d53b9ccaf589861f1fc337c6ab79ed6 Mon Sep 17 00:00:00 2001
+From: Pragaspathi Thilagaraj <tpragasp@qti.qualcomm.com>
+Date: Tue, 7 Apr 2026 01:23:20 +0530
+Subject: [PATCH 35/40] qcacld-3.0: Add A_INT64 typedef
+
+Add A_INT64 as a signed 64-bit integer type in uapi/linux/a_types.h.
+This complements the existing A_UINT64 definition and provides a
+consistent signed 64-bit typedef for consumers of this UAPI header.
+
+CRs-Fixed: 4492650
+Change-Id: Ie7f5fb55ba291273ecf35920a217fc65dfa3f661
+---
+ uapi/linux/a_types.h | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/uapi/linux/a_types.h b/uapi/linux/a_types.h
+index 190d40df6a..5537fae676 100644
+--- a/uapi/linux/a_types.h
++++ b/uapi/linux/a_types.h
+@@ -1,5 +1,6 @@
+ /*
+  * Copyright (c) 2013-2014 The Linux Foundation. All rights reserved.
++ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+  *
+  * Permission to use, copy, modify, and/or distribute this software for
+  * any purpose with or without fee is hereby granted, provided that the
+@@ -29,15 +30,21 @@
+ #define _A_TYPES_H_
+ #include <athdefs.h>
+ 
+-typedef unsigned int A_UINT32;
+ typedef unsigned long long A_UINT64;
++typedef          long long A_INT64;
++
++typedef unsigned int A_UINT32;
++typedef          int A_INT32;
++
+ typedef unsigned short A_UINT16;
++typedef          short A_INT16;
++
+ typedef unsigned char A_UINT8;
+-typedef int A_INT32;
+-typedef short A_INT16;
+-typedef char A_INT8;
++typedef          char A_INT8;
++
+ typedef unsigned char A_UCHAR;
+-typedef char A_CHAR;
++typedef          char A_CHAR;
++
+ typedef _Bool A_BOOL;
+ 
+ #endif /* _ATHTYPES_H_ */
+-- 
+2.34.1
+

@@ -1,0 +1,43 @@
+From 660d9452f5d33382e7c78f1745e60c5cc0883a48 Mon Sep 17 00:00:00 2001
+From: Sanskar Jain <sansjain@qti.qualcomm.com>
+Date: Tue, 25 Nov 2025 10:22:26 +0530
+Subject: [PATCH 06/40] qcacld-3.0: Add buffer overflow check in
+ wma_fill_rx_stats function
+
+The wma_fill_rx_stats function accesses wmi_rx array using index
+wmi_rx[i * WLAN_MAX_AC + k] without validating that wmi_rx buffer
+has sufficient elements. This can lead to buffer overflow when
+num_peer_ac_rx_stats * WLAN_MAX_AC exceeds the available num_rx_stats.
+
+Add validation check to ensure wmi_rx does not reach out of bound
+before accessing the array.
+
+CRs-Fixed: 4315163
+Change-Id: I91cf41d8f931aef7d5666b2744fc5d8a167d43f3
+---
+ core/wma/src/wma_utils.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/core/wma/src/wma_utils.c b/core/wma/src/wma_utils.c
+index 2e988bb614..3a056ead47 100644
+--- a/core/wma/src/wma_utils.c
++++ b/core/wma/src/wma_utils.c
+@@ -1407,6 +1407,15 @@ wma_fill_rx_stats(struct sir_wifi_ll_ext_stats *ll_stats,
+ 			 wmi_peer_rx, wmi_rx, peer_stats);
+ 		return QDF_STATUS_E_FAILURE;
+ 	}
++
++	/* Check if num_rx_stats is sufficient to avoid buffer overflow */
++	if (param_buf->num_rx_stats <
++	    fix_param->num_peer_ac_rx_stats * WLAN_MAX_AC) {
++		wma_err("Insufficient rx_stats buffer: available %d, required %d",
++			param_buf->num_rx_stats,
++			fix_param->num_peer_ac_rx_stats * WLAN_MAX_AC);
++		return QDF_STATUS_E_FAILURE;
++	}
+ 	for (i = 0; i < fix_param->num_peer_ac_rx_stats; i++) {
+ 		uint32_t peer_id = wmi_peer_rx[i].peer_id;
+ 		struct sir_wifi_rx *ac;
+-- 
+2.34.1
+

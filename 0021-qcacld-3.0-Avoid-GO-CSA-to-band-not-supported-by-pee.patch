@@ -1,0 +1,281 @@
+From 8909500613350e01cfaf8f5430bce192ae4132d9 Mon Sep 17 00:00:00 2001
+From: Abhishek Singh <absingh@qti.qualcomm.com>
+Date: Mon, 9 Mar 2026 15:03:06 +0530
+Subject: [PATCH 21/40] qcacld-3.0: Avoid GO CSA to band not supported by peer
+ in non-DBS
+
+If GO SCC is enabled in non-DBS, avoid GO CSA to band not
+supported by peer, to avoid compatibility issue with peer.
+Get the peer band info from the op class in assoc request.
+
+Change-Id: I79fe0df370ba360cbbb2d50bb507ff9c9d646f60
+CRs-Fixed: 4452753
+---
+ .../policy_mgr/inc/wlan_policy_mgr_api.h      |  3 +
+ .../policy_mgr/src/wlan_policy_mgr_core.c     | 56 +++++++++++++++++++
+ .../src/wlan_policy_mgr_init_deinit.c         |  3 +
+ core/hdd/src/wlan_hdd_main.c                  | 52 +++++++++++++++++
+ core/hdd/src/wlan_hdd_sta_info.h              |  2 +
+ .../src/pe/lim/lim_process_assoc_req_frame.c  | 20 ++++---
+ 6 files changed, 129 insertions(+), 7 deletions(-)
+
+diff --git a/components/cmn_services/policy_mgr/inc/wlan_policy_mgr_api.h b/components/cmn_services/policy_mgr/inc/wlan_policy_mgr_api.h
+index f12a90b229..fd38283665 100644
+--- a/components/cmn_services/policy_mgr/inc/wlan_policy_mgr_api.h
++++ b/components/cmn_services/policy_mgr/inc/wlan_policy_mgr_api.h
+@@ -2340,6 +2340,7 @@ struct policy_mgr_sme_cbacks {
+  * @wlan_get_sap_acs_band: get acs band from sap config
+  * @wlan_check_cc_intf_cb: get interference frequency of input SAP/GO interface
+  * @wlan_set_tx_rx_nss_cb: set NSS dynamically for STA
++ * @hdd_get_sap_connected_sta_band: Get bands supported by connected STA to SAP
+  */
+ struct policy_mgr_hdd_cbacks {
+ 	QDF_STATUS (*sap_restart_chan_switch_cb)(struct wlan_objmgr_psoc *psoc,
+@@ -2374,6 +2375,8 @@ struct policy_mgr_hdd_cbacks {
+ 	QDF_STATUS (*wlan_set_tx_rx_nss_cb)(struct wlan_objmgr_psoc *psoc,
+ 					    uint8_t vdev_id, uint8_t tx_nss,
+ 					    uint8_t rx_nss);
++	uint8_t (*hdd_get_sap_connected_sta_band)(struct wlan_objmgr_psoc *psoc,
++						  uint8_t vdev_id);
+ };
+ 
+ /**
+diff --git a/components/cmn_services/policy_mgr/src/wlan_policy_mgr_core.c b/components/cmn_services/policy_mgr/src/wlan_policy_mgr_core.c
+index cd6b29b377..b8eb8e6d97 100644
+--- a/components/cmn_services/policy_mgr/src/wlan_policy_mgr_core.c
++++ b/components/cmn_services/policy_mgr/src/wlan_policy_mgr_core.c
+@@ -4481,6 +4481,52 @@ policy_mgr_if_freq_n_inactive_links_freq_same(struct wlan_objmgr_psoc *psoc,
+ 	return is_same;
+ }
+ 
++/**
++ * policy_mgr_update_band_info_for_p2p() - Check band preference for P2P GO
++ * @pm_ctx: Pointer to pm_ctx
++ * @sap_ch_freq: sap/go channel starting channel frequency
++ * @vdev_id: vdev id
++ * @allow_6ghz: if 6 Ghz can be allowed
++ * @allow_2ghz_only: if only 2.4 Ghz is allowed
++ *
++ * Return: void.
++ */
++static void
++policy_mgr_update_band_info_for_p2p(struct policy_mgr_psoc_priv_obj *pm_ctx,
++				    qdf_freq_t sap_ch_freq,
++				    uint8_t vdev_id, bool *allow_6ghz,
++				    bool *allow_2ghz_only)
++{
++	uint8_t peer_band = 0;
++	qdf_freq_t user_freq;
++
++	user_freq = policy_mgr_get_user_config_sap_freq(pm_ctx->psoc, vdev_id);
++	if (!user_freq)
++		user_freq = sap_ch_freq;
++
++	if (pm_ctx->hdd_cbacks.hdd_get_sap_connected_sta_band)
++		peer_band =
++		 pm_ctx->hdd_cbacks.hdd_get_sap_connected_sta_band(pm_ctx->psoc,
++								   vdev_id);
++	/*
++	 * If peer_band is 0, it mean no peer is connected OR
++	 * peer didn't advertised band info OR GO is starting.
++	 * so allow only the original user or lower bands.
++	 */
++	if (!peer_band) {
++		if (WLAN_REG_IS_24GHZ_CH_FREQ(user_freq))
++			*allow_2ghz_only = true;
++		else if (WLAN_REG_IS_5GHZ_CH_FREQ(user_freq))
++			*allow_6ghz = false;
++	}
++
++	/* If peer_band does not support the band, skip the band */
++	if (peer_band && !(peer_band & BIT(REG_BAND_5G)))
++		*allow_2ghz_only = true;
++	if (peer_band && !(peer_band & BIT(REG_BAND_6G)))
++		*allow_6ghz = false;
++}
++
+ /**
+  * policy_mgr_get_pref_force_scc_freq() - Get preferred force SCC
+  * channel frequency
+@@ -4562,6 +4608,16 @@ policy_mgr_get_pref_force_scc_freq(struct wlan_objmgr_psoc *psoc,
+ 	ll_lt_sap_freq = policy_mgr_get_ll_sap_freq(psoc);
+ 	is_dbs = policy_mgr_is_hw_dbs_capable(psoc);
+ 
++	/*
++	 * Update band pref for GO in non-DBS, to avoid GO moving
++	 * to band which is not supported by CLI.
++	 * If CLI is not connected, avoid upgrading the band.
++	 */
++	if (!is_dbs && op_mode == QDF_P2P_GO_MODE)
++		policy_mgr_update_band_info_for_p2p(pm_ctx, sap_ch_freq,
++						    vdev_id, &allow_6ghz,
++						    &allow_2ghz_only);
++
+ 	/*
+ 	 * The preferred force SCC channel is SAP original channel,
+ 	 * and then the SCC channel on the same mac, and then the SCC
+diff --git a/components/cmn_services/policy_mgr/src/wlan_policy_mgr_init_deinit.c b/components/cmn_services/policy_mgr/src/wlan_policy_mgr_init_deinit.c
+index 58e4080370..a35fb80dfa 100644
+--- a/components/cmn_services/policy_mgr/src/wlan_policy_mgr_init_deinit.c
++++ b/components/cmn_services/policy_mgr/src/wlan_policy_mgr_init_deinit.c
+@@ -1048,6 +1048,8 @@ QDF_STATUS policy_mgr_register_hdd_cb(struct wlan_objmgr_psoc *psoc,
+ 		hdd_cbacks->wlan_set_tx_rx_nss_cb;
+ 	pm_ctx->hdd_cbacks.wlan_hdd_set_sap_csa_reason =
+ 		hdd_cbacks->wlan_hdd_set_sap_csa_reason;
++	pm_ctx->hdd_cbacks.hdd_get_sap_connected_sta_band =
++		hdd_cbacks->hdd_get_sap_connected_sta_band;
+ 
+ 	return QDF_STATUS_SUCCESS;
+ }
+@@ -1072,6 +1074,7 @@ QDF_STATUS policy_mgr_deregister_hdd_cb(struct wlan_objmgr_psoc *psoc)
+ 	pm_ctx->hdd_cbacks.wlan_get_ap_prefer_conc_ch_params = NULL;
+ 	pm_ctx->hdd_cbacks.wlan_get_sap_acs_band = NULL;
+ 	pm_ctx->hdd_cbacks.wlan_set_tx_rx_nss_cb = NULL;
++	pm_ctx->hdd_cbacks.hdd_get_sap_connected_sta_band = NULL;
+ 
+ 	return QDF_STATUS_SUCCESS;
+ }
+diff --git a/core/hdd/src/wlan_hdd_main.c b/core/hdd/src/wlan_hdd_main.c
+index 3d3fe6a107..7fa14dea3e 100644
+--- a/core/hdd/src/wlan_hdd_main.c
++++ b/core/hdd/src/wlan_hdd_main.c
+@@ -4337,6 +4337,56 @@ wlan_hdd_set_tx_rx_nss_cb(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
+ 	return hdd_update_nss(link_info, tx_nss, rx_nss);
+ }
+ 
++static uint8_t
++hdd_get_sap_connected_sta_band(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id)
++{
++	struct wlan_hdd_link_info *link_info;
++	uint8_t band_mask = REG_BAND_MASK_ALL, peer_count = 0;
++	struct hdd_adapter *adapter;
++	struct hdd_station_info *sta_info, *tmp = NULL;
++
++	link_info = wlan_hdd_get_link_info_from_vdev(psoc, vdev_id);
++	if (!link_info) {
++		hdd_err("Invalid vdev %d", vdev_id);
++		return 0;
++	}
++
++	adapter = link_info->adapter;
++	if (!adapter) {
++		hdd_err("vdev %d, adapter not found", vdev_id);
++		return 0;
++	}
++
++	if (adapter->device_mode != QDF_SAP_MODE &&
++	    adapter->device_mode != QDF_P2P_GO_MODE)
++		return 0;
++
++	hdd_for_each_sta_ref_safe(adapter->sta_info_list, sta_info, tmp,
++				  STA_INFO_GET_BAND_INFO) {
++		/*
++		 * Update band mask only if its non zero.
++		 * ANDing all peers band mask will provide the common bands
++		 * supported.
++		 */
++		if (!qdf_is_macaddr_broadcast(&sta_info->sta_mac) &&
++		    sta_info->supported_band) {
++			peer_count++;
++			band_mask &= sta_info->supported_band;
++		}
++		hdd_put_sta_info_ref(&adapter->sta_info_list, &sta_info, true,
++				     STA_INFO_GET_BAND_INFO);
++	}
++
++	/* If no peer connected then reset band mask to 0 */
++	if (!peer_count)
++		band_mask = 0;
++
++	hdd_debug("vdev %d peer's with band info %d band_mask 0x%x", vdev_id,
++		  peer_count, band_mask);
++
++	return band_mask;
++}
++
+ static void hdd_register_policy_manager_callback(
+ 			struct wlan_objmgr_psoc *psoc)
+ {
+@@ -4365,6 +4415,8 @@ static void hdd_register_policy_manager_callback(
+ 			wlan_get_sap_acs_band;
+ 	hdd_cbacks.wlan_check_cc_intf_cb = wlan_hdd_check_cc_intf_cb;
+ 	hdd_cbacks.wlan_set_tx_rx_nss_cb = wlan_hdd_set_tx_rx_nss_cb;
++	hdd_cbacks.hdd_get_sap_connected_sta_band =
++				hdd_get_sap_connected_sta_band;
+ 
+ 	if (QDF_STATUS_SUCCESS !=
+ 	    policy_mgr_register_hdd_cb(psoc, &hdd_cbacks)) {
+diff --git a/core/hdd/src/wlan_hdd_sta_info.h b/core/hdd/src/wlan_hdd_sta_info.h
+index 0d96ce400d..94bc0c9325 100644
+--- a/core/hdd/src/wlan_hdd_sta_info.h
++++ b/core/hdd/src/wlan_hdd_sta_info.h
+@@ -133,6 +133,7 @@ typedef enum {
+  * @STA_INFO_SON_GET_DATRATE_INFO: gets datarate info for a SON node
+  * @STA_INFO_SAP_SET_MLO_CLIENT_DEAUTH_FLAG: set deauth flag for mlo client
+  * @STA_INFO_SAP_GET_WDS_CLIENT_INFO: Check if a client is a wds client
++ * @STA_INFO_GET_BAND_INFO: get peer band info
+  * @STA_INFO_ID_MAX: Number of enumerators
+  */
+ /*
+@@ -175,6 +176,7 @@ typedef enum {
+ 	STA_INFO_SON_GET_DATRATE_INFO = 32,
+ 	STA_INFO_SAP_SET_MLO_CLIENT_DEAUTH_FLAG = 33,
+ 	STA_INFO_SAP_GET_WDS_CLIENT_INFO = 34,
++	STA_INFO_GET_BAND_INFO = 35,
+ 	STA_INFO_ID_MAX,
+ } wlan_sta_info_dbgid;
+ 
+diff --git a/core/mac/src/pe/lim/lim_process_assoc_req_frame.c b/core/mac/src/pe/lim/lim_process_assoc_req_frame.c
+index 7d7a9977b3..411ddd6a40 100644
+--- a/core/mac/src/pe/lim/lim_process_assoc_req_frame.c
++++ b/core/mac/src/pe/lim/lim_process_assoc_req_frame.c
+@@ -99,12 +99,17 @@ static void lim_convert_supported_channels(struct mac_context *mac_ctx,
+ 		chan_freq = wlan_reg_legacy_chan_to_freq(mac_ctx->pdev,
+ 			first_ch_no);
+ 
+-		if (REG_BAND_5G == lim_get_rf_band(chan_freq))
++		if (REG_BAND_5G == lim_get_rf_band(chan_freq)) {
+ 			channel_offset =  SIR_11A_FREQUENCY_OFFSET;
+-		else if (REG_BAND_2G == lim_get_rf_band(chan_freq))
++			if (!(assoc_ind->supported_band & BIT(REG_BAND_5G)))
++				assoc_ind->supported_band |= BIT(REG_BAND_5G);
++		} else if (REG_BAND_2G == lim_get_rf_band(chan_freq)) {
+ 			channel_offset = SIR_11B_FREQUENCY_OFFSET;
+-		else
++			if (!(assoc_ind->supported_band & BIT(REG_BAND_2G)))
++				assoc_ind->supported_band |= BIT(REG_BAND_2G);
++		} else {
+ 			continue;
++		}
+ 
+ 		for (j = 1; j < chn_count; j++) {
+ 			next_ch_no += channel_offset;
+@@ -126,8 +131,8 @@ static void lim_convert_supported_channels(struct mac_context *mac_ctx,
+ 		assoc_ind->supportedChannels.numChnl);
+ 
+ 	QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
+-			   assoc_req->supportedChannels.supportedChannels,
+-			   assoc_req->supportedChannels.length);
++			   assoc_ind->supportedChannels.channelList,
++			   assoc_ind->supportedChannels.numChnl);
+ }
+ 
+ /**
+@@ -3717,11 +3722,12 @@ bool lim_fill_lim_assoc_ind_params(
+ 
+ 	lim_fill_assoc_ind_info(mac_ctx, session_entry, assoc_req,
+ 				assoc_ind, sta_ds);
+-	pe_debug("ch_width: %d vht_cap %d ht_cap %d chan_info %d center_freq1 %d",
++	pe_debug("ch_width: %d vht_cap %d ht_cap %d chan_info %d center_freq1 %d supp_bands 0x%x",
+ 		 session_entry->ch_width,
+ 		 session_entry->vhtCapability, session_entry->htCapability,
+ 		 assoc_ind->chan_info.info,
+-		 assoc_ind->chan_info.band_center_freq1);
++		 assoc_ind->chan_info.band_center_freq1,
++		 assoc_ind->supported_band);
+ 	assoc_ind->he_caps_present = assoc_req->he_cap.present;
+ 	assoc_ind->eht_caps_present = assoc_req->eht_cap.present;
+ 	assoc_ind->is_sae_authenticated =
+-- 
+2.34.1
+

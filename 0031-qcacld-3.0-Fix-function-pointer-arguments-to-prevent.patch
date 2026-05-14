@@ -1,0 +1,87 @@
+From 7fd71d33e12debdab0c1d1f7f40c144a8c4fbb46 Mon Sep 17 00:00:00 2001
+From: Ajay Singh Dahiya <asinghda@qti.qualcomm.com>
+Date: Thu, 17 Jul 2025 14:30:13 +0530
+Subject: [PATCH 31/40] qcacld-3.0: Fix function pointer arguments to prevent
+ CFI errors
+
+Updated the function pointer arguments to ensure compatibility and
+prevent potential Control Flow Integrity (CFI) violations.
+
+Change-Id: I63fc5116dba67dbde9e98066f5685bd448b0f48a
+CRs-Fixed: 4221124
+---
+ components/dp/core/inc/wlan_dp_haps.h |  5 -----
+ components/dp/core/src/wlan_dp_haps.c | 17 +++++++++--------
+ 2 files changed, 9 insertions(+), 13 deletions(-)
+
+diff --git a/components/dp/core/inc/wlan_dp_haps.h b/components/dp/core/inc/wlan_dp_haps.h
+index 312688acf9..35f36719c7 100644
+--- a/components/dp/core/inc/wlan_dp_haps.h
++++ b/components/dp/core/inc/wlan_dp_haps.h
+@@ -8,11 +8,6 @@
+ 
+ #include "wlan_dp_priv.h"
+ 
+-typedef enum {
+-	STATE_UNPAUSE = 0,
+-	STATE_PAUSE
+-} haps_state;
+-
+ #ifdef WLAN_HAPS_ENABLE
+ 
+ #define HAPS_TRY_AGAIN_TIME_NS 200000
+diff --git a/components/dp/core/src/wlan_dp_haps.c b/components/dp/core/src/wlan_dp_haps.c
+index f145ad1364..8a90b29e18 100644
+--- a/components/dp/core/src/wlan_dp_haps.c
++++ b/components/dp/core/src/wlan_dp_haps.c
+@@ -14,7 +14,8 @@
+ #include "wlan_dp_haps.h"
+ 
+ static void dp_haps_stats_update(struct dp_haps *haps_ctx,
+-				 haps_state curr_state, haps_state new_state)
++				 enum cdp_haps_state curr_state,
++				 enum cdp_haps_state new_state)
+ {
+ 	struct dp_haps_stats *stats = &haps_ctx->stats;
+ 	qdf_time_t delta = 0;
+@@ -57,13 +58,13 @@ static void dp_haps_stats_update(struct dp_haps *haps_ctx,
+  * Returns: none
+  */
+ static inline
+-void dp_haps_update_state(struct dp_haps *haps_ctx, haps_state new_state,
+-			  qdf_ktime_t timeout, bool is_one_shot,
+-			  bool is_direct_reg_write)
++void dp_haps_update_state(struct dp_haps *haps_ctx,
++			  enum cdp_haps_state new_state, qdf_ktime_t timeout,
++			  bool is_one_shot, bool is_direct_reg_write)
+ {
+ 	QDF_STATUS ret;
+ 	qdf_ktime_t retry_timeout;
+-	haps_state curr_state = haps_ctx->state;
++	enum cdp_haps_state curr_state = haps_ctx->state;
+ 
+ 	dp_debug("HAPS: vdev_id:(%u) curr state:(%u) -> new state:(%u),"
+ 		 "is one shot:(%u) timeout:(%lld ns) is_direct_reg_write:(%u)",
+@@ -139,7 +140,7 @@ void dp_haps_update_state(struct dp_haps *haps_ctx, haps_state new_state,
+  * Returns: none
+  */
+ static void
+-dp_haps_handle_ind(ol_osif_vdev_handle osif_vdev, haps_state new_state,
++dp_haps_handle_ind(ol_osif_vdev_handle osif_vdev, enum cdp_haps_state new_state,
+ 		   qdf_ktime_t time_rcvd, bool is_one_shot,
+ 		   bool is_direct_reg_write)
+ {
+@@ -202,8 +203,8 @@ dp_haps_timer_handler(qdf_hrtimer_data_t *arg)
+ 	haps_ctx = qdf_container_of(arg, struct dp_haps,
+ 				    haps_timer);
+ 
+-	dp_haps_update_state(haps_ctx, STATE_UNPAUSE, 0, haps_ctx->is_one_shot,
+-			     true);
++	dp_haps_update_state(haps_ctx, STATE_UNPAUSE, 0,
++			     haps_ctx->is_one_shot, true);
+ 
+ 	haps_ctx->stats.haps_timer_expired++;
+ 
+-- 
+2.34.1
+

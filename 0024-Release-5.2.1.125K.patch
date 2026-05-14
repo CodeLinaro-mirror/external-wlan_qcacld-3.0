@@ -1,0 +1,32 @@
+From 049a818b1f118921924c51d392a77a19d122ca14 Mon Sep 17 00:00:00 2001
+From: Ravindra Konda <konda@qti.qualcomm.com>
+Date: Mon, 20 Apr 2026 09:23:57 -0700
+Subject: [PATCH 24/40] Release 5.2.1.125K
+
+Release 5.2.1.125K
+
+Change-Id: I87a0ea09cc8a7e317a6651a25fb5c1cd38951f51
+CRs-Fixed: 4370095
+---
+ core/mac/inc/qwlan_version.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/core/mac/inc/qwlan_version.h b/core/mac/inc/qwlan_version.h
+index b72062e00e..ecf5171994 100644
+--- a/core/mac/inc/qwlan_version.h
++++ b/core/mac/inc/qwlan_version.h
+@@ -32,9 +32,9 @@
+ #define QWLAN_VERSION_MAJOR            5
+ #define QWLAN_VERSION_MINOR            2
+ #define QWLAN_VERSION_PATCH            1
+-#define QWLAN_VERSION_EXTRA            "J"
++#define QWLAN_VERSION_EXTRA            "K"
+ #define QWLAN_VERSION_BUILD            125
+ 
+-#define QWLAN_VERSIONSTR               "5.2.1.125J"
++#define QWLAN_VERSIONSTR               "5.2.1.125K"
+ 
+ #endif /* QWLAN_VERSION_H */
+-- 
+2.34.1
+
