@@ -951,14 +951,19 @@ QDF_STATUS pmo_core_psoc_suspend_target(struct wlan_objmgr_psoc *psoc,
 		goto out;
 
 	pmo_tgt_update_target_suspend_flag(psoc, true);
-
 	status = qdf_wait_for_event_completion(&psoc_ctx->wow.target_suspend,
 					       PMO_TARGET_SUSPEND_TIMEOUT);
 	if (QDF_IS_STATUS_ERROR(status)) {
 		pmo_err("Failed to get ACK from firmware for pdev suspend");
 		pmo_tgt_update_target_suspend_flag(psoc, false);
-		if (!psoc_ctx->wow.target_suspend.force_set)
-			qdf_trigger_self_recovery(psoc, QDF_SUSPEND_TIMEOUT);
+		if (!psoc_ctx->wow.target_suspend.force_set) {
+			if (cds_is_driver_unloading()) {
+				pmo_err("Driver is unloading, skip self recovery for pdev suspend timeout");
+			} else {
+				qdf_trigger_self_recovery(psoc,
+							  QDF_SUSPEND_TIMEOUT);
+			}
+		}
 	} else {
 		pmo_tgt_update_target_suspend_acked_flag(psoc, true);
 	}
