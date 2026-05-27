@@ -1608,7 +1608,7 @@
  * h2t_bundle_num - number of the tx bundle for sdio HL
  *
  * @Min: 1
- * @Max: 8
+ * @Max: 64
  * @Default: 1
  *
  * Used in tx datapath
@@ -1617,7 +1617,7 @@
  */
 #define CFG_DP_TX_BUNDLE_NUM \
 		CFG_INI_UINT("h2t_bundle_num", \
-		1, 8, 1, \
+		1, 64, 1, \
 		CFG_VALUE_OR_DEFAULT, \
 		"set the tx bundle num for sdio HL")
 
@@ -1626,7 +1626,7 @@
  * t2h_bundle_num - number of the rx bundle for sdio HL
  *
  * @Min: 1
- * @Max: 8
+ * @Max: 64
  * @Default: 1
  *
  * Used in rx datapath
@@ -1635,7 +1635,7 @@
  */
 #define CFG_DP_RX_BUNDLE_NUM \
 		CFG_INI_UINT("t2h_bundle_num", \
-		1, 8, 1, \
+		1, 64, 1, \
 		CFG_VALUE_OR_DEFAULT, \
 		"set the rx bundle num for sdio HL")
 
