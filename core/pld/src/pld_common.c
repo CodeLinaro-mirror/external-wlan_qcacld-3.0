@@ -2327,8 +2327,9 @@ int pld_force_assert_target(struct device *dev)
 	case PLD_BUS_TYPE_IPCI_FW_SIM:
 		return -EOPNOTSUPP;
 	case PLD_BUS_TYPE_SNOC_FW_SIM:
-	case PLD_BUS_TYPE_SDIO:
 		return -EINVAL;
+	case PLD_BUS_TYPE_SDIO:
+		return pld_sdio_force_assert_target(dev);
 	case PLD_BUS_TYPE_IPCI:
 		return pld_ipci_force_assert_target(dev);
 	default:

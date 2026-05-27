@@ -326,6 +326,20 @@ int pld_sdio_athdiag_read(struct device *dev, uint32_t offset,
 int pld_sdio_athdiag_write(struct device *dev, uint32_t offset,
 			  uint32_t memtype, uint32_t datalen,
 			  uint8_t *input);
+
+/**
+ * pld_sdio_force_assert_target() - Send a force assert request to FW
+ * @dev: device pointer
+ *
+ * Return: 0 for success
+ *         Non zero failure code for errors
+ */
+static inline int pld_sdio_force_assert_target(struct device *dev)
+{
+	if (!dev)
+		return -EINVAL;
+	return cnss_force_fw_assert(dev);
+}
 #else
 static inline int pld_sdio_wlan_enable(struct device *dev,
 				       struct pld_wlan_enable_cfg *config,
@@ -343,6 +357,10 @@ static inline int pld_sdio_athdiag_read(struct device *dev, uint32_t offset,
 static inline int pld_sdio_athdiag_write(struct device *dev, uint32_t offset,
 					 uint32_t memtype, uint32_t datalen,
 					 uint8_t *input)
+{
+	return 0;
+}
+static inline int pld_sdio_force_assert_target(struct device *dev)
 {
 	return 0;
 }
