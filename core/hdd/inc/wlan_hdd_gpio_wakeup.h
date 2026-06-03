@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,36 +18,21 @@
 #ifndef __WLAN_HDD_GPIO_WAKEUP_H__
 #define __WLAN_HDD_GPIO_WAKEUP_H__
 
-#ifdef WLAN_ENABLE_GPIO_WAKEUP
-/**
- * wlan_hdd_gpio_wakeup_init() - Init gpio wakeup
- * @hdd_ctx: pointer to the struct hdd_context
- *
- * Init gpio wakeup
- *
- * Return: success or not
- */
+#if defined(WLAN_GPIO_WAKEUP)
 int wlan_hdd_gpio_wakeup_init(struct hdd_context *hdd_ctx);
-
-/**
- * wlan_hdd_gpio_wakeup_deinit() - Deinit gpio wakeup
- * @hdd_ctx: pointer to the struct hdd_context
- *
- * Deinit gpio wakeup
- *
- * Return: success or not
- */
 int wlan_hdd_gpio_wakeup_deinit(struct hdd_context *hdd_ctx);
 #else
-static inline int wlan_hdd_gpio_wakeup_init(struct hdd_context *hdd_ctx)
+static inline int
+wlan_hdd_gpio_wakeup_init(struct hdd_context *hdd_ctx)
 {
 	return 0;
 }
 
-static inline int wlan_hdd_gpio_wakeup_deinit(struct hdd_context *hdd_ctx)
+static inline int
+wlan_hdd_gpio_wakeup_deinit(struct hdd_context *hdd_ctx)
 {
 	return 0;
 }
 #endif
 
-#endif
+#endif /* __WLAN_HDD_GPIO_WAKEUP_H__ */

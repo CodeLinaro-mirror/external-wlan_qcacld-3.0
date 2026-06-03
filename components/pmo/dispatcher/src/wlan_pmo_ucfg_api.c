@@ -1019,7 +1019,7 @@ bool ucfg_pmo_is_configure_apf_per_screen_state(struct wlan_objmgr_psoc *psoc)
 	return pmo_core_is_configure_apf_per_screen_state(psoc);
 }
 
-#ifdef WLAN_ENABLE_GPIO_WAKEUP
+#if defined(WLAN_GPIO_WAKEUP)
 bool ucfg_pmo_is_gpio_wakeup_enabled(struct wlan_objmgr_psoc *psoc)
 {
 	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
@@ -1034,12 +1034,19 @@ uint32_t ucfg_pmo_get_gpio_wakeup_pin(struct wlan_objmgr_psoc *psoc)
 	return pmo_psoc_ctx->psoc_cfg.gpio_wakeup_pin;
 }
 
-enum pmo_gpio_wakeup_mode
-ucfg_pmo_get_gpio_wakeup_mode(struct wlan_objmgr_psoc *psoc)
+enum pmo_gpio_wakeup_trigger
+ucfg_pmo_get_gpio_wakeup_trigger(struct wlan_objmgr_psoc *psoc)
 {
 	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
 
-	return pmo_psoc_ctx->psoc_cfg.gpio_wakeup_mode;
+	return pmo_psoc_ctx->psoc_cfg.gpio_wakeup_trigger;
+}
+
+uint32_t ucfg_pmo_get_gpio_wakeup_backend(struct wlan_objmgr_psoc *psoc)
+{
+	struct pmo_psoc_priv_obj *pmo_psoc_ctx = pmo_psoc_get_priv(psoc);
+
+	return pmo_psoc_ctx->psoc_cfg.gpio_wakeup_backend;
 }
 #endif
 

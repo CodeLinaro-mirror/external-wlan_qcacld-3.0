@@ -23,7 +23,7 @@ WLAN_FW_API ?= $(WLAN_ROOT)/../fw-api/
 WLAN_PROFILE ?= default
 CONFIG_QCA_CLD_WLAN_PROFILE ?= $(WLAN_PROFILE)
 DEVNAME ?= wlan
-WLAN_PLATFORM_INC ?= $(WLAN_ROOT)/../platform/inc
+WLAN_PLATFORM_INC ?= $(WLAN_ROOT)/../core_tech_modules/inc
 DATA_IPA_INC ?= $(WLAN_ROOT)/../dataipa/drivers/platform/msm/include
 DATA_IPA_UAPI_INC ?= $(DATA_IPA_INC)/uapi
 
@@ -534,7 +534,7 @@ ifeq ($(CONFIG_WLAN_FEATURE_MEDIUM_ASSESS), y)
 HDD_OBJS += $(HDD_SRC_DIR)/wlan_hdd_medium_assess.o
 endif
 
-ifeq ($(CONFIG_WLAN_ENABLE_GPIO_WAKEUP),y)
+ifeq ($(CONFIG_WLAN_GPIO_WAKEUP), y)
 HDD_OBJS += $(HDD_SRC_DIR)/wlan_hdd_gpio_wakeup.o
 endif
 
@@ -5077,7 +5077,7 @@ ccflags-y += -DWLAN_PLACEMARKER_PREFIX=\"$(CONFIG_WLAN_PLACEMARKER_PREFIX)\"
 endif
 
 ccflags-$(CONFIG_FEATURE_STA_MODE_VOTE_LINK) += -DFEATURE_STA_MODE_VOTE_LINK
-ccflags-$(CONFIG_WLAN_ENABLE_GPIO_WAKEUP) += -DWLAN_ENABLE_GPIO_WAKEUP
+ccflags-$(CONFIG_WLAN_GPIO_WAKEUP) += -DWLAN_GPIO_WAKEUP
 ccflags-$(CONFIG_WLAN_MAC_ADDR_UPDATE_DISABLE) += -DWLAN_MAC_ADDR_UPDATE_DISABLE
 
 ifeq ($(CONFIG_SMP), y)

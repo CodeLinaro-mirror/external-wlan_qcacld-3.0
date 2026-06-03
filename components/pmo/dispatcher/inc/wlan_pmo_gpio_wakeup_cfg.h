@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -19,7 +20,7 @@
 #ifndef WLAN_PMO_GPIO_WAKEUP_CFG_H__
 #define WLAN_PMO_GPIO_WAKEUP_CFG_H__
 
-#ifdef WLAN_ENABLE_GPIO_WAKEUP
+#if defined(WLAN_GPIO_WAKEUP)
 /*
  * <ini>
  * genable_gpio_wakeup - Enable gpio wakeup
@@ -61,12 +62,12 @@
 
 /*
  * <ini>
- * ggpio_wakeup_mode - Wakeup gpio mode
+ * ggpio_wakeup_trigger - Wakeup gpio mode
  * @Min: 0
  * @Max: 4
  * @Default: 0
  *
- * Wakeup gpio mode
+ * Wakeup gpio trigger mode
  * 1 indicates rising trigger
  * 2 indicates failing trigger
  * 3 indicates high trigger
@@ -78,16 +79,41 @@
  *
  * </ini>
  */
-#define CFG_PMO_GPIO_WAKEUP_MODE CFG_INI_UINT("ggpio_wakeup_mode", \
+#define CFG_PMO_GPIO_WAKEUP_MODE CFG_INI_UINT("ggpio_wakeup_trigger", \
 					      0, 4, 0, \
 					      CFG_VALUE_OR_DEFAULT, \
 					      "Wakeup gpio mode")
 
+/*
+ * <ini>
+ * gpio_wakeup_backend - Select GPIO wakeup backend
+ * @Min: 0
+ * @Max: 2
+ * @Default: 0
+ *
+ * Selects the GPIO wakeup backend at runtime.
+ * 0: legacy gpio_request backend
+ * 1: gpiod descriptor backend (ARM DT / x86 ACPI, requires xxx-gpios in DT)
+ * 2: of_irq backend (ARM DT, requires interrupts + interrupt-names in DT)
+ *
+ * Supported Feature: gpio wakeup
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_PMO_GPIO_WAKEUP_BACKEND \
+	CFG_INI_UINT("ggpio_wakeup_backend", \
+		     0, 2, 0, \
+		     CFG_VALUE_OR_DEFAULT, \
+		     "GPIO wakeup backend: 0=legacy 1=gpiod 2=of_irq")
+
 #define CFG_GPIO_WAKEUP_ALL \
 	CFG(CFG_PMO_ENABLE_GPIO_WAKEUP) \
 	CFG(CFG_PMO_GPIO_WAKEUP_PIN) \
-	CFG(CFG_PMO_GPIO_WAKEUP_MODE)
+	CFG(CFG_PMO_GPIO_WAKEUP_MODE) \
+	CFG(CFG_PMO_GPIO_WAKEUP_BACKEND)
 #else
 #define CFG_GPIO_WAKEUP_ALL
-#endif /* WLAN_ENABLE_GPIO_WAKEUP */
+#endif /* WLAN_GPIO_WAKEUP */
 #endif /* WLAN_PMO_GPIO_WAKEUP_CFG_H__ */

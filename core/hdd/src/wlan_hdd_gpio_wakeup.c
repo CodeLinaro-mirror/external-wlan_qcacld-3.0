@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,128 +16,57 @@
  */
 
 #include "wlan_hdd_main.h"
-#include <linux/gpio.h>
 #include "wlan_hdd_gpio_wakeup.h"
 
-static int32_t gpio_wakeup_irq_num = -1;
+#if defined(WLAN_GPIO_WAKEUP)
 
-static uint32_t
-hdd_gpio_wakeup_mode_pmo_to_linux(enum pmo_gpio_wakeup_mode mode)
+#include <linux/interrupt.h>
+#include "wlan_pmo_ucfg_api.h"
+#include "oob_wake.h"
+
+static unsigned int
+hdd_gpio_wakeup_trigger_to_irqflags(enum pmo_gpio_wakeup_trigger trigger)
 {
-	uint32_t irq_flag;
-
-	switch (mode) {
+	switch (trigger) {
 	case PMO_GPIO_WAKEUP_MODE_RISING:
-		irq_flag = IRQF_TRIGGER_RISING;
-		break;
+		return IRQF_TRIGGER_RISING;
 	case PMO_GPIO_WAKEUP_MODE_FALLING:
-		irq_flag = IRQF_TRIGGER_FALLING;
-		break;
+		return IRQF_TRIGGER_FALLING;
 	case PMO_GPIO_WAKEUP_MODE_HIGH:
-		irq_flag = IRQF_TRIGGER_HIGH;
-		break;
+		return IRQF_TRIGGER_HIGH;
 	case PMO_GPIO_WAKEUP_MODE_LOW:
-		irq_flag = IRQF_TRIGGER_LOW;
-		break;
+		return IRQF_TRIGGER_LOW;
 	default:
-		irq_flag = IRQF_TRIGGER_NONE;
-		break;
+		return IRQF_TRIGGER_NONE;
 	}
-
-	return irq_flag;
-}
-
-static irqreturn_t hdd_gpio_wakeup_isr(int irq, void *dev)
-{
-	hdd_debug("gpio_wakeup_isr");
-
-	return IRQ_HANDLED;
 }
 
 int wlan_hdd_gpio_wakeup_init(struct hdd_context *hdd_ctx)
 {
-	uint32_t gpio_wakeup_pin;
-	enum pmo_gpio_wakeup_mode gpio_wakeup_mode;
-	int32_t ret;
-	uint32_t irq_flag;
+	struct gpio_wakeup_cfg cfg = {};
+	enum pmo_gpio_wakeup_trigger trigger;
 
 	if (!ucfg_pmo_is_gpio_wakeup_enabled(hdd_ctx->psoc)) {
-		hdd_debug("gpio wakeup is not enabled");
+		hdd_debug("gpio wakeup not enabled");
 		return 0;
 	}
 
-	gpio_wakeup_pin = ucfg_pmo_get_gpio_wakeup_pin(hdd_ctx->psoc);
+	cfg.pin = ucfg_pmo_get_gpio_wakeup_pin(hdd_ctx->psoc);
+	trigger = ucfg_pmo_get_gpio_wakeup_trigger(hdd_ctx->psoc);
+	cfg.irq_trigger = hdd_gpio_wakeup_trigger_to_irqflags(trigger);
+	cfg.backend = ucfg_pmo_get_gpio_wakeup_backend(hdd_ctx->psoc);
 
-	ret = gpio_request(gpio_wakeup_pin, "gpio_wakeup");
-	if (ret) {
-		hdd_err("failed to request gpio%d", gpio_wakeup_pin);
-		return -EIO;
-	}
-
-	ret = gpio_direction_input(gpio_wakeup_pin);
-	if (ret) {
-		hdd_err("failed to set input direction");
-		goto fail_free_gpio;
-	}
-
-	gpio_wakeup_irq_num = gpio_to_irq(gpio_wakeup_pin);
-	if (gpio_wakeup_irq_num < 0) {
-		hdd_err("failed to get irq num");
-		goto fail_free_gpio;
-	}
-
-	gpio_wakeup_mode = ucfg_pmo_get_gpio_wakeup_mode(hdd_ctx->psoc);
-	if (gpio_wakeup_mode == PMO_GPIO_WAKEUP_MODE_INVALID) {
-		hdd_err("failed to get invalid wakeup mode");
-		goto fail_free_gpio;
-	}
-
-	irq_flag = hdd_gpio_wakeup_mode_pmo_to_linux(gpio_wakeup_mode);
-	ret = request_irq(gpio_wakeup_irq_num, hdd_gpio_wakeup_isr, irq_flag,
-			  "gpio_wakeup_irq", hdd_ctx);
-	if (ret) {
-		hdd_err("failed to request irq %d", ret);
-		goto fail_free_gpio;
-	}
-
-	ret = enable_irq_wake(gpio_wakeup_irq_num);
-	if (ret) {
-		hdd_err("failed to enable irq wake %d", ret);
-		goto fail_free_irq;
-	}
-
-	hdd_debug("succeed to set gpio wakeup");
-
-	return 0;
-
-fail_free_irq:
-	free_irq(gpio_wakeup_irq_num, hdd_ctx);
-	gpio_wakeup_irq_num = -1;
-fail_free_gpio:
-	gpio_free(gpio_wakeup_pin);
-
-	return -EIO;
+	return cnss_gpio_wakeup_init(hdd_ctx->parent_dev, &cfg);
 }
 
 int wlan_hdd_gpio_wakeup_deinit(struct hdd_context *hdd_ctx)
 {
-	uint32_t gpio_wakeup_pin;
-
 	if (!ucfg_pmo_is_gpio_wakeup_enabled(hdd_ctx->psoc)) {
-		hdd_debug("gpio wakeup is not enabled");
+		hdd_debug("gpio wakeup not enabled");
 		return 0;
 	}
 
-	if (gpio_wakeup_irq_num < 0) {
-		hdd_debug("gpio wakeup irq is not enabled");
-		return 0;
-	}
-
-	free_irq(gpio_wakeup_irq_num, hdd_ctx);
-	gpio_wakeup_irq_num = -1;
-
-	gpio_wakeup_pin = ucfg_pmo_get_gpio_wakeup_pin(hdd_ctx->psoc);
-	gpio_free(gpio_wakeup_pin);
-
-	return 0;
+	return cnss_gpio_wakeup_deinit(hdd_ctx->parent_dev);
 }
+
+#endif /* WLAN_GPIO_WAKEUP */

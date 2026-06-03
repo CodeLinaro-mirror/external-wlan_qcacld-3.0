@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -174,7 +174,7 @@ static void wlan_pmo_ra_filtering_init_cfg(struct wlan_objmgr_psoc *psoc,
 }
 #endif
 
-#ifdef WLAN_ENABLE_GPIO_WAKEUP
+#if defined(WLAN_GPIO_WAKEUP)
 static void wlan_pmo_gpio_wakeup_init_cfg(struct wlan_objmgr_psoc *psoc,
 					  struct pmo_psoc_cfg *psoc_cfg)
 {
@@ -182,8 +182,10 @@ static void wlan_pmo_gpio_wakeup_init_cfg(struct wlan_objmgr_psoc *psoc,
 		cfg_get(psoc, CFG_PMO_ENABLE_GPIO_WAKEUP);
 	psoc_cfg->gpio_wakeup_pin =
 		cfg_get(psoc, CFG_PMO_GPIO_WAKEUP_PIN);
-	psoc_cfg->gpio_wakeup_mode =
+	psoc_cfg->gpio_wakeup_trigger =
 		cfg_get(psoc, CFG_PMO_GPIO_WAKEUP_MODE);
+	psoc_cfg->gpio_wakeup_backend =
+		cfg_get(psoc, CFG_PMO_GPIO_WAKEUP_BACKEND);
 }
 #else
 static void wlan_pmo_gpio_wakeup_init_cfg(struct wlan_objmgr_psoc *psoc,

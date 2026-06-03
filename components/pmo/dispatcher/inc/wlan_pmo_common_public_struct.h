@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -292,14 +292,14 @@ enum active_apf_mode {
 };
 
 /**
- * enum pmo_gpio_wakeup_mode - gpio wakeup mode
+ * enum pmo_gpio_wakeup_trigger - gpio wakeup trigger mode
  * @PMO_GPIO_WAKEUP_MODE_INVALID: gpio wakeup trigger invalid
  * @PMO_GPIO_WAKEUP_MODE_RISING: gpio wakeup trigger rising
  * @PMO_GPIO_WAKEUP_MODE_FALLING: gpio wakeup trigger failing
  * @PMO_GPIO_WAKEUP_MODE_HIGH: gpio wakeup trigger high
  * @PMO_GPIO_WAKEUP_MODE_LOW: gpio wakeup trigger low
  */
-enum pmo_gpio_wakeup_mode {
+enum pmo_gpio_wakeup_trigger {
 	PMO_GPIO_WAKEUP_MODE_INVALID,
 	PMO_GPIO_WAKEUP_MODE_RISING,
 	PMO_GPIO_WAKEUP_MODE_FALLING,
@@ -420,7 +420,7 @@ enum pmo_page_fault_action {
  * @wow_suspend_type: What wow suspend type is currently happening
  * @enable_gpio_wakeup: enable gpio wakeup
  * @gpio_wakeup_pin: gpio wakeup pin
- * @gpio_wakeup_mode: gpio wakeup mode
+ * @gpio_wakeup_trigger: gpio wakeup trigger mode
  * @igmp_version_support: igmp version support
  * @igmp_offload_enable: enable/disable igmp offload feature to fw
  * @disconnect_sap_tdls_in_wow: sap/p2p_go disconnect or teardown tdls link
@@ -508,10 +508,11 @@ struct pmo_psoc_cfg {
 	bool is_bus_suspend_enabled_in_sap_mode;
 	bool is_bus_suspend_enabled_in_go_mode;
 	enum qdf_suspend_type wow_suspend_type;
-#ifdef WLAN_ENABLE_GPIO_WAKEUP
+#if defined(WLAN_GPIO_WAKEUP)
 	bool enable_gpio_wakeup;
 	uint32_t gpio_wakeup_pin;
-	enum pmo_gpio_wakeup_mode gpio_wakeup_mode;
+	enum pmo_gpio_wakeup_trigger gpio_wakeup_trigger;
+	uint32_t gpio_wakeup_backend;
 #endif
 #ifdef WLAN_FEATURE_IGMP_OFFLOAD
 	uint32_t igmp_version_support;

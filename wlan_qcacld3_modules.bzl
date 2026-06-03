@@ -1621,7 +1621,7 @@ _conditional_srcs = {
             "core/hdd/src/wlan_hdd_sysfs_dump_in_progress.c",
         ],
     },
-    "CONFIG_WLAN_ENABLE_GPIO_WAKEUP": {
+    "CONFIG_WLAN_GPIO_WAKEUP": {
         True: [
             "core/hdd/src/wlan_hdd_gpio_wakeup.c",
         ],

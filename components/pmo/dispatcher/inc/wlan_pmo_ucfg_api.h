@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -1381,7 +1381,7 @@ static inline bool ucfg_pmo_is_configure_apf_per_screen_state(
 }
 #endif
 
-#ifdef WLAN_ENABLE_GPIO_WAKEUP
+#if defined(WLAN_GPIO_WAKEUP)
 /**
  * ucfg_pmo_is_gpio_wakeup_enabled() - to get gpio wakeup enable configuration
  * @psoc: objmgr psoc handle
@@ -1399,13 +1399,21 @@ bool ucfg_pmo_is_gpio_wakeup_enabled(struct wlan_objmgr_psoc *psoc);
 uint32_t ucfg_pmo_get_gpio_wakeup_pin(struct wlan_objmgr_psoc *psoc);
 
 /**
- * ucfg_pmo_get_gpio_wakeup_mode() - to get gpio wakeup interrupt mode
+ * ucfg_pmo_get_gpio_wakeup_trigger() - to get gpio wakeup interrupt mode
  * @psoc: objmgr psoc handle
  *
  * Return: gpio wakeup mode
  */
-enum pmo_gpio_wakeup_mode
-ucfg_pmo_get_gpio_wakeup_mode(struct wlan_objmgr_psoc *psoc);
+enum pmo_gpio_wakeup_trigger
+ucfg_pmo_get_gpio_wakeup_trigger(struct wlan_objmgr_psoc *psoc);
+
+/**
+ * ucfg_pmo_get_gpio_wakeup_backend() - get GPIO wakeup backend selection
+ * @psoc: objmgr psoc handle
+ *
+ * Return: 0 = legacy gpio_request, 1 = gpiod descriptor, 2 = of_irq
+ */
+uint32_t ucfg_pmo_get_gpio_wakeup_backend(struct wlan_objmgr_psoc *psoc);
 #else
 static inline bool
 ucfg_pmo_is_gpio_wakeup_enabled(struct wlan_objmgr_psoc *psoc)
@@ -1419,10 +1427,16 @@ ucfg_pmo_get_gpio_wakeup_pin(struct wlan_objmgr_psoc *psoc)
 	return 0;
 }
 
-static inline enum pmo_gpio_wakeup_mode
-ucfg_pmo_get_gpio_wakeup_mode(struct wlan_objmgr_psoc *psoc)
+static inline enum pmo_gpio_wakeup_trigger
+ucfg_pmo_get_gpio_wakeup_trigger(struct wlan_objmgr_psoc *psoc)
 {
 	return PMO_GPIO_WAKEUP_MODE_INVALID;
+}
+
+static inline uint32_t
+ucfg_pmo_get_gpio_wakeup_backend(struct wlan_objmgr_psoc *psoc)
+{
+	return 0;
 }
 #endif
 
