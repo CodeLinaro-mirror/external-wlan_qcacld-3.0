@@ -7005,7 +7005,8 @@ QDF_STATUS lim_send_addba_response_frame(struct mac_context *mac_ctx,
 					 uint8_t addba_extn_present,
 					 uint8_t amsdu_support, uint8_t is_wep,
 					 uint16_t calc_buff_size,
-					 tSirMacAddr bssid)
+					 tSirMacAddr bssid,
+					 uint8_t peer_dialog_token)
 {
 	tDot11faddba_rsp frm;
 	uint8_t *frame_ptr;
@@ -7030,9 +7031,15 @@ QDF_STATUS lim_send_addba_response_frame(struct mac_context *mac_ctx,
 
 	vdev_id = session->vdev_id;
 
-	cdp_addba_responsesetup(soc, peer_mac, vdev_id, tid,
-				&dialog_token, &status_code, &buff_size,
-				&batimeout);
+	if (QDF_IS_STATUS_ERROR(cdp_addba_responsesetup(soc, peer_mac, vdev_id,
+				tid, &dialog_token, &status_code, &buff_size,
+				&batimeout))) {
+		/* HL SDIO: CDP ops not registered, use request params directly */
+		dialog_token = peer_dialog_token;
+		status_code = STATUS_SUCCESS;
+		buff_size = SIR_MAC_BA_DEFAULT_BUFF_SIZE;
+		batimeout = 0;
+	}
 
 	qos_aggr = &mac_ctx->mlme_cfg->qos_mlme_params;
 	qdf_mem_zero((uint8_t *) &frm, sizeof(frm));

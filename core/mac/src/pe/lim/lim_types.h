@@ -1537,7 +1537,8 @@ QDF_STATUS lim_send_addba_response_frame(struct mac_context *mac_ctx,
 					 uint8_t addba_extn_present,
 					 uint8_t amsdu_support, uint8_t is_wep,
 					 uint16_t calc_buff_size,
-					 tSirMacAddr bssid);
+					 tSirMacAddr bssid,
+					 uint8_t peer_dialog_token);
 
 /**
  * lim_send_delba_action_frame() - Send delba to peer
