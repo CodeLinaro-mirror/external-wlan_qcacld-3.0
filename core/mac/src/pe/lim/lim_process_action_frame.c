@@ -2503,6 +2503,11 @@ void lim_process_action_frame(struct mac_context *mac_ctx,
 	default:
 		pe_debug_rl("Action category: %d not handled",
 			    action_hdr->category);
+		QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_PE,
+							QDF_TRACE_LEVEL_DEBUG,
+							mac_hdr_11w,
+							WMA_GET_RX_PAYLOAD_LEN(rx_pkt_info)
+							+ SIR_MAC_HDR_LEN_3A);
 		break;
 	}
 

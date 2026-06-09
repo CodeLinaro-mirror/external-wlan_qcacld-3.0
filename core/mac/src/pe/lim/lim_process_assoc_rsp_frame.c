@@ -332,8 +332,25 @@ void lim_update_assoc_sta_datas(struct mac_context *mac_ctx,
 		sta_ds->qosMode = 1;
 		sta_ds->wmeEnabled = 1;
 	}
-	if (session_entry->limRmfEnabled)
+	if (session_entry->limRmfEnabled) {
 		sta_ds->rmfEnabled = 1;
+		/**
+		 * Parse RSN IE to extract OCV capability
+		 */
+		if (beacon && beacon->rsnPresent) {
+			tDot11fIERSN dot11f_ie_rsn = {0};
+			uint32_t ret = dot11f_unpack_ie_rsn(mac_ctx,
+								&beacon->rsn.info[0],
+								beacon->rsn.length,
+								&dot11f_ie_rsn, false);
+			if (DOT11F_SUCCEEDED(ret) &&
+				(*(uint16_t *)&dot11f_ie_rsn.RSN_Cap &
+				WLAN_CRYPTO_RSN_CAP_OCV_SUPPORTED)) {
+				sta_ds->ocv_enabled = 1;
+				sta_ds->last_ocv_done_freq = session_entry->curr_op_freq;
+			}
+		}
+	}
 
 	if (session_entry->vhtCapability && assoc_rsp->oper_mode_ntf.present) {
 		/**
