@@ -2704,7 +2704,13 @@ policy_mgr_allow_concurrency_csa(struct wlan_objmgr_psoc *psoc,
 	bool allow = false;
 	struct policy_mgr_conc_connection_info
 			info[MAX_NUMBER_OF_CONC_CONNECTIONS];
+	struct policy_mgr_conc_connection_info
+		info_sap[MAX_NUMBER_OF_CONC_CONNECTIONS];
+	struct policy_mgr_conc_connection_info
+			info_go[MAX_NUMBER_OF_CONC_CONNECTIONS];
 	uint8_t num_cxn_del = 0;
+	uint8_t num_cxn_del_sap = 0;
+	uint8_t num_cxn_del_go = 0;
 	struct policy_mgr_psoc_priv_obj *pm_ctx;
 	uint32_t old_ch_freq;
 	QDF_STATUS status;
@@ -2725,6 +2731,8 @@ policy_mgr_allow_concurrency_csa(struct wlan_objmgr_psoc *psoc,
 		return allow;
 	}
 	qdf_mem_zero(info, sizeof(info));
+	qdf_mem_zero(info_sap, sizeof(info_sap));
+	qdf_mem_zero(info_go, sizeof(info_go));
 
 	/*
 	 * Store the connection's parameter and temporarily delete it
@@ -2747,18 +2755,36 @@ policy_mgr_allow_concurrency_csa(struct wlan_objmgr_psoc *psoc,
 
 	if (forced && (reason == CSA_REASON_UNSAFE_CHANNEL ||
 		       reason == CSA_REASON_DCS ||
-		       reason == CSA_REASON_CONCURRENT_STA_CHANGED_CHANNEL))
+		       reason == CSA_REASON_CONCURRENT_STA_CHANGED_CHANNEL)) {
 		policy_mgr_store_and_del_conn_info_by_chan_and_mode(
 			psoc, old_ch_freq, mode, info, &num_cxn_del);
-	else
+		if (reason == CSA_REASON_CONCURRENT_STA_CHANGED_CHANNEL) {
+			policy_mgr_store_and_del_conn_info_by_chan_and_mode(
+					psoc, old_ch_freq, PM_SAP_MODE, info_sap,
+					&num_cxn_del_sap);
+			policy_mgr_store_and_del_conn_info_by_chan_and_mode(
+					psoc, old_ch_freq, PM_P2P_GO_MODE, info_go,
+					&num_cxn_del_go);
+		}
+	} else {
 		policy_mgr_store_and_del_conn_info_by_vdev_id(
 			psoc, vdev_id, info, &num_cxn_del);
+	}
 
 	allow = policy_mgr_allow_concurrency(psoc, mode, ch_freq,
 					     HW_MODE_20_MHZ);
 	/* Restore the connection entry */
 	if (num_cxn_del > 0)
 		policy_mgr_restore_deleted_conn_info(psoc, info, num_cxn_del);
+	if (forced) {
+		if (num_cxn_del_sap > 0)
+			policy_mgr_restore_deleted_conn_info(psoc, info_sap,
+					num_cxn_del_sap);
+		if (num_cxn_del_go > 0)
+			policy_mgr_restore_deleted_conn_info(psoc, info_go,
+					num_cxn_del_go);
+	}
+
 	qdf_mutex_release(&pm_ctx->qdf_conc_list_lock);
 
 	if (!allow)
