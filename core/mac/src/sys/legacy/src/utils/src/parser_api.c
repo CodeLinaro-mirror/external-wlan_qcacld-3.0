@@ -13599,20 +13599,12 @@ QDF_STATUS populate_dot11f_btm_extended_caps(struct mac_context *mac_ctx,
 					     struct sDot11fIEExtCap *dot11f)
 {
 	struct s_ext_cap *p_ext_cap;
-	QDF_STATUS  status;
 	bool is_disable_btm;
 	struct cm_roam_values_copy temp;
 
 	dot11f->num_bytes = DOT11F_IE_EXTCAP_MAX_LEN;
 	p_ext_cap = (struct s_ext_cap *)dot11f->bytes;
 	dot11f->present = 1;
-
-	status = cm_akm_roam_allowed(mac_ctx->psoc, pe_session->vdev);
-	if (QDF_IS_STATUS_ERROR(status)) {
-		p_ext_cap->bss_transition = 0;
-		pe_debug("vdev:%d, Disable btm for roaming not suppprted",
-			 pe_session->vdev_id);
-	}
 
 	wlan_cm_roam_cfg_get_value(mac_ctx->psoc, pe_session->vdev_id,
 				   IS_DISABLE_BTM, &temp);
