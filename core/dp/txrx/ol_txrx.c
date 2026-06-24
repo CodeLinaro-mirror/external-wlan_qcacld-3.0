@@ -2497,6 +2497,16 @@ ol_txrx_peer_attach(struct cdp_soc_t *soc_hdl, uint8_t vdev_id,
 		if (!ol_txrx_peer_find_mac_addr_cmp(&temp_peer->mac_addr,
 			(union ol_txrx_align_mac_addr_t *)peer_mac_addr) &&
 			(check_valid == 0 || temp_peer->valid)) {
+
+			if (peer_type == CDP_MLD_PEER_TYPE &&
+			    temp_peer->peer_type == CDP_LINK_PEER_TYPE) {
+				ol_txrx_info_high(
+					"vdev_id %d (" QDF_MAC_ADDR_FMT ") MLD MAC == link MAC,"
+					" allow MLD peer attach for single-link MLO",
+					vdev->vdev_id,
+					QDF_MAC_ADDR_REF(peer_mac_addr));
+				break;
+			}
 			ol_txrx_info_high(
 				"vdev_id %d ("QDF_MAC_ADDR_FMT") already exists",
 				vdev->vdev_id,
