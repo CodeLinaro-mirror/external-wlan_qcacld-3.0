@@ -31,6 +31,7 @@
 #include <ol_txrx_internal.h>   /* TXRX_ASSERT1 */
 #include <ol_tx.h>
 #include <ol_txrx.h>
+#include <htt_internal.h>       /* DP_RX_EXTRA_OFFSET */
 
 /*
  * Porting from Ap11PrepareForwardedPacket.
@@ -116,7 +117,8 @@ static inline void ol_rx_fwd_to_tx(struct ol_txrx_vdev_t *vdev, qdf_nbuf_t msdu)
 							    msdu);
 			qdf_nbuf_pull_head(msdu,
 				htt_rx_msdu_rx_desc_size_hl(pdev->htt_pdev,
-							    rx_desc));
+							    rx_desc)
+				+ DP_RX_EXTRA_OFFSET);
 		}
 
 	/* Clear the msdu control block as it will be re-interpreted */
