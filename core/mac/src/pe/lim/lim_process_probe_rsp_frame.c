@@ -489,6 +489,28 @@ lim_process_probe_rsp_frame(struct mac_context *mac_ctx, uint8_t *rx_Packet_info
 							probe_rsp->chan_freq,
 							session_entry);
 		}
+		if (LIM_IS_STA_ROLE(session_entry) &&
+				!wma_is_csa_offload_enabled()) {
+			if (probe_rsp->channelSwitchPresent) {
+				/*
+				 * on receiving channel switch announcement
+				 * from AP, delete all TDLS peers before
+				 * leaving BSS and proceed for channel switch
+				 */
+				lim_update_tdls_set_state_for_fw(session_entry,
+								 false);
+				lim_delete_tdls_peers(mac_ctx, session_entry, 
+							TDLS_PEER_DEL_REASON_NONE);
+
+				lim_update_channel_switch(mac_ctx,
+					probe_rsp,
+					session_entry);
+			} else if (session_entry->gLimSpecMgmt.dot11hChanSwState
+				== eLIM_11H_CHANSW_RUNNING) {
+				lim_cancel_dot11h_channel_switch(
+					mac_ctx, session_entry);
+			}
+		}
 
 		if (!cu_flag)
 			goto mem_free;

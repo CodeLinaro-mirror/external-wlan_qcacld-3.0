@@ -75,4 +75,5 @@ void lim_activate_cnf_timer(struct mac_context *, uint16_t, struct pe_session *)
 void lim_activate_auth_rsp_timer(struct mac_context *, tLimPreAuthNode *);
 void lim_update_olbc_cache_timer_handler(void *, uint32_t);
 void lim_addts_response_timer_handler(void *, uint32_t);
+void lim_channel_switch_timer_handler(void *, uint32_t);
 #endif /* __LIM_TIMER_UTILS_H */
