@@ -6932,7 +6932,7 @@ returnAfterError:
 	return nSirStatus;
 } /* End lim_send_sa_query_response_frame */
 
-#if defined(CONFIG_LITHIUM) || defined(CONFIG_BERYLLIUM)
+#if defined(CONFIG_LITHIUM) || defined(CONFIG_BERYLLIUM) || defined(DP_COLOGNE_HL)
 #ifdef WLAN_FEATURE_11AX
 #define IS_PE_SESSION_HE_MODE(_session) ((_session)->he_capable)
 #else
