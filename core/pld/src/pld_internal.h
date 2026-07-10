@@ -68,4 +68,26 @@ int pld_add_dev(struct pld_context *pld_context,
 void pld_del_dev(struct pld_context *pld_context,
 		 struct device *dev);
 
+/**
+ * pld_update_dev() - Update stale dev pointer in dev_list after SDIO bus reset
+ * @pld_context: PLD global context
+ * @old_dev: stale device pointer to find
+ * @new_dev: new device pointer to replace it with
+ *
+ * After RDDM/SSR the SDIO bus is reset and a new sdio_func is allocated,
+ * changing the dev pointer. Call this to keep pld_dev_list in sync.
+ */
+void pld_update_dev(struct pld_context *pld_context,
+		    struct device *old_dev, struct device *new_dev);
+
+/**
+ * pld_get_dev_by_bus_type() - Find the first registered dev of given bus type
+ * @pld_context: PLD global context
+ * @bus_type: bus type to search for
+ *
+ * Return: matching device pointer, or NULL
+ */
+struct device *pld_get_dev_by_bus_type(struct pld_context *pld_context,
+				       enum pld_bus_type bus_type);
+
 #endif

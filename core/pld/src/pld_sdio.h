@@ -84,6 +84,10 @@ static inline int pld_sdio_set_fw_log_mode(struct device *dev, u8 fw_log_mode)
 {
 	return 0;
 }
+static inline int pld_sdio_is_fw_down(struct device *dev)
+{
+    return 0;
+}
 #else
 /**
  * pld_sdio_register_driver() - Register SDIO device callback functions
@@ -340,6 +344,11 @@ static inline int pld_sdio_force_assert_target(struct device *dev)
 		return -EINVAL;
 	return cnss_force_fw_assert(dev);
 }
+
+static inline int pld_sdio_is_fw_down(struct device *dev)
+{
+	return cnss_sdio_is_device_down(dev);
+}
 #else
 static inline int pld_sdio_wlan_enable(struct device *dev,
 				       struct pld_wlan_enable_cfg *config,
@@ -361,6 +370,10 @@ static inline int pld_sdio_athdiag_write(struct device *dev, uint32_t offset,
 	return 0;
 }
 static inline int pld_sdio_force_assert_target(struct device *dev)
+{
+	return 0;
+}
+static inline int pld_sdio_is_fw_down(struct device *dev)
 {
 	return 0;
 }

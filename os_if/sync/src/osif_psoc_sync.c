@@ -366,3 +366,17 @@ QDF_STATUS osif_psoc_sync_dsc_vdev_create(struct device *dev,
 	return status;
 }
 
+void osif_psoc_sync_update_dev(struct device *old_dev, struct device *new_dev)
+{
+	struct osif_psoc_sync *psoc_sync;
+
+	if (!old_dev || !new_dev || old_dev == new_dev)
+		return;
+
+	osif_psoc_sync_lock();
+	psoc_sync = osif_psoc_sync_lookup(old_dev);
+	if (psoc_sync)
+		psoc_sync->dev = new_dev;
+	osif_psoc_sync_unlock();
+}
+

@@ -176,5 +176,16 @@ void __osif_psoc_sync_op_stop(struct osif_psoc_sync *psoc_sync,
  */
 void osif_psoc_sync_wait_for_ops(struct osif_psoc_sync *psoc_sync);
 
+/**
+ * osif_psoc_sync_update_dev() - Update the dev lookup key in psoc_sync
+ * @old_dev: current (stale) device pointer registered as lookup key
+ * @new_dev: new device pointer to replace it with
+ *
+ * On SDIO platforms, RDDM/SSR triggers a bus reset which allocates a new
+ * sdio_func and thus a new dev pointer. Call this before the next lookup
+ * (remove/reinit) to keep the key in sync with the new dev.
+ */
+void osif_psoc_sync_update_dev(struct device *old_dev, struct device *new_dev);
+
 #endif /* __OSIF_PSOC_SYNC_H */
 

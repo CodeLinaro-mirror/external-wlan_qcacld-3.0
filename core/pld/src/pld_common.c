@@ -185,6 +185,47 @@ void pld_del_dev(struct pld_context *pld_context,
 	spin_unlock_irqrestore(&pld_context->pld_lock, flags);
 }
 
+void pld_update_dev(struct pld_context *pld_context,
+		    struct device *old_dev, struct device *new_dev)
+{
+	unsigned long flags;
+	struct dev_node *dev_node;
+
+	if (!pld_context || !old_dev || !new_dev || old_dev == new_dev)
+		return;
+
+	spin_lock_irqsave(&pld_context->pld_lock, flags);
+	list_for_each_entry(dev_node, &pld_context->dev_list, list) {
+		if (dev_node->dev == old_dev) {
+			dev_node->dev = new_dev;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&pld_context->pld_lock, flags);
+}
+
+struct device *pld_get_dev_by_bus_type(struct pld_context *pld_context,
+				       enum pld_bus_type bus_type)
+{
+	unsigned long flags;
+	struct dev_node *dev_node;
+	struct device *dev = NULL;
+
+	if (!pld_context)
+		return NULL;
+
+	spin_lock_irqsave(&pld_context->pld_lock, flags);
+	list_for_each_entry(dev_node, &pld_context->dev_list, list) {
+		if (dev_node->bus_type == bus_type) {
+			dev = dev_node->dev;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&pld_context->pld_lock, flags);
+
+	return dev;
+}
+
 static struct dev_node *pld_get_dev_node(struct device *dev)
 {
 	struct pld_context *pld_context;
@@ -2276,6 +2317,7 @@ int pld_is_fw_down(struct device *dev)
 		ret = pld_pcie_is_fw_down(dev);
 		break;
 	case PLD_BUS_TYPE_SDIO:
+		ret = pld_sdio_is_fw_down(dev);
 		break;
 	case PLD_BUS_TYPE_USB:
 		ifdev = pld_get_if_dev(dev);

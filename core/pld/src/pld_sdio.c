@@ -42,6 +42,7 @@
 #include "pld_internal.h"
 #include "pld_sdio.h"
 #include "osif_psoc_sync.h"
+#include "cds_api.h"
 
 #ifdef CONFIG_SDIO
 /* SDIO manufacturer ID and Codes */
@@ -108,6 +109,39 @@ out:
 	return ret;
 }
 
+/**
+ * pld_sdio_sync_dev_update() - Fix stale dev key after SDIO bus reset
+ * @new_dev: the new dev pointer from the re-enumerated sdio_func
+ *
+ * After RDDM/SSR the SDIO bus is reset and a new sdio_func is allocated.
+ * osif_psoc_sync and pld_dev_list still hold the old dev as lookup key.
+ * Find the stale entry by bus type, update both caches, so subsequent
+ * ops->remove / ops->reinit lookups succeed.
+ *
+ * Safe to call when dev has not changed (old == new): both helpers are no-ops.
+ */
+static void pld_sdio_sync_dev_update(struct device *new_dev)
+{
+	struct pld_context *pld_ctx = pld_get_global_context();
+	struct device *old_dev;
+	qdf_device_t qdf_ctx;
+
+	if (!pld_ctx)
+		return;
+
+	old_dev = pld_get_dev_by_bus_type(pld_ctx, PLD_BUS_TYPE_SDIO);
+	if (!old_dev || old_dev == new_dev)
+		return;
+
+	pr_info("pld_sdio: dev changed %pK -> %pK, updating caches\n",
+		old_dev, new_dev);
+	osif_psoc_sync_update_dev(old_dev, new_dev);
+	pld_update_dev(pld_ctx, old_dev, new_dev);
+
+	qdf_ctx = cds_get_context(QDF_MODULE_ID_QDF_DEVICE);
+	if (qdf_ctx && qdf_ctx->dev == old_dev)
+		qdf_ctx->dev = new_dev;
+}
 
 /**
  * pld_sdio_remove() - Remove function for SDIO device
@@ -124,10 +158,11 @@ static void pld_sdio_remove(struct sdio_func *sdio_func)
 	int errno;
 	struct osif_psoc_sync *psoc_sync;
 
+	pld_sdio_sync_dev_update(dev);
+
 	errno = osif_psoc_sync_trans_start_wait(dev, &psoc_sync);
 	if (errno)
 		return;
-
 	osif_psoc_sync_unregister(dev);
 	osif_psoc_sync_wait_for_ops(psoc_sync);
 
@@ -161,6 +196,8 @@ static int pld_sdio_reinit(struct sdio_func *sdio_func,
 	struct pld_context *pld_context;
 	struct device *dev = &sdio_func->dev;
 
+	pld_sdio_sync_dev_update(dev);
+
 	pld_context = pld_get_global_context();
 	if (pld_context->ops->reinit)
 		return pld_context->ops->reinit(dev, PLD_BUS_TYPE_SDIO,
@@ -181,6 +218,8 @@ static void pld_sdio_shutdown(struct sdio_func *sdio_func)
 {
 	struct pld_context *pld_context;
 	struct device *dev = &sdio_func->dev;
+
+	pld_sdio_sync_dev_update(dev);
 
 	pld_context = pld_get_global_context();
 	if (pld_context->ops->shutdown)

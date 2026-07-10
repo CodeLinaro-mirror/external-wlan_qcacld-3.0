@@ -149,7 +149,7 @@ int hdd_sysfs_bmiss_create(struct hdd_adapter *adapter)
 
 	error = device_create_file(&adapter->dev->dev,
 				   &dev_attr_bmiss);
-	if (!error)
+	if (error)
 		hdd_err("could not create bmiss sysfs file");
 	return error;
 }

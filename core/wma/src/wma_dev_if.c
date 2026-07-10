@@ -1898,6 +1898,10 @@ QDF_STATUS wma_remove_peer(tp_wma_handle wma, uint8_t *mac_addr,
 	peer_unmap_conf_support_enabled =
 				cdp_cfg_get_peer_unmap_conf_support(soc);
 
+	if (!no_fw_peer_delete && cds_is_fw_down() &&
+	    is_cdp_peer_detach_force_delete_supported(soc))
+		no_fw_peer_delete = true;
+
 	cdp_peer_teardown(soc, vdev_id, peer_addr);
 
 	if (no_fw_peer_delete)
@@ -6499,6 +6503,10 @@ static void wma_wait_tx_complete(tp_wma_handle wma,
 				    CDP_TX_PENDING, &val))
 		return;
 	while (val.cdp_pdev_param_tx_pending && max_wait_iterations) {
+		if (cds_is_fw_down()) {
+			wma_warn("fw is down, skip tx drain wait");
+			return;
+		}
 		wma_warn("Waiting for outstanding packet to drain");
 		qdf_wait_for_event_completion(&wma->tx_queue_empty_event,
 				      WMA_TX_Q_RECHECK_TIMER_WAIT);

@@ -192,7 +192,8 @@ ol_tx_send(struct ol_txrx_pdev_t *pdev,
 				qdf_nbuf_data_addr(msdu),
 				sizeof(qdf_nbuf_data(msdu)), tx_desc->id,
 				vdev_id, 0,
-				tx_desc->vdev->qdf_opmode
+				tx_desc->vdev ? tx_desc->vdev->qdf_opmode :
+						QDF_MAX_NO_OF_MODE
 				));
 	failed = htt_tx_send_std(pdev->htt_pdev, msdu, id);
 	if (qdf_unlikely(failed)) {
@@ -330,7 +331,8 @@ ol_tx_download_done_hl_free(void *txrx_pdev,
 				 qdf_nbuf_data_addr(msdu),
 				 sizeof(qdf_nbuf_data(msdu)), tx_desc->id,
 				 dp_status, 0,
-				 tx_desc->vdev->qdf_opmode
+				 tx_desc->vdev ? tx_desc->vdev->qdf_opmode :
+						 QDF_MAX_NO_OF_MODE
 				 ));
 
 	is_frame_freed = ol_tx_download_done_base(pdev, status, msdu, msdu_id);
@@ -1104,7 +1106,8 @@ ol_tx_completion_handler(ol_txrx_pdev_handle pdev,
 			qdf_nbuf_data_addr(netbuf),
 			sizeof(qdf_nbuf_data(netbuf)), tx_desc->id, status,
 			dp_status,
-			tx_desc->vdev->qdf_opmode));
+			tx_desc->vdev ? tx_desc->vdev->qdf_opmode :
+					QDF_MAX_NO_OF_MODE));
 
 		/*
 		 * If credits are reported through credit_update_ind then do not
