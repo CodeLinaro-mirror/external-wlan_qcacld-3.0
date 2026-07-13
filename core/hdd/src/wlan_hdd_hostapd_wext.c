@@ -1337,7 +1337,7 @@ static __iw_softap_getparam(struct net_device *dev,
 		break;
 	}
 	case QCSAP_CAP_TSF:
-		ret = hdd_capture_tsf(adapter, (uint32_t *)value, 1);
+		ret = hdd_capture_tsf(adapter, (uint32_t *)value, 1, 0);
 		break;
 	case QCASAP_GET_TEMP_CMD:
 	{

@@ -596,19 +596,22 @@ hdd_tsf_capture_req_timer_check_stop(struct hdd_adapter *adapter)
  * @adapter: pointer to adapter
  * @buf: in case of failure update with fail
  * @len: buffer length
+ * @flags: wmi_tsf_tstamp_report_flags bitmap, carried alongside the
+ *         capture action in the same WMI command; 0 keeps FW's previous
+ *         flags configuration.
  *
  * Return: result of tsf operation
  */
 static enum hdd_tsf_op_result
 hdd_capture_tsf_internal_via_wmi(struct hdd_adapter *adapter, uint32_t *buf,
-				 int len)
+				 int len, uint32_t flags)
 {
 	int ret;
 	struct hdd_context *hddctx = adapter->hdd_ctx;
 
-	ret = wma_cli_set_command((int)adapter->deflink->vdev_id,
-				  (int)GEN_PARAM_CAPTURE_TSF,
-				  adapter->deflink->vdev_id, GEN_CMD);
+	ret = wma_cli_set2_command((int)adapter->deflink->vdev_id,
+				   (int)GEN_PARAM_CAPTURE_TSF,
+				   adapter->deflink->vdev_id, flags, GEN_CMD);
 	if (ret != QDF_STATUS_SUCCESS) {
 		hdd_err("cap tsf fail");
 		buf[0] = TSF_CAPTURE_FAIL;
@@ -622,9 +625,10 @@ hdd_capture_tsf_internal_via_wmi(struct hdd_adapter *adapter, uint32_t *buf,
 #ifndef QCA_GET_TSF_VIA_REG
 static inline
 enum hdd_tsf_op_result _hdd_capture_tsf_internal(struct hdd_adapter *adapter,
-						 uint32_t *buf, int len)
+						 uint32_t *buf, int len,
+						 uint32_t flags)
 {
-	return hdd_capture_tsf_internal_via_wmi(adapter, buf, len);
+	return hdd_capture_tsf_internal_via_wmi(adapter, buf, len, flags);
 }
 
 static inline void wlan_hdd_tsf_reg_update_details(struct hdd_adapter *adapter,
@@ -748,10 +752,12 @@ hdd_capture_tsf_internal_via_reg(struct hdd_adapter *adapter, uint32_t *buf,
 
 static inline
 enum hdd_tsf_op_result _hdd_capture_tsf_internal(struct hdd_adapter *adapter,
-						 uint32_t *buf, int len)
+						 uint32_t *buf, int len,
+						 uint32_t flags)
 {
 	if (!qdf_atomic_read(&adapter->tsf.tsf_details_valid))
-		return hdd_capture_tsf_internal_via_wmi(adapter, buf, len);
+		return hdd_capture_tsf_internal_via_wmi(adapter, buf, len,
+							flags);
 	else
 		return hdd_capture_tsf_internal_via_reg(adapter, buf, len);
 }
@@ -759,7 +765,7 @@ enum hdd_tsf_op_result _hdd_capture_tsf_internal(struct hdd_adapter *adapter,
 #endif /* QCA_GET_TSF_VIA_REG */
 
 static enum hdd_tsf_op_result hdd_capture_tsf_internal(
-	struct hdd_adapter *adapter, uint32_t *buf, int len)
+	struct hdd_adapter *adapter, uint32_t *buf, int len, uint32_t flags)
 {
 	enum hdd_tsf_op_result ret;
 	struct hdd_context *hddctx;
@@ -812,7 +818,7 @@ static enum hdd_tsf_op_result hdd_capture_tsf_internal(
 	if (hdd_tsf_cap_sync_send(adapter))
 		return HDD_TSF_OP_SUCC;
 
-	ret = _hdd_capture_tsf_internal(adapter, buf, len);
+	ret = _hdd_capture_tsf_internal(adapter, buf, len, flags);
 	hdd_debug("-ioctl return cap tsf cmd");
 
 	return ret;
@@ -1316,7 +1322,7 @@ static void hdd_capture_tsf_timer_expired_handler(void *arg)
 		return;
 
 	adapter = (struct hdd_adapter *)arg;
-	hdd_capture_tsf_internal(adapter, &tsf_op_resp, 1);
+	hdd_capture_tsf_internal(adapter, &tsf_op_resp, 1, 0);
 }
 
 #ifdef WLAN_FEATURE_TSF_ACCURACY
@@ -2270,7 +2276,7 @@ int hdd_stop_tsf_sync(struct hdd_adapter *adapter)
 }
 
 static inline int __hdd_capture_tsf(struct hdd_adapter *adapter,
-				    uint32_t *buf, int len)
+				    uint32_t *buf, int len, uint32_t flags)
 {
 	if (!adapter || !buf) {
 		hdd_err("invalid pointer");
@@ -2806,9 +2812,9 @@ static enum hdd_tsf_op_result __hdd_indicate_tsf(struct hdd_adapter *adapter,
 }
 
 static inline int __hdd_capture_tsf(struct hdd_adapter *adapter,
-				    uint32_t *buf, int len)
+				    uint32_t *buf, int len, uint32_t flags)
 {
-	return (hdd_capture_tsf_internal(adapter, buf, len) ==
+	return (hdd_capture_tsf_internal(adapter, buf, len, flags) ==
 		HDD_TSF_OP_SUCC) ? 0 : -EINVAL;
 }
 
@@ -2836,9 +2842,10 @@ static inline int hdd_handle_tsf_dynamic_stop(struct hdd_adapter *adapter)
 }
 #endif /* WLAN_FEATURE_TSF_PLUS */
 
-int hdd_capture_tsf(struct hdd_adapter *adapter, uint32_t *buf, int len)
+int hdd_capture_tsf(struct hdd_adapter *adapter, uint32_t *buf, int len,
+		    uint32_t flags)
 {
-	return __hdd_capture_tsf(adapter, buf, len);
+	return __hdd_capture_tsf(adapter, buf, len, flags);
 }
 
 int hdd_indicate_tsf(struct hdd_adapter *adapter,
@@ -3504,7 +3511,32 @@ int hdd_get_tsf_cb(void *pcb_cxt, struct stsf *ptsf)
 const struct nla_policy tsf_policy[QCA_WLAN_VENDOR_ATTR_TSF_MAX + 1] = {
 	[QCA_WLAN_VENDOR_ATTR_TSF_CMD] = {.type = NLA_U32},
 	[QCA_WLAN_VENDOR_ATTR_TSF_SYNC_INTERVAL] = {.type = NLA_U32},
+	[QCA_WLAN_VENDOR_ATTR_TSF_FLAGS] = {.type = NLA_U32},
 };
+
+/**
+ * hdd_convert_tsf_flags() - convert userspace qca_tsf_flags
+ * bitmap to wmi_tsf_tstamp_report_flags
+ * @tsf_flags: bitmap of enum qca_tsf_flags carried in
+ * QCA_WLAN_VENDOR_ATTR_TSF_FLAGS
+ *
+ * The vendor attribute is defined in terms of enum qca_tsf_flags,
+ * Map each supported qca_tsf_flags to its WMI counterpart; unknown bits are
+ * dropped so we never leak userspace-defined bits into the WMI command.
+ *
+ * Return: wmi_tsf_tstamp_report_flags bitmap
+ */
+static uint32_t hdd_convert_tsf_flags(uint32_t tsf_flags)
+{
+	uint32_t flags = 0;
+
+	if (tsf_flags & QCA_TSF_GPIO_TOGGLE_HIGH)
+		flags |= TSF_TSTAMP_GPIO_TOGGLE_HIGH;
+	else if (tsf_flags & QCA_TSF_GPIO_TOGGLE_LOW)
+		flags |= TSF_TSTAMP_GPIO_TOGGLE_LOW;
+
+	return flags;
+}
 
 /**
  * __wlan_hdd_cfg80211_handle_tsf_cmd(): Setup TSF operations
@@ -3539,6 +3571,8 @@ static int __wlan_hdd_cfg80211_handle_tsf_cmd(struct wiphy *wiphy,
 	enum hdd_tsf_auto_rpt_source source =
 		HDD_TSF_AUTO_RPT_SOURCE_UPLINK_DELAY;
 	uint64_t target_tsf = 0;
+	uint32_t tsf_flags = 0;
+	uint32_t tgt_flags = 0;
 
 	hdd_enter_dev(wdev->netdev);
 
@@ -3563,6 +3597,18 @@ static int __wlan_hdd_cfg80211_handle_tsf_cmd(struct wiphy *wiphy,
 	}
 	tsf_cmd = nla_get_u32(tb_vendor[QCA_WLAN_VENDOR_ATTR_TSF_CMD]);
 
+	if (tb_vendor[QCA_WLAN_VENDOR_ATTR_TSF_FLAGS]) {
+		tsf_flags = nla_get_u32(
+				tb_vendor[QCA_WLAN_VENDOR_ATTR_TSF_FLAGS]);
+		if ((tsf_flags & QCA_TSF_GPIO_TOGGLE_HIGH) &&
+		    (tsf_flags & QCA_TSF_GPIO_TOGGLE_LOW)) {
+			hdd_err("TSF GPIO toggle HIGH and LOW are mutually exclusive: 0x%x",
+				tsf_flags);
+			return -EINVAL;
+		}
+		tgt_flags = hdd_convert_tsf_flags(tsf_flags);
+	}
+
 	/* Intercept tsf_cmd for TSF auto report enable or disable subcmds,
 	 * and treat as trigger for uplink delay report.
 	 */
@@ -3584,7 +3630,7 @@ static int __wlan_hdd_cfg80211_handle_tsf_cmd(struct wiphy *wiphy,
 		hdd_warn("failed to reset tsf_sync_get_completion_evt");
 
 	if (tsf_cmd == QCA_TSF_CAPTURE || tsf_cmd == QCA_TSF_SYNC_GET) {
-		hdd_capture_tsf(adapter, &value, 1);
+		hdd_capture_tsf(adapter, &value, 1, tgt_flags);
 		switch (value) {
 		case TSF_RETURN:
 			status = 0;

@@ -5670,7 +5670,7 @@ static int __iw_setnone_getint(struct net_device *dev,
 		break;
 	}
 	case WE_CAP_TSF:
-		ret = hdd_capture_tsf(adapter, (uint32_t *)value, 1);
+		ret = hdd_capture_tsf(adapter, (uint32_t *)value, 1, 0);
 		break;
 	case WE_GET_TEMPERATURE:
 	{

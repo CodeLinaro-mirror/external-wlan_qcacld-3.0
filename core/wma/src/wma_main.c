@@ -1499,7 +1499,8 @@ static void wma_process_cli_set_cmd(tp_wma_handle wma,
 						privcmd->param_sec_value);
 			break;
 		case GEN_PARAM_CAPTURE_TSF:
-			ret = wma_capture_tsf(wma, privcmd->param_value);
+			ret = wma_capture_tsf(wma, privcmd->param_value,
+					      privcmd->param_sec_value);
 			break;
 		case GEN_PARAM_RESET_TSF_GPIO:
 			ret = wma_reset_tsf_gpio(wma, privcmd->param_value);

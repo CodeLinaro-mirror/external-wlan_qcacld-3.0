@@ -299,12 +299,16 @@ void wlan_hdd_tsf_deinit(struct hdd_context *hdd_ctx);
  * @adapter: pointer to adapter
  * @buf: pointer to uplayer buf
  * @len : the length of buf
+ * @flags: wmi_tsf_tstamp_report_flags bitmap to send to FW along with
+ *         the capture request; 0 leaves the target's previous flags
+ *         configuration untouched.
  *
  * This function returns tsf value to uplayer.
  *
  * Return: 0 for success or non-zero negative failure code
  */
-int hdd_capture_tsf(struct hdd_adapter *adapter, uint32_t *buf, int len);
+int hdd_capture_tsf(struct hdd_adapter *adapter, uint32_t *buf, int len,
+		    uint32_t flags);
 
 /**
  * hdd_indicate_tsf() - return tsf to uplayer
@@ -365,7 +369,8 @@ static inline int hdd_indicate_tsf(struct hdd_adapter *adapter,
 }
 
 static inline int
-hdd_capture_tsf(struct hdd_adapter *adapter, uint32_t *buf, int len)
+hdd_capture_tsf(struct hdd_adapter *adapter, uint32_t *buf, int len,
+		uint32_t flags)
 {
 	return -ENOTSUPP;
 }

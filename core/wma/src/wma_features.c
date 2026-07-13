@@ -415,10 +415,14 @@ int wma_vdev_tsf_handler(void *handle, uint8_t *data, uint32_t data_len)
  * wma_capture_tsf() - send wmi to fw to capture tsf
  * @wma_handle: wma handler
  * @vdev_id: vdev id
+ * @flags: wmi_tsf_tstamp_report_flags bitmap sent alongside the capture
+ *         action to configure the target's TSF GPIO toggle behavior;
+ *         0 keeps the target's previous flags configuration.
  *
  * Return: wmi send state
  */
-QDF_STATUS wma_capture_tsf(tp_wma_handle wma_handle, uint32_t vdev_id)
+QDF_STATUS wma_capture_tsf(tp_wma_handle wma_handle, uint32_t vdev_id,
+			   uint32_t flags)
 {
 	QDF_STATUS status;
 	wmi_buf_t buf;
@@ -432,7 +436,9 @@ QDF_STATUS wma_capture_tsf(tp_wma_handle wma_handle, uint32_t vdev_id)
 	cmd = (wmi_vdev_tsf_tstamp_action_cmd_fixed_param *) wmi_buf_data(buf);
 	cmd->vdev_id = vdev_id;
 	cmd->tsf_action = TSF_FW_ACTION_CMD;
-	wma_debug("vdev_id %u, tsf_cmd: %d", cmd->vdev_id, cmd->tsf_action);
+	cmd->flags = flags;
+	wma_debug("vdev_id %u, tsf_cmd: %d, tsf_flags: 0x%x",
+		  cmd->vdev_id, cmd->tsf_action, cmd->flags);
 
 	WMITLV_SET_HDR(&cmd->tlv_header,
 	WMITLV_TAG_STRUC_wmi_vdev_tsf_tstamp_action_cmd_fixed_param,
