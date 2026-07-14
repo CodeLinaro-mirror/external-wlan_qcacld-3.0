@@ -6509,6 +6509,28 @@ static void wma_wait_tx_complete(tp_wma_handle wma,
 			return;
 		max_wait_iterations--;
 	}
+
+	if (val.cdp_pdev_param_tx_pending) {
+		void *htc_handle = lmac_get_htc_hdl(wma->psoc);
+		htc_flush_htt_tx(htc_handle);
+	}
+
+	if (cdp_txrx_get_pdev_param(soc,
+				    wlan_objmgr_pdev_get_pdev_id(wma->pdev),
+				    CDP_TX_PENDING, &val))
+		return;
+	max_wait_iterations = delay / WMA_TX_Q_RECHECK_TIMER_WAIT;
+	while (val.cdp_pdev_param_tx_pending && max_wait_iterations) {
+		wma_warn("Flush done waiting for outstanding packet to drain");
+		qdf_wait_for_event_completion(&wma->tx_queue_empty_event,
+				      WMA_TX_Q_RECHECK_TIMER_WAIT);
+		if (cdp_txrx_get_pdev_param(
+					soc,
+					wlan_objmgr_pdev_get_pdev_id(wma->pdev),
+					CDP_TX_PENDING, &val))
+			return;
+		max_wait_iterations--;
+	}
 }
 
 void wma_delete_bss(tp_wma_handle wma, uint8_t vdev_id)
