@@ -1482,7 +1482,9 @@ void hdd_dp_cfg_update(struct wlan_objmgr_psoc *psoc,
 	config->napi_cpu_affinity_mask =
 		cfg_get(psoc, CFG_DP_NAPI_CE_CPU_MASK);
 	config->cfg_wmi_credit_cnt = cfg_get(psoc, CFG_DP_HTC_WMI_CREDIT_CNT);
-
+#ifdef DP_COLOGNE_HL
+	config->cfg_htc_bundle_cnt = cfg_get(psoc, CFG_DP_TX_BUNDLE_NUM);
+#endif
 	hdd_ini_tx_flow_control(config, psoc);
 	hdd_ini_mscs_params(config, psoc);
 }

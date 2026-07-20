@@ -796,7 +796,7 @@ void dp_set_vdev_bundle_require_flag(uint16_t vdev_id,
 				     struct wlan_dp_psoc_context *dp_ctx,
 				     uint64_t tx_bytes)
 {
-	struct wlan_dp_psoc_cfg *cfg = dp_ctx->dp_cfg;
+	struct wlan_dp_psoc_cfg *cfg = &dp_ctx->dp_cfg;
 
 	cdp_vdev_set_bundle_require_flag(cds_get_context(QDF_MODULE_ID_SOC),
 					 vdev_id, tx_bytes,

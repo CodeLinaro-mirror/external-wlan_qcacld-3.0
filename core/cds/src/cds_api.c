@@ -853,6 +853,9 @@ QDF_STATUS cds_open(struct wlan_objmgr_psoc *psoc)
 	htcInfo.target_initial_wakeup_cb = ucfg_pmo_psoc_handle_initial_wake_up;
 	htcInfo.target_psoc = (void *)psoc;
 	htcInfo.cfg_wmi_credit_cnt = hdd_ctx->config->cfg_wmi_credit_cnt;
+#ifdef DP_COLOGNE_HL
+	htcInfo.cfg_htc_bundle_cnt = hdd_ctx->config->cfg_htc_bundle_cnt;
+#endif
 	qdf_ctx = cds_get_context(QDF_MODULE_ID_QDF_DEVICE);
 
 	/* Create HTC */

@@ -181,6 +181,9 @@ struct hdd_config {
 	uint32_t provisioned_intf_pool;
 	uint32_t derived_intf_pool;
 	uint32_t cfg_wmi_credit_cnt;
+#ifdef DP_COLOGNE_HL
+	uint8_t cfg_htc_bundle_cnt;
+#endif
 	uint32_t enable_sar_conversion;
 #ifdef WLAN_FEATURE_TSF_PLUS
 	uint8_t tsf_ptp_options;
