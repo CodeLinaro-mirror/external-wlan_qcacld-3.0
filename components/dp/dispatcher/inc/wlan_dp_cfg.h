@@ -1639,6 +1639,27 @@
 		CFG_VALUE_OR_DEFAULT, \
 		"set the rx bundle num for sdio HL")
 
+/*
+ * <ini>
+ * ol_hl_rx_debug_enable - Enable extra HL OL rx path debug logs
+ * @Min: 0
+ * @Max: 1
+ * @Default: 0
+ *
+ * This ini enables verbose per packet debug logs (skb address, peer id,
+ * mpdu seq num) in the legacy HL OL rx path and in the rx delivery path,
+ * used to debug HL RX AMSDU / rx reorder issues on SDIO. Must stay
+ * disabled by default since it logs per received packet.
+ *
+ * Usage: Internal
+ *
+ * </ini>
+ */
+#define CFG_DP_OL_HL_RX_DEBUG_ENABLE \
+		CFG_INI_BOOL("ol_hl_rx_debug_enable", \
+		false, \
+		"Enable extra debug logs for HL OL rx path")
+
 #define CFG_DP_ALL \
 	CFG(CFG_DP_RX_THREAD_CPU_MASK) \
 	CFG(CFG_DP_RX_THREAD_UL_CPU_MASK) \
@@ -1677,6 +1698,7 @@
 	CFG(CFG_DP_RX_AMSDU_ENABLE) \
 	CFG(CFG_HTT_CREDIT_ENABLE) \
 	CFG(CFG_DP_TX_BUNDLE_NUM) \
-	CFG(CFG_DP_RX_BUNDLE_NUM)
+	CFG(CFG_DP_RX_BUNDLE_NUM) \
+	CFG(CFG_DP_OL_HL_RX_DEBUG_ENABLE)
 
 #endif /* WLAN_DP_CFG_H__ */

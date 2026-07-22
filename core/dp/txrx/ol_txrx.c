@@ -85,6 +85,7 @@
 #include <ol_txrx_ipa.h>
 #include "wlan_roam_debug.h"
 #include "cfg_ucfg_api.h"
+#include "wlan_dp_cfg.h"
 #ifdef DP_SUPPORT_RECOVERY_NOTIFY
 #include <qdf_notifier.h>
 #include <qdf_hang_event_notifier.h>
@@ -5165,6 +5166,22 @@ static inline int ol_txrx_drop_nbuf_list(qdf_nbuf_t buf_list)
 		num_dropped++;
 	}
 	return num_dropped;
+}
+
+/**
+ * ol_rx_hl_debug_enabled() - check whether HL OL rx path debug logs
+ *			      (ol_hl_rx_debug_enable ini) are enabled
+ *
+ * Return: true if debug logs should be printed
+ */
+bool ol_rx_hl_debug_enabled(void)
+{
+	struct mac_context *mac_ctx = cds_get_context(QDF_MODULE_ID_PE);
+
+	if (!mac_ctx || !mac_ctx->psoc)
+		return false;
+
+	return cfg_get(mac_ctx->psoc, CFG_DP_OL_HL_RX_DEBUG_ENABLE);
 }
 
 /**

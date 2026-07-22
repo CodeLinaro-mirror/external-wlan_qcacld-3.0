@@ -79,7 +79,7 @@
 #define ol_txrx_info(params...) \
 	QDF_TRACE_INFO(QDF_MODULE_ID_TXRX, params)
 #define ol_txrx_info_high(params...) \
-	QDF_TRACE_INFO(QDF_MODULE_ID_TXRX, params)
+	__QDF_TRACE_FL(QDF_TRACE_LEVEL_INFO_HIGH, QDF_MODULE_ID_TXRX, ## params)
 #define ol_txrx_dbg(params...) \
 	QDF_TRACE_DEBUG(QDF_MODULE_ID_TXRX, params)
 

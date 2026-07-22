@@ -126,6 +126,7 @@ struct dp_rtpm_tput_policy_context {
  * @is_rx_fisa_lru_del_enabled: flag to enable/disable FST entry delete
  * @is_direct_link_enabled: indicates whether direct link is enabled or not
  * @wlm_rx_aggr_control: Control Rx aggregation based on WLM state
+ * @ol_hl_rx_debug_enable: Enable extra debug logs for HL OL rx path
  * @is_load_balance_enabled: indicates whether load balance is enabled or not
  * @is_flow_balance_enabled: indicates whether flow balance is enabled or not
  * @stc_enable: indicates whether STC feature is enabled or not
@@ -206,6 +207,7 @@ struct wlan_dp_psoc_cfg {
 	bool is_direct_link_enabled;
 #endif
 	bool wlm_rx_aggr_control;
+	bool ol_hl_rx_debug_enable;
 #ifdef WLAN_DP_LOAD_BALANCE_SUPPORT
 	bool is_load_balance_enabled;
 #endif

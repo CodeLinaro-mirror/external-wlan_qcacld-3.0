@@ -656,6 +656,16 @@ ol_rx_indication_handler(ol_txrx_pdev_handle pdev,
 				rx_mpdu_desc =
 					htt_rx_mpdu_desc_list_next(htt_pdev,
 								   rx_ind_msg);
+
+				if (qdf_unlikely(ol_rx_hl_debug_enabled()))
+					ol_txrx_info_high("HTT_RX_IND skb=0x%llx peer_id=%u tid=%u seq=%u",
+						     (uint64_t)(uintptr_t)head_msdu,
+						     peer_id, tid,
+						     htt_rx_mpdu_desc_seq_num(
+							     htt_pdev,
+							     rx_mpdu_desc,
+							     false));
+
 				ret = htt_rx_msdu_center_freq(htt_pdev, peer,
 					rx_mpdu_desc, &center_freq, &chan1,
 					&chan2, &phymode);

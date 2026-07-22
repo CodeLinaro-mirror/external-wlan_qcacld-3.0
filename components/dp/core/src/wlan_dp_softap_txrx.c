@@ -1131,6 +1131,10 @@ QDF_STATUS dp_softap_rx_packet_cbk(void *link_ctx, qdf_nbuf_t rx_buf)
 				qdf_status = QDF_STATUS_E_INVAL;
 			qdf_nbuf_dev_kfree(nbuf);
 		} else {
+			if (qdf_unlikely(dp_ctx->dp_cfg.ol_hl_rx_debug_enable))
+				dp_info("rx_deliver_to_stack(softap) skb=0x%llx",
+					(uint64_t)(uintptr_t)nbuf);
+
 			qdf_status = wlan_dp_rx_deliver_to_stack(dp_intf, nbuf);
 		}
 

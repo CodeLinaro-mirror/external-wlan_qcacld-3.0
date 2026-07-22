@@ -1176,6 +1176,8 @@ ucfg_dp_update_config(struct wlan_objmgr_psoc *psoc,
 	dp_ctx->dp_cfg.gro_enable = cfg_get(psoc, CFG_DP_GRO);
 	dp_ctx->dp_cfg.wlm_rx_aggr_control =
 		cfg_get(psoc, CFG_DP_WLM_RX_AGGR_CTRL);
+	dp_ctx->dp_cfg.ol_hl_rx_debug_enable =
+		cfg_get(psoc, CFG_DP_OL_HL_RX_DEBUG_ENABLE);
 	params.gro_enable = dp_ctx->dp_cfg.gro_enable;
 	params.tx_comp_loop_pkt_limit = cfg_get(psoc,
 						CFG_DP_TX_COMP_LOOP_PKT_LIMIT);

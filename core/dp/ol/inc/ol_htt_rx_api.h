@@ -878,6 +878,14 @@ void htt_rx_msdu_desc_free(htt_pdev_handle htt_pdev, qdf_nbuf_t msdu);
 void htt_rx_msdu_buff_replenish(htt_pdev_handle pdev);
 
 /**
+ * ol_rx_hl_debug_enabled() - check whether HL OL rx path debug logs
+ *			      (ol_hl_rx_debug_enable ini) are enabled
+ *
+ * Return: true if debug logs should be printed
+ */
+bool ol_rx_hl_debug_enabled(void);
+
+/**
  * @brief Add new MSDU buffers for the target to fill.
  * @details
  *  This is full_reorder_offload version of the replenish function.
