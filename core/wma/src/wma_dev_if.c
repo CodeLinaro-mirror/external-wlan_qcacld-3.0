@@ -515,7 +515,32 @@ static QDF_STATUS wma_handle_vdev_detach(tp_wma_handle wma_handle,
 		status = QDF_STATUS_E_FAILURE;
 
 	wma_cdp_vdev_detach(soc, wma_handle, vdev_id);
-	if (qdf_is_recovering())
+	/*
+	 * Drain the pending management frames queued for this vdev so that the
+	 * peer references taken on the mgmt TX path (WLAN_MGMT_NB_ID, acquired
+	 * in wlan_mgmt_txrx_mgmt_frame_tx()) are released.
+	 *
+	 * These references are normally released only when the firmware sends
+	 * the mgmt TX completion. However, wma_remove_peer() flushes all TIDs
+	 * except the MGMT TID, so an in-flight mgmt frame on a peer that is
+	 * being deleted (e.g. on a connected MLO STA when the interface is
+	 * brought down / supplicant is killed) never gets a completion, and its
+	 * peer reference is leaked. The object then stays in the logically-
+	 * deleted (L-state) list until the objmgr leak-detection watchdog panics.
+	 *
+	 * Draining frees the mgmt buffers, so it must only run when the firmware
+	 * can no longer access them:
+	 *  - qdf_is_recovering(): firmware is down (SSR), buffers are safe.
+	 *  - wmi_service_sync_delete_cmds: the teardown path waits for the
+	 *    firmware peer-delete response (hold-req in wma_remove_bss_peer())
+	 *    before reaching here, so the firmware peer is already gone and no
+	 *    longer DMAs these buffers.
+	 * Configs without sync-delete keep the recovery-only behaviour to avoid
+	 * freeing buffers that a live firmware may still access (use-after-free).
+	 */
+	if (qdf_is_recovering() ||
+	    wmi_service_enabled(wma_handle->wmi_handle,
+				wmi_service_sync_delete_cmds))
 		wlan_mgmt_txrx_vdev_drain(iface->vdev,
 					  wma_mgmt_frame_fill_peer_cb,
 					  &mgmt_params);
