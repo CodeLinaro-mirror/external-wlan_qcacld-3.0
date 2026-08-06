@@ -335,6 +335,21 @@ ol_tx_download_done_hl_free(void *txrx_pdev,
 						 QDF_MAX_NO_OF_MODE
 				 ));
 
+	/* HL SDIO does not request TX_COMPL_IND from FW, so drive
+	 * vdev->tx_comp from the HTC download-done path instead.
+	 */
+	if (tx_desc->vdev &&
+	    tx_desc->vdev->tx_comp &&
+	    tx_desc->vdev->osif_dev &&
+	    tx_desc->pkt_type < OL_TXRX_MGMT_TYPE_BASE) {
+		uint16_t flag = (status == QDF_STATUS_SUCCESS) ?
+			(BIT(QDF_TX_RX_STATUS_OK) |
+			 BIT(QDF_TX_RX_STATUS_DOWNLOAD_SUCC)) :
+			BIT(QDF_TX_RX_STATUS_DOWNLOAD_SUCC);
+
+		tx_desc->vdev->tx_comp(msdu, tx_desc->vdev->osif_dev, flag);
+	}
+
 	is_frame_freed = ol_tx_download_done_base(pdev, status, msdu, msdu_id);
 
 	/*
