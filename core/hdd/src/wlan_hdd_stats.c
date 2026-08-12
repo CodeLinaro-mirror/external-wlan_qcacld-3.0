@@ -7878,6 +7878,7 @@ wlan_hdd_update_mlo_peer_stats(struct wlan_hdd_link_info *link_info,
 	uint8_t *peer_mac;
 	struct cdp_peer_stats *peer_stats;
 	struct hdd_context *hdd_ctx = WLAN_HDD_GET_CTX(link_info->adapter);
+	QDF_STATUS qdf_status;
 
 	if (wlan_hdd_validate_context(hdd_ctx)) {
 		hdd_err("invalid hdd_ctx");
@@ -7896,17 +7897,20 @@ wlan_hdd_update_mlo_peer_stats(struct wlan_hdd_link_info *link_info,
 		return;
 	}
 
-	ucfg_dp_get_per_link_peer_stats(soc, link_info->vdev_id,
-					peer_mac, peer_stats,
-					CDP_WILD_PEER_TYPE,
-					DP_STAT_NUM_SINGLE_LINK);
+	qdf_status = ucfg_dp_get_per_link_peer_stats(soc, link_info->vdev_id,
+						     peer_mac, peer_stats,
+						     CDP_WILD_PEER_TYPE,
+						     DP_STAT_NUM_SINGLE_LINK);
 
-	sinfo->tx_bytes = peer_stats->tx.tx_success.bytes;
-	sinfo->rx_bytes = peer_stats->rx.rcvd.bytes;
-	sinfo->tx_packets = peer_stats->tx.tx_success.num;
-	sinfo->rx_packets = peer_stats->rx.rcvd.num;
+	if (QDF_IS_STATUS_SUCCESS(qdf_status)) {
+		sinfo->tx_bytes = peer_stats->tx.tx_success.bytes;
+		sinfo->rx_bytes = peer_stats->rx.rcvd.bytes;
+		sinfo->tx_packets = peer_stats->tx.tx_success.num;
+		sinfo->rx_packets = peer_stats->rx.rcvd.num;
 
-	hdd_nofl_debug("Updated sinfo with per peer stats");
+		hdd_nofl_debug("Updated sinfo with per peer stats");
+	}
+
 	qdf_mem_free(peer_stats);
 }
 
