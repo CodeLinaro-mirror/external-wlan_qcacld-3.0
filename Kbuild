@@ -364,6 +364,9 @@ endif
 ifeq ($(CONFIG_WLAN_SYSFS_RANGE_EXT), y)
 HDD_OBJS += $(HDD_SRC_DIR)/wlan_hdd_sysfs_range_ext.o
 endif
+ifeq ($(CONFIG_WLAN_DCS_STATS_SYSFS), y)
+HDD_OBJS += $(HDD_SRC_DIR)/wlan_hdd_sysfs_dcs_stats.o
+endif
 ifeq ($(CONFIG_WLAN_SYSFS_RADAR), y)
 HDD_OBJS += $(HDD_SRC_DIR)/wlan_hdd_sysfs_radar.o
 endif
@@ -3871,6 +3874,7 @@ endif
 
 ccflags-$(CONFIG_WLAN_SYSFS_TDLS_PEERS) += -DWLAN_SYSFS_TDLS_PEERS
 ccflags-$(CONFIG_WLAN_SYSFS_RANGE_EXT) += -DWLAN_SYSFS_RANGE_EXT
+ccflags-$(CONFIG_WLAN_DCS_STATS_SYSFS) += -DWLAN_DCS_STATS_SYSFS
 
 ccflags-$(CONFIG_QCACLD_WLAN_LFR2) += -DWLAN_FEATURE_PREAUTH_ENABLE
 

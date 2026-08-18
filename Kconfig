@@ -1696,6 +1696,12 @@ config WLAN_SYSFS_RANGE_EXT
 	depends on WLAN_SYSFS
 	default n
 
+config WLAN_DCS_STATS_SYSFS
+	bool "Enable WLAN_DCS_STATS_SYSFS"
+	depends on WLAN_SYSFS
+	depends on DCS
+	default n
+
 config WLAN_SYSFS_RTS_CTS
 	bool "Enable WLAN_SYSFS_RTS_CTS"
 	depends on WLAN_SYSFS

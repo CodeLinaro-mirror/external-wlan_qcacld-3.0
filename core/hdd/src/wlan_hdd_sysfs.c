@@ -60,6 +60,7 @@
 #include <wlan_hdd_sysfs_scan_config.h>
 #include <wlan_hdd_sysfs_monitor_mode_channel.h>
 #include <wlan_hdd_sysfs_range_ext.h>
+#include <wlan_hdd_sysfs_dcs_stats.h>
 #include <wlan_hdd_sysfs_radar.h>
 #include <wlan_hdd_sysfs_rts_cts.h>
 #include <wlan_hdd_sysfs_he_bss_color.h>
@@ -1265,6 +1266,7 @@ hdd_sysfs_create_sap_adapter_root_obj(struct hdd_adapter *adapter)
 	hdd_sysfs_txrx_stats_create(adapter);
 	hdd_sysfs_temperature_create(adapter);
 	hdd_sysfs_range_ext_create(adapter);
+	hdd_sysfs_dcs_stats_create(adapter);
 	hdd_sysfs_ipa_create(adapter);
 	hdd_sysfs_dl_modes_create(adapter);
 	hdd_sysfs_11be_rate_create(adapter);
@@ -1286,6 +1288,7 @@ hdd_sysfs_destroy_sap_adapter_root_obj(struct hdd_adapter *adapter)
 	hdd_sysfs_11be_rate_destroy(adapter);
 	hdd_sysfs_dl_modes_destroy(adapter);
 	hdd_sysfs_ipa_destroy(adapter);
+	hdd_sysfs_dcs_stats_destroy(adapter);
 	hdd_sysfs_range_ext_destroy(adapter);
 	hdd_sysfs_temperature_destroy(adapter);
 	hdd_sysfs_txrx_stats_destroy(adapter);
