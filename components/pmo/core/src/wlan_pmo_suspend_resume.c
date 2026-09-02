@@ -915,6 +915,7 @@ pmo_core_enable_wow_in_fw(struct wlan_objmgr_psoc *psoc,
 		htc_dump_counter_info(pmo_core_psoc_get_htc_handle(psoc));
 		qdf_trigger_self_recovery(psoc, QDF_SUSPEND_NO_CREDIT);
 	}
+	msleep(10);
 	pmo_debug("WOW enabled successfully in fw: credits:%d pending_cmds: %d",
 		host_credits, wmi_pending_cmds);
 
