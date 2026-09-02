@@ -827,7 +827,7 @@ void dp_set_driver_del_ack_enable(uint16_t vdev_id,
 				  struct wlan_dp_psoc_context *dp_ctx,
 				  uint64_t rx_packets)
 {
-	struct wlan_dp_psoc_cfg *cfg = dp_ctx->dp_cfg;
+	struct wlan_dp_psoc_cfg *cfg = &dp_ctx->dp_cfg;
 
 	cdp_vdev_set_driver_del_ack_enable(cds_get_context(QDF_MODULE_ID_SOC),
 					   vdev_id, rx_packets,
