@@ -5469,6 +5469,7 @@ static QDF_STATUS ol_txrx_register_peer(struct ol_txrx_desc_type *sta_desc)
 			     QDF_MAC_ADDR_REF(peer->mld_peer->mac_addr.raw));
 		qdf_spin_lock_bh(&peer->mld_peer->peer_info_lock);
 		peer->mld_peer->state = peer->state;
+		peer->mld_peer->qos_capable = peer->qos_capable;
 		qdf_spin_unlock_bh(&peer->mld_peer->peer_info_lock);
 		ol_txrx_flush_rx_frames(peer->mld_peer, false);
 	}
