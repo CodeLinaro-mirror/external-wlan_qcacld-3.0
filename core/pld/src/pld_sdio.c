@@ -410,6 +410,52 @@ out:
 	return;
 }
 
+#ifdef FEATURE_RUNTIME_PM
+/**
+ * pld_sdio_runtime_suspend() - PM runtime suspend
+ * @pdev: SDIO device
+ *
+ * PM runtime suspend callback function.
+ *
+ * Return: int
+ */
+static int pld_sdio_runtime_suspend(struct device *dev)
+{
+	struct pld_context *pld_context;
+
+	pld_context = pld_get_global_context();
+	if (pld_context->ops->runtime_suspend)
+		return pld_context->ops->runtime_suspend(dev,
+							 PLD_BUS_TYPE_SDIO);
+
+	return -ENODEV;
+}
+
+/**
+ * pld_sdio_runtime_resume() - PM runtime resume
+ * @pdev: SDIO device
+ *
+ * PM runtime resume callback function.
+ *
+ * Return: int
+ */
+static int pld_sdio_runtime_resume(struct device *dev)
+{
+	struct pld_context *pld_context;
+
+	pld_context = pld_get_global_context();
+	if (pld_context->ops->runtime_resume)
+		return pld_context->ops->runtime_resume(dev,
+							PLD_BUS_TYPE_SDIO);
+
+	return -ENODEV;
+}
+static struct cnss_wlan_sdio_runtime_ops runtime_pm_ops = {
+	.runtime_suspend = pld_sdio_runtime_suspend,
+	.runtime_resume = pld_sdio_runtime_resume,
+};
+#endif
+
 struct cnss_sdio_wlan_driver pld_sdio_ops = {
 	.name       = "pld_sdio",
 	.id_table   = pld_sdio_id_table,
@@ -422,6 +468,9 @@ struct cnss_sdio_wlan_driver pld_sdio_ops = {
 #ifdef CONFIG_PM
 	.suspend    = pld_sdio_suspend,
 	.resume     = pld_sdio_resume,
+#endif
+#ifdef FEATURE_RUNTIME_PM
+	.runtime_ops = &runtime_pm_ops,
 #endif
 };
 

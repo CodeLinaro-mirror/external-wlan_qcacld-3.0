@@ -1110,6 +1110,7 @@ int pld_auto_suspend(struct device *dev)
 	case PLD_BUS_TYPE_IPCI:
 		break;
 	case PLD_BUS_TYPE_SDIO:
+		ret = pld_sdio_auto_suspend(dev);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1135,6 +1136,7 @@ int pld_auto_resume(struct device *dev)
 	case PLD_BUS_TYPE_IPCI:
 		break;
 	case PLD_BUS_TYPE_SDIO:
+		ret = pld_sdio_auto_resume(dev);
 		break;
 	default:
 		ret = -EINVAL;

@@ -349,6 +349,15 @@ static inline int pld_sdio_is_fw_down(struct device *dev)
 {
 	return cnss_sdio_is_device_down(dev);
 }
+static inline int pld_sdio_auto_suspend(struct device *dev)
+{
+	return cnss_auto_suspend(dev);
+}
+
+static inline int pld_sdio_auto_resume(struct device *dev)
+{
+	return cnss_auto_resume(dev);
+}
 #else
 static inline int pld_sdio_wlan_enable(struct device *dev,
 				       struct pld_wlan_enable_cfg *config,
@@ -374,6 +383,15 @@ static inline int pld_sdio_force_assert_target(struct device *dev)
 	return 0;
 }
 static inline int pld_sdio_is_fw_down(struct device *dev)
+{
+	return 0;
+}
+
+static inline int pld_sdio_auto_suspend(struct device *dev)
+{
+	return 0;
+}
+static inline int pld_sdio_auto_resume(struct device *dev)
 {
 	return 0;
 }
