@@ -260,6 +260,26 @@ mlme_set_roam_reason_better_ap(struct wlan_objmgr_vdev *vdev, bool val);
 bool mlme_get_roam_reason_better_ap(struct wlan_objmgr_vdev *vdev);
 
 /**
+ * mlme_set_roam_reason_invalid_bmiss() - set roam scan complete notify for bmiss
+ * @vdev: vdev pointer
+ * @val: roam scan complete for bmiss or not
+ *
+ * Return: QDF_STATUS
+ */
+
+QDF_STATUS
+mlme_set_roam_reason_invalid_bmiss(struct wlan_objmgr_vdev *vdev, bool val);
+
+/**
+ * mlme_get_roam_reason_invalid_bmiss() - get bmiss param
+ * @vdev: vdev pointer
+ *
+ * Return: bool
+ */
+bool mlme_get_roam_reason_invalid_bmiss(struct wlan_objmgr_vdev *vdev);
+
+
+/**
  * mlme_set_hb_ap_rssi() - set hb ap RSSI
  * @vdev: vdev pointer
  * @val: value to be set

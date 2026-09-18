@@ -1966,6 +1966,17 @@ void cm_handle_roam_reason_better_ap(uint8_t vdev_id, uint32_t rssi);
 void cm_handle_roam_reason_suitable_ap(uint8_t vdev_id, uint32_t rssi);
 
 /**
+ * cm_handle_roam_reason_invalid() - Handler for LFR2 host roam
+ * @vdev_id: vdev id
+ * @notify: notify for invalid reason roam
+ * @rssi: RSSI value
+ *
+ * Return: None
+ */
+void cm_handle_roam_reason_invalid(uint8_t vdev_id, uint32_t notify,
+				   uint32_t rssi);
+
+/**
  * cm_roam_event_handler() - Carries extracted roam info
  * @roam_event: data carried by roam event
  *

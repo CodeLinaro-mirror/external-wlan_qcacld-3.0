@@ -2816,6 +2816,32 @@ static void wma_handle_roam_reason_suitable_ap(uint8_t vdev_id, uint32_t rssi)
 	wma_roam_better_ap_handler(wma_handle, vdev_id);
 }
 
+#ifdef WLAN_FEATURE_HOST_ROAM
+static void wma_handle_host_roam(uint8_t vdev_id, uint32_t notify,
+				 uint32_t rssi)
+{
+	tp_wma_handle wma_handle = cds_get_context(QDF_MODULE_ID_WMA);
+
+	if (!wma_handle) {
+		QDF_ASSERT(0);
+		return;
+	}
+	if (notify == ROAM_NOTIFY_PARAMS_BMISS) {
+		mlme_set_roam_reason_invalid_bmiss(wma_handle->interfaces[vdev_id].vdev,
+					  true);
+		wma_debug("Beacon Miss for vdevid %x", vdev_id);
+		mlme_set_hb_ap_rssi(wma_handle->interfaces[vdev_id].vdev, rssi);
+	} else if (notify == ROAM_NOTIFY_PARAMS_LOWRSSI) {
+		mlme_set_roam_reason_invalid_bmiss(wma_handle->interfaces[vdev_id].vdev,
+					  false);
+		wma_debug("low rssi for vdevid %x", vdev_id);
+	} else {
+		wma_debug("unsupport roam for LFR2 %d", notify);
+	}
+	wma_roam_better_ap_handler(wma_handle, vdev_id);
+}
+#endif
+
 static void
 wma_update_pdev_hw_mode_trans_ind(tp_wma_handle wma,
 				  struct cm_hw_mode_trans_ind *trans_ind)
@@ -2956,6 +2982,14 @@ void cm_handle_roam_reason_suitable_ap(uint8_t vdev_id, uint32_t rssi)
 {
 	wma_handle_roam_reason_suitable_ap(vdev_id, rssi);
 }
+
+#ifdef WLAN_FEATURE_HOST_ROAM
+void cm_handle_roam_reason_invalid(uint8_t vdev_id, uint32_t notify,
+				   uint32_t rssi)
+{
+	wma_handle_host_roam(vdev_id, notify, rssi);
+}
+#endif
 
 #ifdef WLAN_FEATURE_ROAM_OFFLOAD
 static void

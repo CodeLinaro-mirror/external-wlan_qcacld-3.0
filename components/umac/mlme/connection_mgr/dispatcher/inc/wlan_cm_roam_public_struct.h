@@ -2615,6 +2615,31 @@ enum roam_dispatcher_events {
 };
 
 /**
+ * enum roam_reason_invalid_notif_params - invalid reason roam notify_params
+ * @ROAM_NOTIFY_PARAMS_INVALID: Invalid notify params
+ * @ROAM_NOTIFY_PARAMS_BMISS: bmiss trigger the roam start or complete
+ * @ROAM_NOTIFY_PARAMS_LOWRSSI: lowrssi trigger the roam start or complete
+ */
+enum roam_reason_invalid_notif_params {
+	ROAM_NOTIFY_PARAMS_INVALID,
+	ROAM_NOTIFY_PARAMS_BMISS = 0x2,
+	ROAM_NOTIFY_PARAMS_LOWRSSI = 0x3,
+};
+
+/**
+ * enum roam_reason_invalid_notif_params1 - invalid reason roam notify_params1
+ * @ROAM_NOTIFY_PARAMS1_SCAN_COMPLETED: if partial scan found fw report scan
+ *  end with this value, or partial scan and full scan complete with the value
+ * @ROAM_NOTIFY_PARAMS1_SCAN_NOT_COMPLETED: partial scan not found candidate
+ *  APs, fw report with this value
+ */
+enum roam_reason_invalid_notif_params1 {
+	ROAM_NOTIFY_PARAMS1_SCAN_COMPLETED = 0,
+	ROAM_NOTIFY_PARAMS1_SCAN_NOT_COMPLETED = 0x1,
+};
+
+
+/**
  * struct roam_offload_roam_event: Data carried by roam event
  * @vdev_id: vdev id
  * @psoc: psoc object

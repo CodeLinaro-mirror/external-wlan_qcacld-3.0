@@ -810,6 +810,7 @@ struct enhance_roam_info {
  * @bigtk_vdev_support: BIGTK feature support for this vdev (SAP)
  * @sae_retry: SAE auth retry information
  * @roam_reason_better_ap: roam due to better AP found
+ * @roam_reason_invalid_bmiss: roam reason of invalid with notif_param
  * @hb_failure_rssi: heartbeat failure AP RSSI
  * @opr_rate_set: operational rates set
  * @ext_opr_rate_set: extended operational rates set
@@ -883,6 +884,7 @@ struct mlme_legacy_priv {
 	bool bigtk_vdev_support;
 	struct sae_auth_retry sae_retry;
 	bool roam_reason_better_ap;
+	bool roam_reason_invalid_bmiss;
 	uint32_t hb_failure_rssi;
 	struct mlme_cfg_str opr_rate_set;
 	struct mlme_cfg_str ext_opr_rate_set;

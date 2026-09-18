@@ -2102,16 +2102,28 @@ QDF_STATUS cm_mlme_roam_preauth_fail(struct wlan_objmgr_vdev *vdev,
 
 	pdev = wlan_vdev_get_pdev(vdev);
 	vdev_id = wlan_vdev_get_id(vdev);
-
 	if (req->source == CM_ROAMING_FW)
 		cm_roam_state_change(pdev, vdev_id,
-				     ROAM_SCAN_OFFLOAD_RESTART,
+				     WLAN_ROAM_RSO_STOPPED,
 				     roam_reason, NULL, false);
 	else
 		cm_roam_state_change(pdev, vdev_id,
-				     ROAM_SCAN_OFFLOAD_START,
+				     WLAN_ROAM_INIT,
 				     roam_reason, NULL, false);
 	return QDF_STATUS_SUCCESS;
+}
+
+static void cm_handle_host_roam(struct roam_offload_roam_event *roam_event)
+{
+	if (roam_event->notif == CM_ROAM_NOTIF_SCAN_END &&
+	    roam_event->notif_params1 == ROAM_NOTIFY_PARAMS1_SCAN_COMPLETED)
+		cm_handle_roam_reason_invalid(roam_event->vdev_id,
+					      roam_event->notif_params,
+					      roam_event->rssi);
+}
+#else
+static inline void cm_handle_host_roam(struct roam_offload_roam_event *roam_event)
+{
 }
 #endif
 
@@ -3161,6 +3173,7 @@ cm_roam_event_handler(struct roam_offload_roam_event *roam_event)
 		fallthrough;
 	case ROAM_REASON_INVALID:
 		cm_handle_roam_offload_events(roam_event);
+		cm_handle_host_roam(roam_event);
 		break;
 	case ROAM_REASON_RSO_STATUS:
 		/*
