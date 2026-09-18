@@ -589,6 +589,11 @@ ol_tx_hl_base(
 					&tx_ctrl,
 					vdev->opmode == wlan_op_mode_ocb);
 
+			if (tx_msdu_info.peer &&
+			    tx_msdu_info.peer->peer_ids[0] != HTT_INVALID_PEER_ID)
+				htt_tx_desc_set_peer_id(tx_desc->htt_tx_desc,
+							tx_msdu_info.peer->peer_ids[0]);
+
 			if ((!txq) || TX_FILTER_CHECK(&tx_msdu_info)) {
 				/* drop this frame,
 				 * but try sending subsequent frames
