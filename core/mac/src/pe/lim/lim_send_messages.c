@@ -36,6 +36,7 @@
 #endif /* FEATURE_WLAN_DIAG_SUPPORT */
 #include "lim_utils.h"
 #include "wma.h"
+#include "wma_he.h"
 #include "../../core/src/vdev_mgr_ops.h"
 #include "wlan_scan_api.h"
 
@@ -133,6 +134,17 @@ QDF_STATUS lim_send_switch_chnl_params(struct mac_context *mac,
 		pe_err("failed status = %d", status);
 		goto send_resp;
 	}
+	/*
+	 * FW's vdev_start handler re-applies he_ops at the end and will
+	 * zero BSS color if he_ops is 0. For STA CSA restart, pack
+	 * session->he_op so bss_color is preserved. JOIN already works
+	 * because peer_assoc that follows programs bss_color.
+	 */
+	if (LIM_IS_STA_ROLE(session) && lim_is_session_he_capable(session) &&
+	    session->channelChangeReasonCode == LIM_SWITCH_CHANNEL_OPERATION)
+		wma_update_vdev_he_ops(&mlme_obj->proto.he_ops_info.he_ops,
+				       &session->he_op);
+
 	status = vdev_mgr_start_send(mlme_obj,
 				mlme_is_chan_switch_in_progress(session->vdev));
 	if (status != QDF_STATUS_SUCCESS) {

@@ -253,9 +253,10 @@ static void __lim_process_channel_switch_action_frame(struct mac_context *mac_ct
 	bcn_period = (uint16_t)val;
 	ch_switch_params->primaryChannel =
 		chnl_switch_frame->ChanSwitchAnn.newChannel;
-	ch_switch_params->sw_target_freq = wlan_reg_legacy_chan_to_freq
-			(mac_ctx->pdev,
-			chnl_switch_frame->ChanSwitchAnn.newChannel);
+	ch_switch_params->sw_target_freq = wlan_reg_chan_band_to_freq(
+			mac_ctx->pdev,
+			chnl_switch_frame->ChanSwitchAnn.newChannel,
+			BIT(wlan_reg_freq_to_band(session->curr_op_freq)));
 	ch_switch_params->switchCount =
 		chnl_switch_frame->ChanSwitchAnn.switchCount;
 	ch_switch_params->switchTimeoutValue =

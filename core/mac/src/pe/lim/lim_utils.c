@@ -2010,8 +2010,10 @@ lim_update_channel_switch(struct mac_context *mac_ctx,
 	ch_switch_params->primaryChannel =
 		chnl_switch->newChannel;
 	ch_switch_params->sw_target_freq =
-		wlan_reg_legacy_chan_to_freq(mac_ctx->pdev,
-					     chnl_switch->newChannel);
+		wlan_reg_chan_band_to_freq(mac_ctx->pdev,
+					   chnl_switch->newChannel,
+					   BIT(wlan_reg_freq_to_band(
+						psession_entry->curr_op_freq)));
 	ch_switch_params->switchCount = chnl_switch->switchCount;
 	ch_switch_params->switchTimeoutValue =
 		SYS_MS_TO_TICKS(beacon_period) * (chnl_switch->switchCount);
@@ -2062,6 +2064,25 @@ lim_update_channel_switch(struct mac_context *mac_ctx,
 				psession_entry->gLimWiderBWChannelSwitch.
 						newCenterChanFreq1;
 		}
+	}
+
+	/*
+	 * 6GHz EHT does not use HT secondary channel offset IE or VHT
+	 * WiderBW IE, so the checks above never fire for 6GHz beacons.
+	 * Preserve the current session bandwidth so the CSA timer triggers
+	 * lim_switch_primary_secondary_channel (not lim_switch_primary_channel
+	 * which resets ch_width to 20 MHz). The puncture bitmap will be
+	 * updated by lim_handle_sta_csa_param from the following beacon.
+	 */
+	if (psession_entry->he_6ghz_band &&
+	    psession_entry->ch_width > CH_WIDTH_20MHZ) {
+		ch_switch_params->state =
+				eLIM_CHANNEL_SWITCH_PRIMARY_AND_SECONDARY;
+		ch_switch_params->ch_width = psession_entry->ch_width;
+		ch_switch_params->ch_center_freq_seg0 =
+				psession_entry->ch_center_freq_seg0;
+		ch_switch_params->ch_center_freq_seg1 =
+				psession_entry->ch_center_freq_seg1;
 	}
 	if (QDF_STATUS_SUCCESS != lim_start_channel_switch(mac_ctx, psession_entry))
 		pe_warn("Could not start Channel Switch");
