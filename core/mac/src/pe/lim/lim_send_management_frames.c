@@ -8416,7 +8416,7 @@ lim_handle_sae_auth_retry(struct mac_context *mac_ctx, uint8_t vdev_id,
 	}
 }
 
-#ifdef WLAN_FEATURE_11BE_MLO
+#if (defined WLAN_FEATURE_11BE_MLO) && (defined WLAN_FEATURE_ROAM_OFFLOAD)
 static QDF_STATUS lim_update_mld_to_link_address(struct mac_context *mac_ctx,
 						 struct wlan_objmgr_vdev *vdev,
 						 tpSirMacMgmtHdr mac_hdr)

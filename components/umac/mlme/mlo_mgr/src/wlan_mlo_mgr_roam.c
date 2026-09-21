@@ -307,6 +307,7 @@ static void mlo_roam_update_vdev_macaddr(struct wlan_objmgr_psoc *psoc,
 	mlo_roam_update_all_vdev_macaddr(psoc, sync_ind);
 }
 
+#ifdef WLAN_FEATURE_ROAM_OFFLOAD
 QDF_STATUS mlo_fw_roam_sync_req(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
 				void *event, uint32_t event_data_len)
 {
@@ -348,6 +349,7 @@ QDF_STATUS mlo_fw_roam_sync_req(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
 
 	return status;
 }
+#endif /* WLAN_FEATURE_ROAM_OFFLOAD */
 
 #ifdef WLAN_FEATURE_11BE_MLO_ADV_FEATURE
 static struct mlo_link_info *
@@ -426,6 +428,7 @@ void mlo_mgr_roam_update_ap_link_info(struct wlan_objmgr_vdev *vdev,
 		  QDF_MAC_ADDR_REF(link_info->link_addr.bytes));
 }
 
+#ifdef WLAN_FEATURE_ROAM_OFFLOAD
 QDF_STATUS mlo_cm_roam_sync_cb(struct wlan_objmgr_vdev *vdev,
 			       void *event, uint32_t event_data_len)
 {
@@ -508,8 +511,10 @@ QDF_STATUS mlo_cm_roam_sync_cb(struct wlan_objmgr_vdev *vdev,
 
 	return QDF_STATUS_SUCCESS;
 }
+#endif /* WLAN_FEATURE_ROAM_OFFLOAD */
 #endif
 
+#ifdef WLAN_FEATURE_ROAM_OFFLOAD
 void
 mlo_fw_ho_fail_req(struct wlan_objmgr_psoc *psoc,
 		   uint8_t vdev_id, struct qdf_mac_addr bssid)
@@ -546,6 +551,12 @@ end:
 	wlan_objmgr_vdev_release_ref(vdev,
 				     WLAN_MLME_SB_ID);
 }
+#else
+void
+mlo_fw_ho_fail_req(struct wlan_objmgr_psoc *psoc,
+		   uint8_t vdev_id, struct qdf_mac_addr bssid)
+{}
+#endif /* WLAN_FEATURE_ROAM_OFFLOAD */
 
 QDF_STATUS
 mlo_get_sta_link_mac_addr(uint8_t vdev_id,
@@ -756,6 +767,7 @@ mlo_roam_update_connected_links(struct wlan_objmgr_vdev *vdev,
 						connect_rsp->ml_parnter_info);
 }
 
+#ifdef WLAN_FEATURE_ROAM_OFFLOAD
 QDF_STATUS
 wlan_mlo_roam_abort_on_link(struct wlan_objmgr_psoc *psoc,
 			    uint8_t *event, uint8_t vdev_id)
@@ -784,7 +796,6 @@ wlan_mlo_roam_abort_on_link(struct wlan_objmgr_psoc *psoc,
 
 	return QDF_STATUS_SUCCESS;
 }
-
 void
 mlo_set_single_link_ml_roaming(struct wlan_objmgr_psoc *psoc,
 			       uint8_t vdev_id,
@@ -803,7 +814,6 @@ mlo_set_single_link_ml_roaming(struct wlan_objmgr_psoc *psoc,
 	if (!wlan_vdev_mlme_is_mlo_link_vdev(vdev))
 		mlme_set_single_link_mlo_roaming(vdev,
 						 is_single_link_ml_roaming);
-
 	wlan_objmgr_vdev_release_ref(vdev, WLAN_MLME_SB_ID);
 }
 
@@ -829,6 +839,20 @@ mlo_get_single_link_ml_roaming(struct wlan_objmgr_psoc *psoc,
 
 	return is_single_link_ml_roaming;
 }
+#else
+QDF_STATUS
+wlan_mlo_roam_abort_on_link(struct wlan_objmgr_psoc *psoc,
+                            uint8_t *event, uint8_t vdev_id)
+{
+        return QDF_STATUS_E_NOSUPPORT;
+}
+bool
+mlo_get_single_link_ml_roaming(struct wlan_objmgr_psoc *psoc,
+                               uint8_t vdev_id)
+{
+	return false;
+}
+#endif /* WLAN_FEATURE_ROAM_OFFLOAD */
 
 QDF_STATUS
 mlo_roam_get_bssid_chan_for_link(uint8_t vdev_id,
@@ -978,6 +1002,7 @@ mlo_roam_set_link_id(struct wlan_objmgr_vdev *vdev,
 	}
 }
 
+#ifdef WLAN_FEATURE_ROAM_OFFLOAD
 QDF_STATUS
 mlo_get_link_mac_addr_from_reassoc_rsp(struct wlan_objmgr_vdev *vdev,
 				       struct qdf_mac_addr *link_mac_addr)
@@ -1135,7 +1160,24 @@ mlo_roam_copy_reassoc_rsp(struct wlan_objmgr_vdev *vdev,
 
 	return QDF_STATUS_SUCCESS;
 }
+#else
+QDF_STATUS
+mlo_get_link_mac_addr_from_reassoc_rsp(struct wlan_objmgr_vdev *vdev,
+				       struct qdf_mac_addr *link_mac_addr)
+{
+	return QDF_STATUS_E_NOSUPPORT;
+}
 
+QDF_STATUS
+mlo_roam_copy_reassoc_rsp(struct wlan_objmgr_vdev *vdev,
+			  struct wlan_cm_connect_resp *reassoc_rsp,
+			  uint32_t auth_status)
+{
+	return QDF_STATUS_E_NOSUPPORT;
+}
+#endif /* WLAN_FEATURE_ROAM_OFFLOAD */
+
+#ifdef WLAN_FEATURE_ROAM_OFFLOAD
 static bool
 mlo_roam_is_internal_disconnect(struct wlan_objmgr_vdev *link_vdev)
 {
@@ -1266,7 +1308,9 @@ mlo_roam_validate_req(struct wlan_objmgr_vdev *vdev,
 
 	return QDF_STATUS_SUCCESS;
 }
+#endif /* WLAN_FEATURE_ROAM_OFFLOAD */
 
+#ifdef WLAN_FEATURE_ROAM_OFFLOAD
 static QDF_STATUS
 mlo_roam_prepare_and_send_link_connect_req(struct wlan_objmgr_vdev *assoc_vdev,
 					   struct wlan_objmgr_vdev *link_vdev,
@@ -1536,6 +1580,33 @@ end:
 	wlan_objmgr_vdev_release_ref(vdev, WLAN_MLME_SB_ID);
 	return status;
 }
+#else
+static QDF_STATUS
+mlo_roam_prepare_and_send_link_connect_req(struct wlan_objmgr_vdev *assoc_vdev,
+                                           struct wlan_objmgr_vdev *link_vdev,
+                                           struct wlan_cm_connect_resp *rsp,
+                                           struct mlo_link_info *link_info)
+{
+	return QDF_STATUS_E_NOSUPPORT;
+}
+void mlo_roam_free_copied_reassoc_rsp(struct wlan_objmgr_vdev *vdev)
+{}
+
+void mlo_roam_connect_complete(struct wlan_objmgr_vdev *vdev)
+{}
+
+bool
+mlo_roam_is_auth_status_connected(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id)
+{
+	return false;
+}
+
+QDF_STATUS
+mlo_roam_link_connect_notify(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id)
+{
+	return QDF_STATUS_E_NOSUPPORT;
+}
+#endif /* WLAN_FEATURE_ROAM_OFFLOAD */
 
 bool
 mlo_is_roaming_in_progress(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id)
@@ -1672,6 +1743,7 @@ done:
 	return status;
 }
 
+#ifdef WLAN_FEATURE_ROAM_OFFLOAD
 bool
 mlo_is_enable_roaming_on_connected_sta_allowed(struct wlan_objmgr_vdev *vdev)
 {
@@ -1692,6 +1764,13 @@ mlo_is_enable_roaming_on_connected_sta_allowed(struct wlan_objmgr_vdev *vdev)
 	/* Roamed to MLO AP, do nothing if link vdev is disconnected */
 	return false;
 }
+#else
+bool
+mlo_is_enable_roaming_on_connected_sta_allowed(struct wlan_objmgr_vdev *vdev)
+{
+	return true;
+}
+#endif /* WLAN_FEATURE_ROAM_OFFLOAD */
 
 bool
 mlo_check_is_given_vdevs_on_same_mld(struct wlan_objmgr_psoc *psoc,

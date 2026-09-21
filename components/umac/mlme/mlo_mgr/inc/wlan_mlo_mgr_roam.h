@@ -356,22 +356,6 @@ static inline uint8_t mlo_mgr_num_roam_links(struct wlan_objmgr_vdev *vdev)
 	return 0;
 }
 #endif
-
-/**
- * mlo_cm_roam_sync_cb - Callback function from CM to MLO mgr
- *
- * @vdev: vdev pointer
- * @event: event ptr
- * @event_data_len: event data len
- *
- * This api will be called from connection manager to mlo
- * manager to start roam sync request on link vdev's.
- *
- * Return: qdf status
- */
-QDF_STATUS
-mlo_cm_roam_sync_cb(struct wlan_objmgr_vdev *vdev,
-		    void *event, uint32_t event_data_len);
 #endif /* WLAN_FEATURE_11BE_MLO_ADV_FEATURE */
 
 /**
@@ -489,6 +473,25 @@ QDF_STATUS mlo_fw_roam_sync_req(struct wlan_objmgr_psoc *psoc,
 {
 	return cm_fw_roam_sync_req(psoc, vdev_id, event, event_data_len);
 }
+
+#ifdef WLAN_FEATURE_11BE_MLO_ADV_FEATURE
+/**
+ * mlo_cm_roam_sync_cb() - MLO callback to handle roam synch event
+ * for MLO vdev
+ * @vdev: Pointer to objmgr vdev
+ * @event: Pointer to event
+ * @event_data_len: event data length
+ */
+QDF_STATUS mlo_cm_roam_sync_cb(struct wlan_objmgr_vdev *vdev,
+			       void *event, uint32_t event_data_len);
+#else
+static inline QDF_STATUS
+mlo_cm_roam_sync_cb(struct wlan_objmgr_vdev *vdev,
+		    void *event, uint32_t event_data_len)
+{
+	return QDF_STATUS_SUCCESS;
+}
+#endif
 #endif
 static inline QDF_STATUS
 mlo_get_sta_link_mac_addr(uint8_t vdev_id,
@@ -511,25 +514,6 @@ mlo_roam_get_link_id(uint8_t vdev_id,
 {
 	return 0;
 }
-
-#ifdef WLAN_FEATURE_11BE_MLO_ADV_FEATURE
-/**
- * mlo_cm_roam_sync_cb() - MLO callback to handle roam synch event
- * for MLO vdev
- * @vdev: Pointer to objmgr vdev
- * @event: Pointer to event
- * @event_data_len: event data length
- */
-QDF_STATUS mlo_cm_roam_sync_cb(struct wlan_objmgr_vdev *vdev,
-			       void *event, uint32_t event_data_len);
-#else
-static inline QDF_STATUS
-mlo_cm_roam_sync_cb(struct wlan_objmgr_vdev *vdev,
-		    void *event, uint32_t event_data_len)
-{
-	return QDF_STATUS_SUCCESS;
-}
-#endif
 
 static inline bool
 is_multi_link_roam(struct roam_offload_synch_ind *sync_ind)

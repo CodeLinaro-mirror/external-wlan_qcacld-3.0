@@ -6028,6 +6028,12 @@ wlan_mlme_get_self_bss_roam(struct wlan_objmgr_psoc *psoc,
 
 	return QDF_STATUS_SUCCESS;
 }
+#else
+QDF_STATUS
+wlan_mlme_get_enable_idle_roam(struct wlan_objmgr_psoc *psoc, bool *val)
+{
+	return QDF_STATUS_SUCCESS;
+}
 #endif
 
 QDF_STATUS

@@ -715,7 +715,7 @@ release_ref:
 }
 #endif
 
-#ifdef WLAN_FEATURE_11BE_MLO
+#if defined(WLAN_FEATURE_11BE_MLO) && defined(WLAN_FEATURE_ROAM_OFFLOAD)
 QDF_STATUS wlan_cm_tgt_send_roam_mlo_config(struct wlan_objmgr_psoc *psoc,
 					    uint8_t vdev_id,
 					    struct wlan_roam_mlo_config *req)

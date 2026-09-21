@@ -2046,6 +2046,127 @@ void lim_set_twt_ext_capabilities(struct mac_context *mac_ctx,
 #endif /* WLAN_TWT_CONV_SUPPORTED */
 #endif /* WLAN_SUPPORT_TWT */
 
+#ifdef WLAN_FEATURE_SR
+void lim_handle_sr_cap(struct wlan_objmgr_vdev *vdev,
+		       enum sr_osif_reason_code reason)
+{
+	int32_t non_srg_pd_threshold = 0;
+	int32_t srg_pd_threshold = 0;
+	uint8_t non_srg_pd_offset = 0;
+	uint8_t srg_max_pd_offset = 0;
+	uint8_t srg_min_pd_offset = 0;
+	uint8_t sr_ctrl, sr_enable_modes;
+	bool is_pd_threshold_present = false;
+	struct wlan_objmgr_pdev *pdev;
+	enum sr_status_of_roamed_ap sr_status;
+	enum sr_osif_operation sr_op;
+	enum QDF_OPMODE opmode;
+	struct mac_context *mac = cds_get_context(QDF_MODULE_ID_PE);
+
+	if (!mac) {
+		pe_err("mac ctx is null");
+		return;
+	}
+	pdev = wlan_vdev_get_pdev(vdev);
+	if (!pdev) {
+		pe_err("invalid pdev");
+		return;
+	}
+
+	opmode = wlan_vdev_mlme_get_opmode(vdev);
+	/* If SR is disabled in INI for the session-operating mode
+	 * Then return.
+	 */
+	wlan_mlme_get_sr_enable_modes(mac->psoc, &sr_enable_modes);
+	if (!(sr_enable_modes & (1 << opmode))) {
+		pe_debug("SR is disabled in INI for mode: %d", opmode);
+		return;
+	}
+	if (!wlan_vdev_mlme_get_he_spr_enabled(vdev)) {
+		pe_debug("SR is not enabled");
+		return;
+	}
+	non_srg_pd_offset = wlan_vdev_mlme_get_non_srg_pd_offset(vdev);
+	wlan_vdev_mlme_get_srg_pd_offset(vdev, &srg_max_pd_offset,
+					 &srg_min_pd_offset);
+	wlan_vdev_mlme_get_current_non_srg_pd_threshold(vdev,
+							&non_srg_pd_threshold);
+	wlan_vdev_mlme_get_current_srg_pd_threshold(vdev,
+						    &srg_pd_threshold);
+
+	sr_ctrl = wlan_vdev_mlme_get_sr_ctrl(vdev);
+	if ((sr_ctrl & NON_SRG_PD_SR_DISALLOWED) &&
+	    (!(sr_ctrl & SRG_INFO_PRESENT))) {
+		sr_status = SR_DISALLOW;
+	} else {
+		if ((!(sr_ctrl & NON_SRG_PD_SR_DISALLOWED) &&
+		     (non_srg_pd_threshold > non_srg_pd_offset +
+		      SR_PD_THRESHOLD_MIN)) ||
+		     ((sr_ctrl & SRG_INFO_PRESENT) &&
+		      ((srg_pd_threshold > srg_max_pd_offset +
+		     SR_PD_THRESHOLD_MIN) ||
+		      (srg_pd_threshold < srg_min_pd_offset +
+		       SR_PD_THRESHOLD_MIN))))
+			sr_status = SR_THRESHOLD_NOT_IN_RANGE;
+		else
+			sr_status = SR_THRESHOLD_IN_RANGE;
+	}
+	pe_debug("sr status %d reason %d existing thresholds srg: %d non-srg: %d New: sr offset srg: max %d min %d non-srg: %d",
+		 sr_status, reason, srg_pd_threshold, non_srg_pd_threshold,
+		 srg_max_pd_offset, srg_min_pd_offset, non_srg_pd_offset);
+	switch (sr_status) {
+	case SR_DISALLOW:
+		/** clear thresholds set by previous AP **/
+		wlan_vdev_mlme_set_current_non_srg_pd_threshold(vdev, 0);
+		wlan_vdev_mlme_set_current_srg_pd_threshold(vdev, 0);
+		wlan_spatial_reuse_osif_event(vdev,
+					      SR_OPERATION_SUSPEND,
+					      reason);
+		/*
+		 * If SR is disabled due to beacon update,
+		 * notify the firmware to disable SR
+		 */
+		if (reason == SR_REASON_CODE_BCN_IE_CHANGE)
+			wlan_sr_setup_req(vdev, pdev, false, 0, 0);
+	break;
+	case SR_THRESHOLD_NOT_IN_RANGE:
+		wlan_vdev_mlme_get_pd_threshold_present(
+						vdev, &is_pd_threshold_present);
+		/*
+		 * if userspace gives pd threshold then check if its within
+		 * range of roamed AP's min and max thresholds, if not in
+		 * range disable and let userspace decide to re-enable.
+		 * if userspace dosesnt give PD threshold then always enable
+		 * SRG based on AP's recommendation of thresholds.
+		 */
+		if (is_pd_threshold_present) {
+			wlan_vdev_mlme_set_current_non_srg_pd_threshold(vdev,
+									0);
+			wlan_vdev_mlme_set_current_srg_pd_threshold(vdev, 0);
+			wlan_spatial_reuse_osif_event(vdev,
+						      SR_OPERATION_SUSPEND,
+						      reason);
+		} else {
+			sr_op = (reason == SR_REASON_CODE_ROAMING) ?
+				SR_OPERATION_RESUME :
+				SR_OPERATION_UPDATE_PARAMS;
+			wlan_sr_setup_req(
+				vdev, pdev, true,
+				srg_max_pd_offset + SR_PD_THRESHOLD_MIN,
+				non_srg_pd_threshold + SR_PD_THRESHOLD_MIN);
+			wlan_spatial_reuse_osif_event(vdev, sr_op, reason);
+		}
+	break;
+	case SR_THRESHOLD_IN_RANGE:
+		/* Send enable command to fw, as fw disables SR on roaming */
+		wlan_sr_setup_req(vdev, pdev, true, srg_pd_threshold,
+				  non_srg_pd_threshold);
+	break;
+	}
+}
+#endif
+
+
 #ifdef WLAN_FEATURE_ROAM_OFFLOAD
 static void pe_update_crypto_params(struct mac_context *mac_ctx,
 				    struct pe_session *ft_session,
@@ -2937,126 +3058,6 @@ static void pe_roam_fill_obss_scan_param(struct pe_session *src_session,
 static inline void pe_roam_fill_obss_scan_param(struct pe_session *src_session,
 						struct pe_session *dst_session)
 {
-}
-#endif
-
-#ifdef WLAN_FEATURE_SR
-void lim_handle_sr_cap(struct wlan_objmgr_vdev *vdev,
-		       enum sr_osif_reason_code reason)
-{
-	int32_t non_srg_pd_threshold = 0;
-	int32_t srg_pd_threshold = 0;
-	uint8_t non_srg_pd_offset = 0;
-	uint8_t srg_max_pd_offset = 0;
-	uint8_t srg_min_pd_offset = 0;
-	uint8_t sr_ctrl, sr_enable_modes;
-	bool is_pd_threshold_present = false;
-	struct wlan_objmgr_pdev *pdev;
-	enum sr_status_of_roamed_ap sr_status;
-	enum sr_osif_operation sr_op;
-	enum QDF_OPMODE opmode;
-	struct mac_context *mac = cds_get_context(QDF_MODULE_ID_PE);
-
-	if (!mac) {
-		pe_err("mac ctx is null");
-		return;
-	}
-	pdev = wlan_vdev_get_pdev(vdev);
-	if (!pdev) {
-		pe_err("invalid pdev");
-		return;
-	}
-
-	opmode = wlan_vdev_mlme_get_opmode(vdev);
-	/* If SR is disabled in INI for the session-operating mode
-	 * Then return.
-	 */
-	wlan_mlme_get_sr_enable_modes(mac->psoc, &sr_enable_modes);
-	if (!(sr_enable_modes & (1 << opmode))) {
-		pe_debug("SR is disabled in INI for mode: %d", opmode);
-		return;
-	}
-	if (!wlan_vdev_mlme_get_he_spr_enabled(vdev)) {
-		pe_debug("SR is not enabled");
-		return;
-	}
-	non_srg_pd_offset = wlan_vdev_mlme_get_non_srg_pd_offset(vdev);
-	wlan_vdev_mlme_get_srg_pd_offset(vdev, &srg_max_pd_offset,
-					 &srg_min_pd_offset);
-	wlan_vdev_mlme_get_current_non_srg_pd_threshold(vdev,
-							&non_srg_pd_threshold);
-	wlan_vdev_mlme_get_current_srg_pd_threshold(vdev,
-						    &srg_pd_threshold);
-
-	sr_ctrl = wlan_vdev_mlme_get_sr_ctrl(vdev);
-	if ((sr_ctrl & NON_SRG_PD_SR_DISALLOWED) &&
-	    (!(sr_ctrl & SRG_INFO_PRESENT))) {
-		sr_status = SR_DISALLOW;
-	} else {
-		if ((!(sr_ctrl & NON_SRG_PD_SR_DISALLOWED) &&
-		     (non_srg_pd_threshold > non_srg_pd_offset +
-		      SR_PD_THRESHOLD_MIN)) ||
-		     ((sr_ctrl & SRG_INFO_PRESENT) &&
-		      ((srg_pd_threshold > srg_max_pd_offset +
-		     SR_PD_THRESHOLD_MIN) ||
-		      (srg_pd_threshold < srg_min_pd_offset +
-		       SR_PD_THRESHOLD_MIN))))
-			sr_status = SR_THRESHOLD_NOT_IN_RANGE;
-		else
-			sr_status = SR_THRESHOLD_IN_RANGE;
-	}
-	pe_debug("sr status %d reason %d existing thresholds srg: %d non-srg: %d New: sr offset srg: max %d min %d non-srg: %d",
-		 sr_status, reason, srg_pd_threshold, non_srg_pd_threshold,
-		 srg_max_pd_offset, srg_min_pd_offset, non_srg_pd_offset);
-	switch (sr_status) {
-	case SR_DISALLOW:
-		/** clear thresholds set by previous AP **/
-		wlan_vdev_mlme_set_current_non_srg_pd_threshold(vdev, 0);
-		wlan_vdev_mlme_set_current_srg_pd_threshold(vdev, 0);
-		wlan_spatial_reuse_osif_event(vdev,
-					      SR_OPERATION_SUSPEND,
-					      reason);
-		/*
-		 * If SR is disabled due to beacon update,
-		 * notify the firmware to disable SR
-		 */
-		if (reason == SR_REASON_CODE_BCN_IE_CHANGE)
-			wlan_sr_setup_req(vdev, pdev, false, 0, 0);
-	break;
-	case SR_THRESHOLD_NOT_IN_RANGE:
-		wlan_vdev_mlme_get_pd_threshold_present(
-						vdev, &is_pd_threshold_present);
-		/*
-		 * if userspace gives pd threshold then check if its within
-		 * range of roamed AP's min and max thresholds, if not in
-		 * range disable and let userspace decide to re-enable.
-		 * if userspace dosesnt give PD threshold then always enable
-		 * SRG based on AP's recommendation of thresholds.
-		 */
-		if (is_pd_threshold_present) {
-			wlan_vdev_mlme_set_current_non_srg_pd_threshold(vdev,
-									0);
-			wlan_vdev_mlme_set_current_srg_pd_threshold(vdev, 0);
-			wlan_spatial_reuse_osif_event(vdev,
-						      SR_OPERATION_SUSPEND,
-						      reason);
-		} else {
-			sr_op = (reason == SR_REASON_CODE_ROAMING) ?
-				SR_OPERATION_RESUME :
-				SR_OPERATION_UPDATE_PARAMS;
-			wlan_sr_setup_req(
-				vdev, pdev, true,
-				srg_max_pd_offset + SR_PD_THRESHOLD_MIN,
-				non_srg_pd_threshold + SR_PD_THRESHOLD_MIN);
-			wlan_spatial_reuse_osif_event(vdev, sr_op, reason);
-		}
-	break;
-	case SR_THRESHOLD_IN_RANGE:
-		/* Send enable command to fw, as fw disables SR on roaming */
-		wlan_sr_setup_req(vdev, pdev, true, srg_pd_threshold,
-				  non_srg_pd_threshold);
-	break;
-	}
 }
 #endif
 

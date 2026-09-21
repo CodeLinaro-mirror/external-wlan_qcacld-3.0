@@ -917,7 +917,7 @@ ucfg_cm_roaming_get_peer_mld_addr(struct wlan_objmgr_vdev *vdev)
 }
 #endif
 
-#ifdef WLAN_FEATURE_11BE_MLO
+#ifdef WLAN_FEATURE_11BE
 /**
  * ucfg_cm_delete_crypto_keys_for_all_links() - This API is wrapper for
  * "cm_delete_crypto_keys_for_all_links" function

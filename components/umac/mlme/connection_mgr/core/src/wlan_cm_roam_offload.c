@@ -7019,6 +7019,7 @@ cm_find_roam_candidate(struct wlan_objmgr_pdev *pdev,
 
 	return QDF_STATUS_SUCCESS;
 }
+#endif
 
 #if (defined(CONNECTIVITY_DIAG_EVENT) && defined(WLAN_FEATURE_ROAM_OFFLOAD))
 void
@@ -7147,6 +7148,7 @@ bool cm_is_bssid_present_on_any_assoc_link(struct wlan_objmgr_vdev *vdev,
 }
 #endif
 
+#ifdef WLAN_FEATURE_ROAM_OFFLOAD
 QDF_STATUS
 cm_send_roam_invoke_req(struct cnx_mgr *cm_ctx, struct cm_req *req)
 {

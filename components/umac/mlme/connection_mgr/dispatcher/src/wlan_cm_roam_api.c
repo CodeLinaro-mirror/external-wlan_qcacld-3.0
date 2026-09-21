@@ -2002,12 +2002,21 @@ uint32_t wlan_cm_roam_get_roam_score_algo(struct wlan_objmgr_pdev *pdev)
 	return cm_roam_get_roam_score_algo(psoc);
 }
 
+#ifdef WLAN_FEATURE_11BE_MLO
 bool
 wlan_cm_is_bssid_present_on_any_assoc_link(struct wlan_objmgr_vdev *vdev,
 					   struct qdf_mac_addr *target_bssid)
 {
 	return cm_is_bssid_present_on_any_assoc_link(vdev, target_bssid);
 }
+#else
+bool
+wlan_cm_is_bssid_present_on_any_assoc_link(struct wlan_objmgr_vdev *vdev,
+					   struct qdf_mac_addr *target_bssid)
+{
+	return false;
+}
+#endif
 
 void wlan_cm_roam_reject_reassoc_event(struct wlan_objmgr_pdev *pdev,
 				       struct wlan_objmgr_vdev *vdev,
@@ -6182,3 +6191,30 @@ uint32_t cm_roam_get_roam_score_algo(struct wlan_objmgr_psoc *psoc)
 
 	return score_config->vendor_roam_score_algorithm;
 }
+
+#ifdef WLAN_FEATURE_11BE_MLO
+void cm_delete_crypto_keys_for_all_links(struct wlan_objmgr_vdev *vdev)
+{
+	struct wlan_mlo_dev_context *ml_dev;
+	struct mlo_link_info *link_info;
+	uint8_t i;
+
+	ml_dev = vdev->mlo_dev_ctx;
+	if (!ml_dev || !ml_dev->link_ctx)
+		return;
+
+	link_info = &ml_dev->link_ctx->links_info[0];
+	for (i = 0; i < WLAN_MAX_ML_BSS_LINKS; i++) {
+		if (qdf_is_macaddr_zero(&link_info->ap_link_addr))
+			continue;
+
+		if (qdf_is_macaddr_zero(&link_info->link_addr))
+			continue;
+
+		wlan_crypto_free_key_by_link_id(wlan_vdev_get_psoc(vdev),
+						&link_info->link_addr,
+						link_info->link_id);
+		link_info++;
+	}
+}
+#endif

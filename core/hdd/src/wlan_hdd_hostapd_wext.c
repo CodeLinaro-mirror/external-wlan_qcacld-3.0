@@ -83,10 +83,9 @@ static int hdd_sap_get_chan_width(struct hdd_adapter *adapter, int *value)
 	return 0;
 }
 
-int
-static __iw_softap_get_ini_cfg(struct net_device *dev,
-			       struct iw_request_info *info,
-			       union iwreq_data *wrqu, char *extra)
+static int __iw_softap_get_ini_cfg(struct net_device *dev,
+				   struct iw_request_info *info,
+				   union iwreq_data *wrqu, char *extra)
 {
 	struct hdd_adapter *adapter = WLAN_HDD_GET_PRIV_PTR(dev);
 	struct hdd_context *hdd_ctx;

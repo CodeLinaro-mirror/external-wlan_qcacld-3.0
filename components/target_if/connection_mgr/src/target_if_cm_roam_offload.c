@@ -1461,7 +1461,7 @@ target_if_cm_roam_send_time_sync_cmd(wmi_unified_t wmi_handle)
 	return wmi_send_time_stamp_sync_cmd_tlv(wmi_handle);
 }
 
-#ifdef WLAN_FEATURE_11BE
+#if (defined WLAN_FEATURE_11BE) && (defined WLAN_FEATURE_ROAM_OFFLOAD)
 static QDF_STATUS
 target_if_cm_roam_oem_eht_mlo_bitmap(struct wlan_objmgr_vdev *vdev)
 {

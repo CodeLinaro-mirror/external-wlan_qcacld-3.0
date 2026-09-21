@@ -112,8 +112,6 @@ wlan_roam_update_cfg(struct wlan_objmgr_psoc *psoc, uint8_t vdev_id,
  */
 void wlan_cm_send_beacon_miss(uint8_t vdev_id, int32_t rssi);
 
-void cm_update_ext_cap_ie_at_source(struct wlan_objmgr_psoc *psoc,
-				    struct element_info *assoc_ie);
 #else
 static inline
 QDF_STATUS wlan_cm_roam_send_rso_cmd(struct wlan_objmgr_psoc *psoc,
@@ -151,7 +149,12 @@ wlan_cm_enable_roaming_on_connected_sta(struct wlan_objmgr_pdev *pdev,
 {
 	return QDF_STATUS_E_NOSUPPORT;
 }
+#endif
 
+#ifdef WLAN_FEATURE_ROAM_OFFLOAD
+void cm_update_ext_cap_ie_at_source(struct wlan_objmgr_psoc *psoc,
+				    struct element_info *assoc_ie);
+#else
 static inline
 void cm_update_ext_cap_ie_at_source(struct wlan_objmgr_psoc *psoc,
 				    struct element_info *assoc_ie)

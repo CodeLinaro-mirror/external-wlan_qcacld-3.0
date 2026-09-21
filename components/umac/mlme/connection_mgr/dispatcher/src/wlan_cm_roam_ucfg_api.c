@@ -788,7 +788,7 @@ ucfg_cm_get_empty_scan_refresh_period_global(struct wlan_objmgr_psoc *psoc,
 	return QDF_STATUS_SUCCESS;
 }
 
-#ifdef WLAN_FEATURE_11BE_MLO
+#ifdef WLAN_FEATURE_11BE
 void ucfg_cm_delete_crypto_keys_for_all_links(struct wlan_objmgr_vdev *vdev)
 {
 	cm_delete_crypto_keys_for_all_links(vdev);

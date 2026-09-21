@@ -199,7 +199,7 @@ cm_roam_reject_reassoc_event(struct wlan_objmgr_psoc *psoc,
 {
 }
 #endif /* WLAN_FEATURE_CONNECTIVITY_LOGGING */
-
+#ifdef WLAN_FEATURE_11BE_MLO
 /**
  * cm_is_bssid_present_on_any_assoc_link() - Check if bssid belongs to any
  * assoc link
@@ -210,6 +210,7 @@ cm_roam_reject_reassoc_event(struct wlan_objmgr_psoc *psoc,
  */
 bool cm_is_bssid_present_on_any_assoc_link(struct wlan_objmgr_vdev *vdev,
 					   struct qdf_mac_addr *bssid);
+#endif
 
 #if defined(WLAN_FEATURE_HOST_ROAM) || defined(WLAN_FEATURE_ROAM_OFFLOAD)
 
