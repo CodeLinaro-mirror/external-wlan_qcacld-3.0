@@ -69,6 +69,11 @@ ol_tx_queue_vdev_flush(struct ol_txrx_pdev_t *pdev, struct ol_txrx_vdev_t *vdev)
 	struct ol_txrx_peer_t *peer, *peers[PEER_ARRAY_COUNT];
 	int i, j, peer_count;
 
+#ifdef QCA_SUPPORT_TXRX_DRIVER_TCP_DEL_ACK
+	/* flush tcp del ack nodes */
+        ol_tx_hl_del_ack_queue_flush_all(vdev);
+#endif
+
 	ol_tx_hl_queue_flush_all(vdev);
 
 	/* flush VDEV TX queues */
