@@ -515,6 +515,8 @@ ol_tx_hl_base(
 			return msdu; /* the list of unaccepted MSDUs */
 		}
 
+		TXRX_STATS_MSDU_INCR(pdev, tx.from_stack, msdu);
+
 		/* OL_TXRX_PROT_AN_LOG(pdev->prot_an_tx_sent, msdu);*/
 
 		qdf_dp_trace_log_pkt(vdev->vdev_id, msdu, QDF_TX,
