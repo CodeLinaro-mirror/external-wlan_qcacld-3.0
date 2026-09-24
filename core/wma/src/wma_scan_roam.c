@@ -2769,6 +2769,10 @@ static void wma_handle_roam_reason_bmiss(uint8_t vdev_id, uint32_t rssi)
 		QDF_ASSERT(0);
 		return;
 	}
+	if (mlme_get_roam_reason_invalid_lfr2(wma_handle->interfaces[vdev_id].vdev)) {
+               wma_debug("ignore bmiss for race condition of fw");
+	       return;
+	}
 	/*
 	 * WMI_ROAM_REASON_BMISS can get called in soft IRQ context, so
 	 * avoid using CSR/PE structure directly
@@ -2787,6 +2791,10 @@ static void wma_handle_roam_reason_better_ap(uint8_t vdev_id, uint32_t rssi)
 		QDF_ASSERT(0);
 		return;
 	}
+	if (mlme_get_roam_reason_invalid_lfr2(wma_handle->interfaces[vdev_id].vdev)) {
+		wma_debug("ignore better ap for race condition of fw");
+		return;
+	}
 	/*
 	 * WMI_ROAM_REASON_BETTER_AP can get called in soft IRQ context,
 	 * so avoid using CSR/PE structure directly.
@@ -2803,6 +2811,10 @@ static void wma_handle_roam_reason_suitable_ap(uint8_t vdev_id, uint32_t rssi)
 
 	if (!wma_handle) {
 		QDF_ASSERT(0);
+		return;
+	}
+	if (mlme_get_roam_reason_invalid_lfr2(wma_handle->interfaces[vdev_id].vdev)) {
+		wma_debug("ignore suitable ap for race condition of fw");
 		return;
 	}
 	/*
@@ -2826,6 +2838,8 @@ static void wma_handle_host_roam(uint8_t vdev_id, uint32_t notify,
 		QDF_ASSERT(0);
 		return;
 	}
+	mlme_set_roam_reason_invalid_lfr2(wma_handle->interfaces[vdev_id].vdev,
+					  true);
 	if (notify == ROAM_NOTIFY_PARAMS_BMISS) {
 		mlme_set_roam_reason_invalid_bmiss(wma_handle->interfaces[vdev_id].vdev,
 					  true);

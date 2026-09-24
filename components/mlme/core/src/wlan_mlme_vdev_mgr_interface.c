@@ -1092,11 +1092,46 @@ bool mlme_get_roam_reason_invalid_bmiss(struct wlan_objmgr_vdev *vdev)
 
 	return mlme_priv->roam_reason_invalid_bmiss;
 }
+
+QDF_STATUS
+mlme_set_roam_reason_invalid_lfr2(struct wlan_objmgr_vdev *vdev, bool val)
+{
+	struct mlme_legacy_priv *mlme_priv;
+
+	mlme_priv = wlan_vdev_mlme_get_ext_hdl(vdev);
+	if (!mlme_priv) {
+		mlme_legacy_err("vdev legacy private object is NULL");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	mlme_priv->roam_reason_invalid_lfr2 = val;
+
+	return QDF_STATUS_SUCCESS;
+}
+
+bool mlme_get_roam_reason_invalid_lfr2(struct wlan_objmgr_vdev *vdev)
+{
+	struct mlme_legacy_priv *mlme_priv;
+
+	mlme_priv = wlan_vdev_mlme_get_ext_hdl(vdev);
+	if (!mlme_priv) {
+		mlme_legacy_err("vdev legacy private object is NULL");
+		return false;
+	}
+
+	return mlme_priv->roam_reason_invalid_lfr2;
+}
+
 #else
 bool mlme_get_roam_reason_invalid_bmiss(struct wlan_objmgr_vdev *vdev)
 {
 	return false;
 }
+bool mlme_get_roam_reason_invalid_lfr2(struct wlan_objmgr_vdev *vdev)
+{
+	return false;
+}
+
 #endif
 
 bool mlme_get_roam_reason_better_ap(struct wlan_objmgr_vdev *vdev)

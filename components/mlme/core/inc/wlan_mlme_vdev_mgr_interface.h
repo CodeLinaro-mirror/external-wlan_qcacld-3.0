@@ -278,6 +278,23 @@ mlme_set_roam_reason_invalid_bmiss(struct wlan_objmgr_vdev *vdev, bool val);
  */
 bool mlme_get_roam_reason_invalid_bmiss(struct wlan_objmgr_vdev *vdev);
 
+/**
+ * mlme_set_roam_reason_invalid_lfr2() - set roam new LFR2 flag
+ * @vdev: vdev pointer
+ * @val: new lfr2 or not
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+mlme_set_roam_reason_invalid_lfr2(struct wlan_objmgr_vdev *vdev, bool val);
+
+/**
+ * mlme_get_roam_reason_invalid_lfr2() - check if  new lfr2
+ * @vdev: vdev pointer
+ *
+ * Return: bool
+ */
+bool mlme_get_roam_reason_invalid_lfr2(struct wlan_objmgr_vdev *vdev);
 
 /**
  * mlme_set_hb_ap_rssi() - set hb ap RSSI

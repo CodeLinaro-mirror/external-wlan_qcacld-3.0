@@ -98,7 +98,8 @@ void cm_preauth_fail(struct cnx_mgr *cm_ctx,
 	if (!cm_req)
 		return;
 
-	if (cm_get_state(cm_ctx) == WLAN_CM_S_CONNECTED)
+	if (cm_get_state(cm_ctx) == WLAN_CM_S_CONNECTED &&
+	    !mlme_get_roam_reason_invalid_lfr2(cm_ctx->vdev))
 		cm_mlme_roam_preauth_fail(cm_ctx->vdev, &cm_req->roam_req.req,
 					  preauth_fail_rsp->reason);
 

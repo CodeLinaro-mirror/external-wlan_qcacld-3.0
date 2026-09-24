@@ -811,6 +811,8 @@ struct enhance_roam_info {
  * @sae_retry: SAE auth retry information
  * @roam_reason_better_ap: roam due to better AP found
  * @roam_reason_invalid_bmiss: roam reason of invalid with notif_param
+ * @roam_reason_invalid_lfr2: new lfr2 design to avoid
+ *  bmiss/better_ap/suitable_ap
  * @hb_failure_rssi: heartbeat failure AP RSSI
  * @opr_rate_set: operational rates set
  * @ext_opr_rate_set: extended operational rates set
@@ -885,6 +887,7 @@ struct mlme_legacy_priv {
 	struct sae_auth_retry sae_retry;
 	bool roam_reason_better_ap;
 	bool roam_reason_invalid_bmiss;
+	bool roam_reason_invalid_lfr2;
 	uint32_t hb_failure_rssi;
 	struct mlme_cfg_str opr_rate_set;
 	struct mlme_cfg_str ext_opr_rate_set;
