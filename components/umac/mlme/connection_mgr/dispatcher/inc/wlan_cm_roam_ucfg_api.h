@@ -896,7 +896,7 @@ ucfg_cm_is_sae_auth_addr_conversion_required(struct wlan_objmgr_vdev *vdev)
 }
 #endif
 
-#if defined(WLAN_FEATURE_ROAM_OFFLOAD) && defined(WLAN_FEATURE_11BE_MLO)
+#ifdef WLAN_FEATURE_11BE_MLO
 /**
  * ucfg_cm_roaming_get_peer_mld_addr() - this api is wrapper for
  * "wlan_cm_roaming_get_peer_mld_addr" function.

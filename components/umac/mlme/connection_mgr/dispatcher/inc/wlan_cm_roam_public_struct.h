@@ -666,7 +666,7 @@ struct rso_config {
 	int32_t lost_link_rssi;
 	struct roam_synch_frame_ind roam_sync_frame_ind;
 	uint32_t roam_band_bitmask;
-#if defined(WLAN_FEATURE_11BE_MLO) && defined(WLAN_FEATURE_ROAM_OFFLOAD)
+#ifdef WLAN_FEATURE_11BE_MLO
 	struct sae_roam_auth_map sae_roam_auth;
 #endif
 	enum wlan_cm_source roam_invoke_source;

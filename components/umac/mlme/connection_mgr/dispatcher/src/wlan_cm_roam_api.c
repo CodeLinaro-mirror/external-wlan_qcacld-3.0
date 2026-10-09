@@ -6013,9 +6013,39 @@ bool wlan_cm_is_sae_auth_addr_conversion_required(struct wlan_objmgr_vdev *vdev)
 
 	return true;
 }
-#endif /* WLAN_FEATURE_11BE_MLO */
 
-#if defined(WLAN_FEATURE_ROAM_OFFLOAD) && defined(WLAN_FEATURE_11BE_MLO)
+struct qdf_mac_addr *
+wlan_cm_roaming_get_peer_mld_addr(struct wlan_objmgr_vdev *vdev)
+{
+	struct rso_config *rso_config;
+
+	rso_config = wlan_cm_get_rso_config(vdev);
+	if (!rso_config)
+		return NULL;
+
+	if (qdf_is_macaddr_zero(&rso_config->sae_roam_auth.peer_mldaddr))
+		return NULL;
+
+	return &rso_config->sae_roam_auth.peer_mldaddr;
+}
+
+struct qdf_mac_addr *
+wlan_cm_roaming_get_peer_link_addr(struct wlan_objmgr_vdev *vdev)
+{
+	struct rso_config *rso_config;
+
+	rso_config = wlan_cm_get_rso_config(vdev);
+	if (!rso_config)
+		return NULL;
+
+	if (qdf_is_macaddr_zero(&rso_config->sae_roam_auth.peer_linkaddr))
+		return NULL;
+
+	return &rso_config->sae_roam_auth.peer_linkaddr;
+}
+#endif
+
+#if defined(WLAN_FEATURE_11BE_MLO) && defined(WLAN_FEATURE_ROAM_OFFLOAD)
 /**
  * wlan_cm_reset_mlo_roam_peer_address() - this API reset the sae_roam_auth
  * structure values to zero.
@@ -6090,36 +6120,6 @@ rel_ref:
 	wlan_objmgr_vdev_release_ref(vdev, WLAN_LEGACY_MAC_ID);
 }
 
-struct qdf_mac_addr *
-wlan_cm_roaming_get_peer_mld_addr(struct wlan_objmgr_vdev *vdev)
-{
-	struct rso_config *rso_config;
-
-	rso_config = wlan_cm_get_rso_config(vdev);
-	if (!rso_config)
-		return NULL;
-
-	if (qdf_is_macaddr_zero(&rso_config->sae_roam_auth.peer_mldaddr))
-		return NULL;
-
-	return &rso_config->sae_roam_auth.peer_mldaddr;
-}
-
-struct qdf_mac_addr *
-wlan_cm_roaming_get_peer_link_addr(struct wlan_objmgr_vdev *vdev)
-{
-	struct rso_config *rso_config;
-
-	rso_config = wlan_cm_get_rso_config(vdev);
-	if (!rso_config)
-		return NULL;
-
-	if (qdf_is_macaddr_zero(&rso_config->sae_roam_auth.peer_linkaddr))
-		return NULL;
-
-	return &rso_config->sae_roam_auth.peer_linkaddr;
-}
-
 bool wlan_cm_roam_is_mlo_ap(struct wlan_objmgr_vdev *vdev)
 {
 	struct rso_config *rso_config;
@@ -6144,8 +6144,9 @@ wlan_cm_add_all_link_probe_rsp_to_scan_db(struct wlan_objmgr_psoc *psoc,
 {
 	return mlo_add_all_link_probe_rsp_to_scan_db(psoc, candidate);
 }
+#endif /* WLAN_FEATURE_11BE_MLO */
 
-#elif defined(WLAN_FEATURE_ROAM_OFFLOAD) /* end WLAN_FEATURE_11BE_MLO */
+#ifdef WLAN_FEATURE_ROAM_OFFLOAD
 QDF_STATUS
 cm_roam_candidate_event_handler(struct wlan_objmgr_psoc *psoc,
 				struct roam_scan_candidate_frame *candidate)

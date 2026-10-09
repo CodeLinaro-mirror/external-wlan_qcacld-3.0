@@ -629,7 +629,6 @@ static void lim_get_sta_mld_address(struct wlan_objmgr_vdev *vdev,
 	util_get_bvmlie_mldmacaddr(ml_ie, ml_ie_total_len, peer_mld);
 }
 
-#ifdef WLAN_FEATURE_ROAM_OFFLOAD
 /**
  * lim_update_link_to_mld_address:This API is called to update SA and DA address
  * @mac_ctx: Pointer to mac context
@@ -700,14 +699,6 @@ static QDF_STATUS lim_update_link_to_mld_address(struct mac_context *mac_ctx,
 
 	return QDF_STATUS_SUCCESS;
 }
-#else
-static QDF_STATUS lim_update_link_to_mld_address(struct mac_context *mac_ctx,
-                                                 struct wlan_objmgr_vdev *vdev,
-                                                 tpSirMacMgmtHdr mac_hdr)
-{
-	return QDF_STATUS_SUCCESS;
-}
-#endif /* WLAN_FEATURE_ROAM_OFFLOAD */
 
 #else
 static void lim_get_sta_mld_address(struct wlan_objmgr_vdev *vdev,
