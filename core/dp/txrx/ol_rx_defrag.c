@@ -60,6 +60,7 @@
 #include <enet.h>
 #include <qdf_time.h>           /* qdf_system_time */
 #include <wlan_pkt_capture_ucfg_api.h>
+#include <htt_internal.h>       /* DP_RX_EXTRA_OFFSET */
 
 #define DEFRAG_IEEE80211_ADDR_EQ(a1, a2) \
 	(!qdf_mem_cmp(a1, a2, QDF_MAC_ADDR_SIZE))
@@ -1374,11 +1375,22 @@ void ol_rx_defrag_nwifi_to_8023(ol_txrx_pdev_handle pdev, qdf_nbuf_t msdu)
 	/*
 	 * Now move the data pointer to the beginning of the mac header :
 	 * new-header = old-hdr + (wifhdrsize + llchdrsize - ethhdrsize)
+	 *
+	 * On high-latency SDIO platforms DP_RX_EXTRA_OFFSET is 2: the target
+	 * places a 2 byte front padding before the ethernet header on
+	 * non-fragmented frames, and ol_rx_deliver() later pulls
+	 * rx_desc_len + DP_RX_EXTRA_OFFSET to land at the ethernet header.
+	 * Leave the same gap in the reassembled frame so the final pull
+	 * does not consume the first 2 bytes of the ethernet header.  On
+	 * other platforms DP_RX_EXTRA_OFFSET is 0 and the formula is
+	 * unchanged.
 	 */
 	qdf_nbuf_pull_head(msdu, (rx_desc_len + hdrsize +
 				  sizeof(struct llc_snap_hdr_t) -
-				  sizeof(struct ethernet_hdr_t)));
-	eth_hdr = (struct ethernet_hdr_t *)(qdf_nbuf_data(msdu));
+				  sizeof(struct ethernet_hdr_t) -
+				  DP_RX_EXTRA_OFFSET));
+	eth_hdr = (struct ethernet_hdr_t *)(qdf_nbuf_data(msdu) +
+					    DP_RX_EXTRA_OFFSET);
 	switch (wh.i_fc[1] & IEEE80211_FC1_DIR_MASK) {
 	case IEEE80211_FC1_DIR_NODS:
 		qdf_mem_copy(eth_hdr->dest_addr, wh.i_addr1,
