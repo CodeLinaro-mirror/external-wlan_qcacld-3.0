@@ -2348,13 +2348,6 @@ void ol_txrx_flush_rx_frames(struct ol_txrx_peer_t *peer,
 	QDF_STATUS ret;
 	ol_txrx_rx_fp data_rx = NULL;
 
-	/*
-	 * Flush cached frames only for mld peers and legacy peers, as
-	 * link peers don't store cached frames
-	 */
-	if (IS_MLO_OL_TXRX_LINK_PEER(peer))
-		return;
-
 	if (qdf_atomic_inc_return(&peer->flush_in_progress) > 1) {
 		qdf_atomic_dec(&peer->flush_in_progress);
 		return;
@@ -3500,9 +3493,6 @@ int ol_txrx_peer_release_ref(ol_txrx_peer_handle peer,
 		/* cleanup the Rx reorder queues for this peer */
 		ol_rx_peer_cleanup(vdev, peer);
 
-		/* destroy peer rx tids */
-		ol_peer_rx_tids_destroy(peer);
-
 		qdf_spinlock_destroy(&peer->peer_info_lock);
 		qdf_spinlock_destroy(&peer->bufq_info.bufq_lock);
 
@@ -3570,6 +3560,16 @@ int ol_txrx_peer_release_ref(ol_txrx_peer_handle peer,
 		} else {
 			qdf_spin_unlock_bh(&pdev->peer_ref_mutex);
 		}
+
+		/*
+		 * release ref on mld_peer taken when this link peer was
+		 * attached to it (ol_txrx_link_peer_add_mld_peer). Must run
+		 * after peer_ref_mutex is released above: mld_peer release
+		 * re-enters ol_txrx_peer_release_ref() and takes the same
+		 * pdev-wide, non-recursive lock.
+		 */
+		if (IS_MLO_OL_TXRX_LINK_PEER(peer))
+			ol_txrx_link_peer_del_mld_peer(peer);
 
 		del_rc = qdf_atomic_read(&peer->del_ref_cnt);
 

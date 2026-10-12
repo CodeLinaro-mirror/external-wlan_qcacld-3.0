@@ -1543,8 +1543,8 @@ void ol_peer_rx_tids_destroy(struct ol_txrx_peer_t *peer)
 {
 	if (!IS_MLO_OL_TXRX_LINK_PEER(peer) && peer->rx_tid) {
 		qdf_mem_free(peer->rx_tid);
-		peer->rx_tid = NULL;
 	}
+	peer->rx_tid = NULL;
 }
 
 /**
@@ -1603,6 +1603,11 @@ ol_rx_peer_cleanup(struct ol_txrx_vdev_t *vdev, struct ol_txrx_peer_t *peer)
 	peer->last_disassoc_rcvd = 0;
 	peer->last_deauth_rcvd = 0;
 	ol_rx_reorder_peer_cleanup(vdev, peer);
+
+	ol_peer_rx_tids_destroy(peer);
+
+	if (IS_MLO_OL_TXRX_MLD_PEER(peer))
+		ol_txrx_mld_peer_deinit_link_peers_info(peer);
 }
 
 /*
