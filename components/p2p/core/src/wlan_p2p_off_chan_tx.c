@@ -1200,6 +1200,43 @@ p2p_mgmt_set_hw_retry_count(struct wlan_objmgr_psoc *psoc,
 		mgmt_param->tx_params_valid = true;
 }
 
+/* Legacy mcs_mask: bits 0-3 are CCK rates, bit 4 onwards are OFDM rates */
+#define P2P_MGMT_TX_MCS_MASK_6M BIT(WMI_MAX_OFDM_TX_RATE_6M + 4)
+
+/**
+ * p2p_mgmt_set_tx_rate() - Set 6 Mbps OFDM rate for no_cck mgmt frame
+ * @vdev:          vdev object
+ * @tx_ctx:        tx context
+ * @mgmt_param:    mgmt frame tx parameter
+ *
+ * Only needed on 2.4 GHz, since FW never uses CCK rate on 5/6 GHz.
+ * Retry limits set by p2p_mgmt_set_hw_retry_count() are retained.
+ *
+ * Return: void
+ */
+static void
+p2p_mgmt_set_tx_rate(struct wlan_objmgr_vdev *vdev,
+		     struct tx_action_context *tx_ctx,
+		     struct wmi_mgmt_params *mgmt_param)
+{
+	qdf_freq_t freq = tx_ctx->chan_freq;
+
+	if (!tx_ctx->no_cck)
+		return;
+
+	if (!freq)
+		freq = wlan_get_operation_chan_freq(vdev);
+	if (!wlan_reg_is_24ghz_ch_freq(freq))
+		return;
+
+	mgmt_param->tx_param.mcs_mask = P2P_MGMT_TX_MCS_MASK_6M;
+	mgmt_param->tx_param.nss_mask = BIT(0);
+	mgmt_param->tx_param.preamble_type = BIT(WMI_HOST_PREAMBLE_OFDM);
+	/* FW sends frame with tx_params_valid as RAW on non-pause tid */
+	mgmt_param->tx_params_valid = true;
+	mgmt_param->use_6mbps = true;
+}
+
 /**
  * p2p_mgmt_tx() - call mgmt tx api
  * @tx_ctx:        tx context
@@ -1251,6 +1288,7 @@ static QDF_STATUS p2p_mgmt_tx(struct tx_action_context *tx_ctx,
 		return QDF_STATUS_E_INVAL;
 	}
 
+	p2p_mgmt_set_tx_rate(vdev, tx_ctx, &mgmt_param);
 	mlo_link_agnostic = wlan_get_mlo_link_agnostic_flag(vdev, mac_addr);
 
 	peer = wlan_objmgr_get_peer(psoc, pdev_id,  mac_addr, WLAN_P2P_ID);
@@ -1291,12 +1329,14 @@ static QDF_STATUS p2p_mgmt_tx(struct tx_action_context *tx_ctx,
 		tx_ota_comp_cb = tgt_p2p_mgmt_ota_comp_cb;
 	}
 
-	p2p_debug("length:%d, chanfreq:%d retry count:%d(%d, %d)",
+	p2p_debug("length:%d, chanfreq:%d retry count:%d(%d, %d) no_cck:%d tx_params_valid:%d mcs_mask:0x%x",
 		  mgmt_param.frm_len, mgmt_param.chanfreq,
 		  (mgmt_param.tx_param.retry_limit_ext << 4) |
 		  mgmt_param.tx_param.retry_limit,
 		  mgmt_param.tx_param.retry_limit,
-		  mgmt_param.tx_param.retry_limit_ext);
+		  mgmt_param.tx_param.retry_limit_ext,
+		  tx_ctx->no_cck, mgmt_param.tx_params_valid,
+		  mgmt_param.tx_param.mcs_mask);
 
 	tx_ctx->nbuf = packet;
 
