@@ -2850,7 +2850,8 @@ static void wma_handle_host_roam(uint8_t vdev_id, uint32_t notify,
 					  false);
 		wma_debug("low rssi for vdevid %x", vdev_id);
 	} else {
-		wma_debug("unsupport roam for LFR2 %d", notify);
+		wma_debug("unsupport roam type: %d for cologne LFR2", notify);
+		return;
 	}
 	wma_roam_better_ap_handler(wma_handle, vdev_id);
 }

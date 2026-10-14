@@ -48,6 +48,49 @@
 #include "wma_types.h"
 #include "wlan_utility.h"
 
+#define LIM_OWE_DH_OUI_TYPE      "\x20"
+#define LIM_OWE_DH_OUI_TYPE_SIZE (1)
+
+/**
+ * lim_get_owe_dh_ie() - Get the OWE DH Parameter element from assoc IEs
+ * @add_ie: additional IEs given at connect time
+ * @add_ie_len: length of @add_ie
+ * @dh_ie_len: [out] length of the DH IE including the 2 byte header
+ *
+ * dot11f ReAssocRequest has no DH Parameter element, so the one that was
+ * sent in the Assoc Request is copied into the Reassoc Request as raw bytes.
+ *
+ * Return: pointer to the DH IE inside @add_ie, NULL if not present/invalid
+ */
+static const uint8_t *lim_get_owe_dh_ie(const uint8_t *add_ie,
+					uint16_t add_ie_len,
+					uint16_t *dh_ie_len)
+{
+	const uint8_t *dh_ie;
+	uint16_t len;
+
+	*dh_ie_len = 0;
+	if (!add_ie || !add_ie_len)
+		return NULL;
+
+	dh_ie = wlan_get_ext_ie_ptr_from_ext_id(LIM_OWE_DH_OUI_TYPE,
+						LIM_OWE_DH_OUI_TYPE_SIZE,
+						add_ie, add_ie_len);
+	if (!dh_ie)
+		return NULL;
+
+	len = dh_ie[1] + 2;
+	if (dh_ie[1] < DOT11F_IE_DH_PARAMETER_ELEMENT_MIN_LEN ||
+	    dh_ie[1] > DOT11F_IE_DH_PARAMETER_ELEMENT_MAX_LEN ||
+	    (dh_ie + len) > (add_ie + add_ie_len)) {
+		pe_err("Invalid DH IE len %d", len);
+		return NULL;
+	}
+
+	*dh_ie_len = len;
+	return dh_ie;
+}
+
 /**
  * lim_send_reassoc_req_with_ft_ies_mgmt_frame() - Send Reassoc Req with FTIEs.
  *
@@ -92,6 +135,8 @@ void lim_send_reassoc_req_with_ft_ies_mgmt_frame(struct mac_context *mac_ctx,
 	uint8_t *bcn_ie = NULL;
 	uint32_t bcn_ie_len = 0;
 	uint8_t *p_ext_cap = NULL;
+	const uint8_t *dh_ie = NULL;
+	uint16_t dh_ie_len = 0;
 
 	if (!pe_session)
 		return;
@@ -410,6 +455,9 @@ void lim_send_reassoc_req_with_ft_ies_mgmt_frame(struct mac_context *mac_ctx,
 		populate_dot11f_eht_caps(mac_ctx, pe_session, &frm->eht_cap);
 	}
 
+	/* OWE: carry the DH IE sent in the Assoc Request over to Reassoc Req */
+	dh_ie = lim_get_owe_dh_ie(add_ie, add_ie_len, &dh_ie_len);
+
 	status = dot11f_get_packed_re_assoc_request_size(mac_ctx, frm,
 			&payload);
 	if (DOT11F_FAILED(status)) {
@@ -428,7 +476,8 @@ void lim_send_reassoc_req_with_ft_ies_mgmt_frame(struct mac_context *mac_ctx,
 	if (pe_session->is11Rconnection)
 		ft_ies_length = mlme_priv->connect_info.ft_info.reassoc_ie_len;
 
-	qdf_status = cds_packet_alloc((uint16_t) bytes + ft_ies_length,
+	qdf_status = cds_packet_alloc((uint16_t)(bytes + ft_ies_length +
+						 dh_ie_len),
 				 (void **)&frame, (void **)&packet);
 	if (!QDF_IS_STATUS_SUCCESS(qdf_status)) {
 		pe_session->limMlmState = pe_session->limPrevMlmState;
@@ -439,7 +488,7 @@ void lim_send_reassoc_req_with_ft_ies_mgmt_frame(struct mac_context *mac_ctx,
 		goto end;
 	}
 	/* Paranoia: */
-	qdf_mem_zero(frame, bytes + ft_ies_length);
+	qdf_mem_zero(frame, bytes + ft_ies_length + dh_ie_len);
 
 	pe_debug("BSSID: "QDF_MAC_ADDR_FMT,
 		 QDF_MAC_ADDR_REF(pe_session->limReAssocbssId));
@@ -477,9 +526,16 @@ void lim_send_reassoc_req_with_ft_ies_mgmt_frame(struct mac_context *mac_ctx,
 		}
 		payload += ft_ies_length;
 	}
+
+	if (dh_ie && dh_ie_len) {
+		pe_debug("Append OWE DH IE to Re-assoc Req, len %d", dh_ie_len);
+		qdf_mem_copy(frame + bytes + ft_ies_length, dh_ie, dh_ie_len);
+		payload += dh_ie_len;
+	}
 	pe_debug("Re-assoc Req Frame is:");
 	QDF_TRACE_HEX_DUMP(QDF_MODULE_ID_PE, QDF_TRACE_LEVEL_DEBUG,
-			   (uint8_t *) frame, (bytes + ft_ies_length));
+			   (uint8_t *) frame,
+			   (bytes + ft_ies_length + dh_ie_len));
 
 	if ((pe_session->ftPEContext.pFTPreAuthReq) &&
 	    (!wlan_reg_is_24ghz_ch_freq(
@@ -514,7 +570,7 @@ void lim_send_reassoc_req_with_ft_ies_mgmt_frame(struct mac_context *mac_ctx,
 	lim_diag_mgmt_tx_event_report(mac_ctx, mac_hdr,
 				      pe_session, QDF_STATUS_SUCCESS, QDF_STATUS_SUCCESS);
 	qdf_status = wma_tx_frame(mac_ctx, packet,
-				(uint16_t) (bytes + ft_ies_length),
+				(uint16_t)(bytes + ft_ies_length + dh_ie_len),
 				TXRX_FRM_802_11_MGMT, ANI_TXDIR_TODS, 7,
 				lim_tx_complete, frame, tx_flag, vdev_id,
 				0, RATEID_DEFAULT, 0);
@@ -634,6 +690,8 @@ void lim_send_reassoc_req_mgmt_frame(struct mac_context *mac,
 	uint32_t bcn_ie_len = 0;
 	uint8_t *p_ext_cap = NULL;
 	enum rateid min_rid = RATEID_DEFAULT;
+	const uint8_t *dh_ie = NULL;
+	uint16_t dh_ie_len = 0;
 
 	if (!pe_session)
 		return;
@@ -865,10 +923,13 @@ void lim_send_reassoc_req_mgmt_frame(struct mac_context *mac,
 		pe_err("warning for size:ReAssoc Req: (0x%08x)", nStatus);
 	}
 
+	/* OWE: carry the DH IE sent in the Assoc Request over to Reassoc Req */
+	dh_ie = lim_get_owe_dh_ie(pAddIE, nAddIELen, &dh_ie_len);
+
 	nBytes = nPayload + sizeof(tSirMacMgmtHdr);
 
-	qdf_status = cds_packet_alloc((uint16_t) nBytes, (void **)&pFrame,
-				      (void **)&pPacket);
+	qdf_status = cds_packet_alloc((uint16_t)(nBytes + dh_ie_len),
+				      (void **)&pFrame, (void **)&pPacket);
 	if (!QDF_IS_STATUS_SUCCESS(qdf_status)) {
 		pe_session->limMlmState = pe_session->limPrevMlmState;
 		MTRACE(qdf_trace(QDF_MODULE_ID_PE, TRACE_CODE_MLM_STATE,
@@ -879,7 +940,7 @@ void lim_send_reassoc_req_mgmt_frame(struct mac_context *mac,
 		goto end;
 	}
 	/* Paranoia: */
-	qdf_mem_zero(pFrame, nBytes);
+	qdf_mem_zero(pFrame, nBytes + dh_ie_len);
 
 	/* Next, we fill out the buffer descriptor: */
 	lim_populate_mac_header(mac, pFrame, WLAN_FC0_TYPE_MGMT,
@@ -901,6 +962,12 @@ void lim_send_reassoc_req_mgmt_frame(struct mac_context *mac,
 		pe_warn("warning packing a Re-AssocReq: (0x%08x)", nStatus);
 	}
 
+	if (dh_ie && dh_ie_len) {
+		pe_debug("Append OWE DH IE to Re-assoc Req, len %d", dh_ie_len);
+		qdf_mem_copy(pFrame + sizeof(tSirMacMgmtHdr) + nPayload,
+			     dh_ie, dh_ie_len);
+		nPayload += dh_ie_len;
+	}
 	lim_cp_stats_cstats_log_assoc_req_evt(pe_session, CSTATS_DIR_TX,
 					      pMacHdr->bssId, pMacHdr->sa,
 					      frm->SSID.num_ssid,
