@@ -133,6 +133,26 @@ uint8_t ol_txrx_mld_peer_del_link_peer(struct ol_txrx_peer_t *mld_peer,
 				       struct ol_txrx_peer_t *link_peer);
 
 /**
+ * ol_txrx_get_primary_link_peer_by_mld_addr() - Resolve MLD MAC to primary
+ *     link peer. Mirrors dp_get_primary_link_peer_by_id() in wifi3.0.
+ *
+ * Looks up the MLD peer by @mld_mac_addr, snapshots its link_peers[] array,
+ * then reverse-looks-up each valid slot in the link peer hash and returns
+ * the one with ol_txrx_peer_t.primary_link == 1. Caller must release the
+ * returned peer's reference.
+ *
+ * @pdev: ol txrx pdev handle
+ * @mld_mac_addr: MLD MAC address of the destination
+ * @dbg_id: id of module requesting reference
+ *
+ * Return: primary link peer with ref held, or NULL if not found.
+ */
+struct ol_txrx_peer_t *ol_txrx_get_primary_link_peer_by_mld_addr(
+	struct ol_txrx_pdev_t *pdev,
+	uint8_t *mld_mac_addr,
+	enum peer_debug_id_type dbg_id);
+
+/**
  * ol_txrx_get_tgt_peer_from_peer() - Get target peer from the given peer
  * @peer: datapath peer
  *

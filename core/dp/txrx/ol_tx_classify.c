@@ -27,6 +27,7 @@
 #include <ol_tx_desc.h>       /* ol_tx_desc */
 #include <ol_tx_send.h>       /* ol_tx_send */
 #include <ol_txrx_peer_find.h>
+#include <ol_txrx_peer.h>
 #include <ol_tx_classify.h>
 #include <ol_tx_queue.h>
 #include <ipv4.h>
@@ -547,6 +548,19 @@ ol_tx_classify(
 		} else {
 			peer = ol_txrx_peer_find_hash_find(pdev, dest_addr,
 				0, 1, CDP_VDEV_ALL, PEER_DEBUG_ID_OL_INTERNAL);
+#ifdef WLAN_FEATURE_11BE_MLO
+			/*
+			 * SAP MLD: hostapd uses the STA's MLD MAC as DA in
+			 * EAPOL / unicast frames, but only link peers are
+			 * stored in pdev->peer_hash. Fall back through the
+			 * MLD peer hash and resolve to its primary link peer
+			 * (mirrors wifi3.0 dp_get_primary_link_peer_by_id()).
+			 */
+			if (!peer && vdev->opmode == wlan_op_mode_ap)
+				peer = ol_txrx_get_primary_link_peer_by_mld_addr(
+					pdev, dest_addr,
+					PEER_DEBUG_ID_OL_INTERNAL);
+#endif
 		}
 		tx_msdu_info->htt.info.is_unicast = true;
 		if (!peer) {

@@ -161,6 +161,66 @@ uint8_t ol_txrx_mld_peer_del_link_peer(struct ol_txrx_peer_t *mld_peer,
 
 	return num_links;
 }
+
+/**
+ * ol_txrx_get_primary_link_peer_by_mld_addr() - MLD MAC → primary link peer
+ *
+ * Mirrors wifi3.0 dp_get_primary_link_peer_by_id(). Snapshots the MLD
+ * peer's link_peers[] under its lock, then reverse-looks-up each MAC in
+ * the link peer hash to find the one with primary_link == 1.
+ */
+struct ol_txrx_peer_t *ol_txrx_get_primary_link_peer_by_mld_addr(
+	struct ol_txrx_pdev_t *pdev,
+	uint8_t *mld_mac_addr,
+	enum peer_debug_id_type dbg_id)
+{
+	struct ol_txrx_peer_t *mld_peer;
+	struct ol_txrx_peer_t *primary_link_peer = NULL;
+	struct ol_txrx_peer_t *first_valid_link_peer = NULL;
+	struct ol_txrx_peer_link_info snap[OL_TXRX_MAX_MLO_LINKS];
+	uint8_t num_snap = 0;
+	int i;
+
+	mld_peer = ol_txrx_mld_peer_find_hash_find(pdev, mld_mac_addr, 0, 1,
+						   CDP_VDEV_ALL, dbg_id);
+	if (!mld_peer) {
+		ol_txrx_dbg("no mld peer for " QDF_MAC_ADDR_FMT,
+			    QDF_MAC_ADDR_REF(mld_mac_addr));
+		return NULL;
+	}
+
+	qdf_spin_lock_bh(&mld_peer->link_peers_info_lock);
+	for (i = 0; i < OL_TXRX_MAX_MLO_LINKS; i++) {
+		if (mld_peer->link_peers[i].is_valid)
+			snap[num_snap++] = mld_peer->link_peers[i];
+	}
+	qdf_spin_unlock_bh(&mld_peer->link_peers_info_lock);
+
+	ol_txrx_peer_release_ref(mld_peer, dbg_id);
+
+	for (i = 0; i < num_snap; i++) {
+		struct ol_txrx_peer_t *link_peer =
+			ol_txrx_peer_find_hash_find(pdev, snap[i].mac_addr.raw,
+						    1, 1, CDP_VDEV_ALL, dbg_id);
+		if (!link_peer)
+			continue;
+		if (link_peer->primary_link) {
+			primary_link_peer = link_peer;
+			break;
+		}
+		if (!first_valid_link_peer)
+			first_valid_link_peer = link_peer;
+		else
+			ol_txrx_peer_release_ref(link_peer, dbg_id);
+	}
+
+	if (!primary_link_peer && first_valid_link_peer)
+		primary_link_peer = first_valid_link_peer;
+	else if (primary_link_peer && first_valid_link_peer)
+		ol_txrx_peer_release_ref(first_valid_link_peer, dbg_id);
+
+	return primary_link_peer;
+}
 #endif /* WLAN_FEATURE_11BE_MLO */
 
 /**
