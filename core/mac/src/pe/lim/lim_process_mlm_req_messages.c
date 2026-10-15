@@ -1823,6 +1823,40 @@ static void lim_handle_sae_auth_timeout(struct mac_context *mac_ctx,
 {
 	struct sae_auth_retry *sae_retry;
 	tpSirMacMgmtHdr mac_hdr;
+	tpSirFTPreAuthReq preauth_req;
+
+	/*
+	 * Host roam (LFR2) SAE preauth on a channel different from the
+	 * connected AP: the auth frame was sent while the preauth scan was on
+	 * the candidate channel. After the scan is done the vdev is back on
+	 * the home channel and a retry of the buffered frame can not be acked.
+	 * Handle it like FT preauth timeout: abort the preauth scan and report
+	 * the failure to CM. CM retries the preauth, which issues a new preauth
+	 * scan (firmware moves to the candidate channel) and then triggers SAE
+	 * auth again.
+	 */
+	preauth_req = session_entry->ftPEContext.pFTPreAuthReq;
+	if (preauth_req && session_entry->ftPEContext.ftPreAuthSession) {
+		pe_debug("SAE preauth timeout on diff freq %d, home freq %d vdev id %d, abort scan",
+			 preauth_req->pre_auth_channel_freq,
+			 session_entry->curr_op_freq, session_entry->vdev_id);
+
+		/* No more retry of the buffered sae auth frame */
+		lim_sae_auth_cleanup_retry(mac_ctx, session_entry->vdev_id);
+
+		if (preauth_req->bPreAuthRspProcessed)
+			return;
+		/* Drop late auth rsp from AP, same as FT preauth timeout */
+		preauth_req->bPreAuthRspProcessed = true;
+
+		/*
+		 * Abort the preauth scan and send the failure to CM, scan
+		 * complete will be no-op.
+		 */
+		lim_handle_ft_pre_auth_rsp(mac_ctx, QDF_STATUS_E_FAILURE, NULL,
+					   0, session_entry);
+		return;
+	}
 
 	sae_retry = mlme_get_sae_auth_retry(session_entry->vdev);
 	if (!(sae_retry && sae_retry->sae_auth.ptr)) {
@@ -1830,6 +1864,7 @@ static void lim_handle_sae_auth_timeout(struct mac_context *mac_ctx,
 			 session_entry->vdev_id);
 		return;
 	}
+
 
 	if (!sae_retry->sae_auth_max_retry) {
 		if (!wlan_cm_is_vdev_connecting(session_entry->vdev)) {
