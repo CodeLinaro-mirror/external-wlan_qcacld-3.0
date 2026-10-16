@@ -464,6 +464,27 @@
 		 WLAN_CFG_WMI_CREDIT_DEFAULT, \
 		 CFG_VALUE_OR_DEFAULT, "WMI HTC CREDIT COUNT")
 
+/*
+ * <ini>
+ * hl_tx_sched_no_htt_enable - Enable HL TX scheduling without HTT
+ * credit report
+ * @Min: 0
+ * @Max: 1
+ * @Default: 1
+ *
+ * Enable HL TX scheduling without HTT credit report. When disabled, driver
+ * keeps legacy HTT target credit initialization and TX download completion
+ * behavior.
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_DP_HL_TX_SCHED_NO_HTT_ENABLE \
+		CFG_INI_BOOL("hl_tx_sched_no_htt_enable", \
+			     1, \
+			     "Enable HL TX scheduling without HTT credit report")
+
 #ifdef QCA_LL_LEGACY_TX_FLOW_CONTROL
 #define CFG_HDD_DP_LEGACY_TX_FLOW \
 	CFG(CFG_DP_LL_TX_FLOW_LWM) \
@@ -510,6 +531,7 @@
 #define CFG_HDD_DP_ALL \
 	CFG(CFG_DP_NAPI_CE_CPU_MASK) \
 	CFG(CFG_DP_HTC_WMI_CREDIT_CNT) \
+	CFG(CFG_DP_HL_TX_SCHED_NO_HTT_ENABLE) \
 	CFG_MSCS_FEATURE_ALL \
 	CFG_HDD_DP_LEGACY_TX_FLOW \
 	CFG_ENABLE_CE_DP_IRQ_AFFINE_ALL

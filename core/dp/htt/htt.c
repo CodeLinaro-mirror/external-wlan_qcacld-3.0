@@ -43,6 +43,7 @@
 #include <ani_global.h>
 
 #define HTT_HTC_PKT_POOL_INIT_SIZE 100  /* enough for a large A-MPDU */
+#define HTT_HL_INITIAL_TX_CREDIT 144
 
 QDF_STATUS(*htt_h2t_rx_ring_cfg_msg)(struct htt_pdev_t *pdev);
 QDF_STATUS(*htt_h2t_rx_ring_rfs_cfg_msg)(struct htt_pdev_t *pdev);
@@ -271,6 +272,21 @@ htt_htc_tx_htt2_service_start(struct htt_pdev_t *pdev,
 			      struct htc_service_connect_req *connect_req,
 			      struct htc_service_connect_resp *connect_resp)
 {
+}
+#endif
+
+#ifdef DP_COLOGNE_HL
+static uint16_t htt_get_target_credit(struct htt_pdev_t *pdev)
+{
+	if (ol_cfg_is_hl_tx_sched_no_htt_enabled(pdev->ctrl_pdev))
+		return HTT_HL_INITIAL_TX_CREDIT;
+
+	return ol_cfg_target_tx_credit(pdev->ctrl_pdev);
+}
+#else
+static uint16_t htt_get_target_credit(struct htt_pdev_t *pdev)
+{
+	return ol_cfg_target_tx_credit(pdev->ctrl_pdev);
 }
 #endif
 
@@ -515,6 +531,7 @@ htt_attach(struct htt_pdev_t *pdev, int desc_pool_size)
 {
 	int i;
 	int ret = 0;
+	uint16_t target_tx_credit;
 
 	pdev->is_ipa_uc_enabled = false;
 	if (ol_cfg_ipa_uc_offload_enabled(pdev->ctrl_pdev))
@@ -581,13 +598,11 @@ htt_attach(struct htt_pdev_t *pdev, int desc_pool_size)
 		htt_h2t_rx_ring_cfg_msg = htt_h2t_rx_ring_cfg_msg_hl;
 		htt_h2t_rx_ring_rfs_cfg_msg = htt_h2t_rx_ring_rfs_cfg_msg_hl;
 
-		/* initialize the txrx credit count */
-		ol_tx_target_credit_update(
-				pdev->txrx_pdev, ol_cfg_target_tx_credit(
-					pdev->ctrl_pdev));
+		target_tx_credit = htt_get_target_credit(pdev);
+		ol_tx_target_credit_update(pdev->txrx_pdev, target_tx_credit);
 		DPTRACE(qdf_dp_trace_credit_record(QDF_HTT_ATTACH,
 			QDF_CREDIT_INC,
-			ol_cfg_target_tx_credit(pdev->ctrl_pdev),
+			target_tx_credit,
 			qdf_atomic_read(&pdev->txrx_pdev->target_tx_credit),
 			qdf_atomic_read(&pdev->txrx_pdev->txq_grps[0].credit),
 			qdf_atomic_read(&pdev->txrx_pdev->txq_grps[1].credit)));

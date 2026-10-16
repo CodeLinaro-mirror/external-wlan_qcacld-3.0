@@ -116,6 +116,7 @@ struct txrx_pdev_cfg_t {
 	uint32_t enable_data_stall_detection;
 	bool enable_flow_steering;
 	bool disable_intra_bss_fwd;
+	bool hl_tx_sched_no_htt_enable;
 	/* IPA Micro controller data path offload TX buffer size */
 	uint32_t uc_tx_buffer_size;
 	/* IPA Micro controller data path offload RX indication ring count */
@@ -195,6 +196,16 @@ int ol_cfg_is_high_latency(struct cdp_cfg *cfg_pdev);
  * @return 1 -> enabled -OR- 0 -> disabled
  */
 int ol_cfg_is_credit_update_enabled(struct cdp_cfg *cfg_pdev);
+
+/**
+ * ol_cfg_is_hl_tx_sched_no_htt_enabled() - check HL TX sched
+ * without HTT credit report
+ * @cfg_pdev: cfg pdev
+ *
+ * Return: true if HL TX scheduling without HTT credit report is enabled
+ */
+bool
+ol_cfg_is_hl_tx_sched_no_htt_enabled(struct cdp_cfg *cfg_pdev);
 
 /**
  * @brief Specify the range of peer IDs.

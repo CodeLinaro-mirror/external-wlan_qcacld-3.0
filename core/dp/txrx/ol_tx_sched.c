@@ -19,6 +19,7 @@
 
 #include <qdf_nbuf.h>         /* qdf_nbuf_t, etc. */
 #include <htt.h>              /* HTT_TX_EXT_TID_MGMT */
+#include <ol_cfg.h>
 #include <ol_htt_tx_api.h>    /* htt_tx_desc_tid */
 #include <ol_txrx_api.h>      /* ol_txrx_vdev_handle */
 #include <ol_txrx_ctrl_api.h> /* ol_txrx_sync */
@@ -33,6 +34,20 @@
 #include <qdf_mem.h>         /* qdf_os_mem_alloc_consistent et al */
 #include <cdp_txrx_handle.h>
 #if defined(CONFIG_HL_SUPPORT)
+
+#ifdef DP_COLOGNE_HL
+static bool
+ol_tx_hl_tx_sched_no_htt_enabled(struct ol_txrx_pdev_t *pdev)
+{
+	return ol_cfg_is_hl_tx_sched_no_htt_enabled(pdev->ctrl_pdev);
+}
+#else
+static bool
+ol_tx_hl_tx_sched_no_htt_enabled(struct ol_txrx_pdev_t *pdev)
+{
+	return true;
+}
+#endif
 
 #if defined(DEBUG_HL_LOGGING)
 static void
@@ -1514,7 +1529,9 @@ ol_tx_sched(struct ol_txrx_pdev_t *pdev)
 				qdf_atomic_read(&pdev->txq_grps[0].credit),
 				qdf_atomic_read(&pdev->txq_grps[1].credit)));
 
-			qdf_atomic_add(-num_credits, &pdev->target_tx_credit);
+			if (ol_tx_hl_tx_sched_no_htt_enabled(pdev))
+				qdf_atomic_add(-num_credits,
+					       &pdev->target_tx_credit);
 		}
 		qdf_spin_unlock_bh(&pdev->tx_queue_spinlock);
 

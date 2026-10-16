@@ -222,6 +222,8 @@ struct cdp_cfg *ol_pdev_cfg_attach(qdf_device_t osdev, void *pcfg_param)
 		cfg_param->enable_data_stall_detection;
 	cfg_ctx->enable_flow_steering = cfg_param->enable_flow_steering;
 	cfg_ctx->disable_intra_bss_fwd = cfg_param->disable_intra_bss_fwd;
+	cfg_ctx->hl_tx_sched_no_htt_enable =
+		cfg_param->hl_tx_sched_no_htt_enable;
 	cfg_ctx->pktlog_buffer_size = cfg_param->pktlog_buffer_size;
 
 	ol_cfg_update_del_ack_params(cfg_ctx, cfg_param);
@@ -316,6 +318,14 @@ int ol_cfg_is_credit_update_enabled(struct cdp_cfg *cfg_pdev)
 	struct txrx_pdev_cfg_t *cfg = (struct txrx_pdev_cfg_t *)cfg_pdev;
 
 	return cfg->credit_update_enabled;
+}
+
+bool
+ol_cfg_is_hl_tx_sched_no_htt_enabled(struct cdp_cfg *cfg_pdev)
+{
+	struct txrx_pdev_cfg_t *cfg = (struct txrx_pdev_cfg_t *)cfg_pdev;
+
+	return cfg->hl_tx_sched_no_htt_enable;
 }
 
 int ol_cfg_max_peer_id(struct cdp_cfg *cfg_pdev)

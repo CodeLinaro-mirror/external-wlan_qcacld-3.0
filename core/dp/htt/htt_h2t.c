@@ -39,6 +39,7 @@
 #include <htc_api.h>            /* HTC_PACKET */
 #include <htc.h>                /* HTC_HDR_ALIGNMENT_PADDING */
 #include <htt.h>                /* HTT host->target msg defs */
+#include <ol_cfg.h>
 #include <wdi_ipa.h>            /* HTT host->target WDI IPA msg defs */
 #include <ol_txrx_htt_api.h>    /* ol_tx_completion_handler, htt_tx_status */
 #include <ol_htt_tx_api.h>
@@ -52,6 +53,18 @@
 
 #define HTT_MSG_BUF_SIZE(msg_bytes) \
 	((msg_bytes) + HTC_HEADER_LEN + HTC_HDR_ALIGNMENT_PADDING)
+
+#ifdef DP_COLOGNE_HL
+static bool htt_hl_tx_sched_no_htt_enabled(struct htt_pdev_t *pdev)
+{
+	return ol_cfg_is_hl_tx_sched_no_htt_enabled(pdev->ctrl_pdev);
+}
+#else
+static bool htt_hl_tx_sched_no_htt_enabled(struct htt_pdev_t *pdev)
+{
+	return false;
+}
+#endif
 
 #ifndef container_of
 #define container_of(ptr, type, member) \
@@ -93,11 +106,16 @@ static void htt_t2h_adjust_bus_target_delta(struct htt_pdev_t *pdev)
 		credit_delta = htt_tx_credit_update(pdev);
 		HTT_TX_MUTEX_RELEASE(&pdev->credit_mutex);
 
-		if (credit_delta)
+		if (credit_delta) {
 			ol_tx_credit_completion_handler(pdev->txrx_pdev,
 							credit_delta);
-		else if (!pdev->cfg.credit_update_enabled)
-			ol_tx_flow_ct_unpause_os_q(pdev->txrx_pdev);
+		} else if (!pdev->cfg.credit_update_enabled) {
+			if (htt_hl_tx_sched_no_htt_enabled(pdev))
+				ol_tx_credit_completion_handler(pdev->txrx_pdev,
+								1);
+			else
+				ol_tx_flow_ct_unpause_os_q(pdev->txrx_pdev);
+		}
 	}
 }
 #else
