@@ -120,6 +120,7 @@ void lim_send_reassoc_req_with_ft_ies_mgmt_frame(struct mac_context *mac_ctx,
 	uint8_t *body;
 	uint16_t add_ie_len;
 	uint8_t *add_ie;
+	uint8_t *add_ie_buf = NULL;
 	const uint8_t *wps_ie = NULL;
 	uint8_t tx_flag = 0;
 	uint8_t vdev_id = 0;
@@ -156,10 +157,27 @@ void lim_send_reassoc_req_with_ft_ies_mgmt_frame(struct mac_context *mac_ctx,
 		goto err;
 
 	add_ie_len = pe_session->pLimReAssocReq->addIEAssoc.length;
-	add_ie = pe_session->pLimReAssocReq->addIEAssoc.addIEdata;
 	pe_debug("called in state: %d", pe_session->limMlmState);
 
 	qdf_mem_zero((uint8_t *) frm, sizeof(*frm));
+
+	/*
+	 * lim_strip_extcap_update_struct() removes the ExtCap IE in place,
+	 * but only the local add_ie_len is updated. Work on a copy so the
+	 * session's addIEAssoc stays intact; otherwise a retried Reassoc Req
+	 * (e.g. after the AP's "try again later"/comeback response) parses a
+	 * shifted buffer with a stale length, fails to strip ExtCap and sends
+	 * a corrupted ExtCap IE, which the AP rejects.
+	 */
+	if (add_ie_len) {
+		add_ie_buf = qdf_mem_malloc(add_ie_len);
+		if (!add_ie_buf)
+			goto end;
+		qdf_mem_copy(add_ie_buf,
+			     pe_session->pLimReAssocReq->addIEAssoc.addIEdata,
+			     add_ie_len);
+	}
+	add_ie = add_ie_buf;
 
 	if (add_ie_len && pe_session->is_ext_caps_present) {
 		qdf_mem_zero((uint8_t *)&extr_ext_cap,
@@ -581,6 +599,7 @@ void lim_send_reassoc_req_with_ft_ies_mgmt_frame(struct mac_context *mac_ctx,
 	}
 
 end:
+	qdf_mem_free(add_ie_buf);
 	qdf_mem_free(frm);
 err:
 	/* Free up buffer allocated for mlmAssocReq */

@@ -658,10 +658,11 @@ static inline void lim_process_eht_info(tpSirProbeRespBeacon beacon,
 
 #define MAX_RETRY_TIMER 1500
 static QDF_STATUS
-lim_handle_pmfcomeback_timer(struct pe_session *session_entry,
+lim_handle_pmfcomeback_timer(struct mac_context *mac_ctx,
+			     struct pe_session *session_entry,
 			     tpSirAssocRsp assoc_rsp)
 {
-	uint16_t timeout_value;
+	uint32_t timeout_value;
 
 	if (session_entry->opmode != QDF_STA_MODE)
 		return QDF_STATUS_E_FAILURE;
@@ -695,7 +696,15 @@ lim_handle_pmfcomeback_timer(struct pe_session *session_entry,
 		 */
 		timeout_value = 10;
 	}
-	timeout_value = QDF_MIN(MAX_RETRY_TIMER, timeout_value);
+	/*
+	 * The comeback time is in TU (1024 us). Convert to ms and round up,
+	 * otherwise the request is resent slightly before the AP's SA query
+	 * timeout expires and is rejected again.
+	 */
+	if (timeout_value > (MAX_RETRY_TIMER * 1000ULL) / 1024)
+		timeout_value = MAX_RETRY_TIMER;
+	else
+		timeout_value = ((uint64_t)timeout_value * 1024 + 999) / 1000 + 1;
 	pe_debug("ASSOC res with eSIR_MAC_TRY_AGAIN_LATER recvd.Starting timer to wait timeout: %d",
 		 timeout_value);
 	if (QDF_STATUS_SUCCESS !=
@@ -705,6 +714,14 @@ lim_handle_pmfcomeback_timer(struct pe_session *session_entry,
 		return QDF_STATUS_E_FAILURE;
 	}
 	session_entry->pmf_retry_timer_info.retried = true;
+
+	/*
+	 * For reassoc, the reassoc failure timer would resend the request
+	 * before the comeback time expires. Stop it (keep the stored retry
+	 * request); the comeback timer resends the request instead.
+	 */
+	if (session_entry->limMlmState == eLIM_MLM_WT_FT_REASSOC_RSP_STATE)
+		lim_deactivate_and_change_timer(mac_ctx, eLIM_REASSOC_FAIL_TIMER);
 
 	return QDF_STATUS_SUCCESS;
 }
@@ -1529,7 +1546,7 @@ lim_process_assoc_rsp_frame(struct mac_context *mac_ctx, uint8_t *rx_pkt_info,
 					       &ap_info);
 		wlan_dlm_add_bssid_to_reject_list(mac_ctx->pdev, &ap_info);
 	}
-	status = lim_handle_pmfcomeback_timer(session_entry, assoc_rsp);
+	status = lim_handle_pmfcomeback_timer(mac_ctx, session_entry, assoc_rsp);
 	/* return if retry again timer is started and ignore this assoc resp */
 	if (QDF_IS_STATUS_SUCCESS(status))
 		goto free_mem;

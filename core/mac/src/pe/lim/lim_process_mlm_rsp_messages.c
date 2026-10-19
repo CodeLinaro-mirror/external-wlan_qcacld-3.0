@@ -471,6 +471,17 @@ void lim_pmf_comeback_timer_callback(void *context)
 		return;
 	}
 
+	if (session->limMlmState == eLIM_MLM_WT_FT_REASSOC_RSP_STATE &&
+	    session->pLimMlmReassocRetryReq) {
+		/* AP asked us to come back later for the Reassoc Req */
+		pe_info("comeback later timer expired. resending Reassoc Req for vdev %d",
+			session->vdev_id);
+		lim_send_retry_reassoc_req_frame(mac_ctx,
+						 session->pLimMlmReassocRetryReq,
+						 session);
+		return;
+	}
+
 	if (session->limMlmState != eLIM_MLM_WT_ASSOC_RSP_STATE) {
 		pe_debug("Don't send assoc req, timer expire when limMlmState %d vdev id %d",
 			 session->limMlmState, session->vdev_id);
