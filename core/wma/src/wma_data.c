@@ -2254,6 +2254,57 @@ end:
 	return mlo_link_agnostic;
 }
 
+#ifdef CONFIG_HL_SUPPORT
+QDF_STATUS wma_get_rrm_tx_frame_limit(uint8_t vdev_id, bool protected,
+				    uint8_t *peer, uint32_t *frame_limit)
+{
+	tp_wma_handle wma = cds_get_context(QDF_MODULE_ID_WMA);
+	struct wma_txrx_node *iface;
+	uint32_t overhead = 0, limit = MAX_MGMT_MPDU_LEN;
+	uint8_t mic_len, hdr_len, pdev_id;
+	int32_t cipher;
+	QDF_STATUS status;
+
+	if (!peer || !frame_limit || wma_validate_handle(wma))
+		return QDF_STATUS_E_INVAL;
+
+	if (vdev_id >= wma->max_bssid)
+		return QDF_STATUS_E_INVAL;
+
+	iface = &wma->interfaces[vdev_id];
+	if (wmi_service_enabled(wma->wmi_handle, wmi_service_mgmt_tx_wmi))
+		limit = QDF_MIN(limit, mgmt_tx_dl_frm_len);
+
+	if (iface->rmfEnabled || protected) {
+		if (IEEE80211_IS_MULTICAST(peer)) {
+			cipher = wlan_crypto_get_param(iface->vdev,
+						 WLAN_CRYPTO_PARAM_MGMT_CIPHER);
+			if (cipher <= 0)
+				return QDF_STATUS_E_INVAL;
+
+			if (cipher & (1 << WLAN_CRYPTO_CIPHER_AES_CMAC))
+				overhead = cds_get_mmie_size();
+			else
+				overhead = cds_get_gmac_mmie_size();
+		} else if (protected) {
+			pdev_id = wlan_objmgr_pdev_get_pdev_id(wma->pdev);
+			status = mlme_get_peer_mic_len(wma->psoc, pdev_id,
+						       peer, &mic_len, &hdr_len);
+			if (QDF_IS_STATUS_ERROR(status))
+				return status;
+
+			overhead = hdr_len + mic_len;
+		}
+	}
+
+	if (overhead >= limit)
+		return QDF_STATUS_E_INVAL;
+
+	*frame_limit = limit - overhead;
+	return QDF_STATUS_SUCCESS;
+}
+#endif
+
 QDF_STATUS wma_tx_packet(void *wma_context, void *tx_frame, uint16_t frmLen,
 			 eFrameType frmType, eFrameTxDir txDir, uint8_t tid,
 			 wma_tx_dwnld_comp_callback tx_frm_download_comp_cb,

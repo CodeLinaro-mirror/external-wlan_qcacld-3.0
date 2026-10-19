@@ -586,6 +586,23 @@ QDF_STATUS wma_ds_peek_rx_packet_info(cds_pkt_t *pkt, void **pkt_meta);
  */
 void wma_tx_abort(uint8_t vdev_id);
 
+#ifdef CONFIG_HL_SUPPORT
+/**
+ * wma_get_rrm_tx_frame_limit() - Get the pre-encapsulation RRM TX budget
+ * @vdev_id: vdev used to transmit the report
+ * @protected: protected bit selected for the outgoing action frame
+ * @peer: destination MAC address
+ * @frame_limit: maximum frame length including the MAC header, before PMF
+ *
+ * RRM uses the normal management TX flags, without HAL_USE_PMF. Reserve
+ * the same security overhead as wma_tx_packet() for that path.
+ *
+ * Return: QDF_STATUS_SUCCESS or an error if the budget cannot be obtained
+ */
+QDF_STATUS wma_get_rrm_tx_frame_limit(uint8_t vdev_id, bool protected,
+				    uint8_t *peer, uint32_t *frame_limit);
+#endif
+
 /**
  * wma_tx_packet() - Sends Tx Frame to TxRx
  * @wma_context: wma context

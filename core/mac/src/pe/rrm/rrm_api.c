@@ -32,6 +32,9 @@
    Include Files
    ------------------------------------------------------------------------*/
 #include "cds_api.h"
+#ifdef CONFIG_HL_SUPPORT
+#include "wma_types.h"
+#endif
 #include "wni_api.h"
 #include "sir_api.h"
 #include "ani_global.h"
@@ -1637,6 +1640,57 @@ rrm_fill_beacon_ies(struct mac_context *mac, uint8_t *pIes,
 }
 
 #define RRM_MAX_NUM_MEASUREMENT_REPORT 8
+
+#ifdef CONFIG_HL_SUPPORT
+/**
+ * rrm_get_beacon_report_frame_count() - Calculate HL beacon report grouping
+ * @mac_ctx: Global MAC context
+ * @session: Session used to transmit the reports
+ * @peer: Destination MAC address
+ * @num_reports: Number of populated report elements
+ * @max_reports_in_frame: Maximum report elements per frame
+ * @num_frames: Number of frames needed for all report elements
+ *
+ * Return: QDF_STATUS_SUCCESS or an error if the budget is unavailable
+ */
+static QDF_STATUS
+rrm_get_beacon_report_frame_count(struct mac_context *mac_ctx,
+				  struct pe_session *session, tSirMacAddr peer,
+				  uint8_t num_reports,
+				  uint32_t *max_reports_in_frame,
+				  uint8_t *num_frames)
+{
+	tSirMacMgmtHdr hdr = {0};
+	uint32_t max_mgmt_mpdu_len, dot11_meas_rpt_size, report_limit;
+	QDF_STATUS status;
+
+	lim_set_protected_bit(mac_ctx, session, peer, &hdr);
+	status = wma_get_rrm_tx_frame_limit(session->smeSessionId, hdr.fc.wep,
+					  peer, &max_mgmt_mpdu_len);
+	if (QDF_IS_STATUS_ERROR(status))
+		return status;
+
+	if (max_mgmt_mpdu_len <= sizeof(tSirMacMgmtHdr))
+		return QDF_STATUS_E_INVAL;
+
+	max_mgmt_mpdu_len -= sizeof(tSirMacMgmtHdr);
+	dot11_meas_rpt_size = sizeof(tDot11fIEMeasurementReport) +
+		qdf_offsetof(tDot11fRadioMeasurementReport, MeasurementReport);
+	report_limit = QDF_MIN(max_mgmt_mpdu_len / dot11_meas_rpt_size,
+			       RRM_MAX_NUM_MEASUREMENT_REPORT);
+	if (!report_limit)
+		return QDF_STATUS_E_INVAL;
+
+	/* Use the effective cap so all reports fit in num_frames. */
+	*max_reports_in_frame = report_limit;
+	*num_frames = num_reports / report_limit;
+	if (num_reports % report_limit)
+		(*num_frames)++;
+
+	return QDF_STATUS_SUCCESS;
+}
+#endif
+
 /**
  * rrm_process_beacon_report_xmit() - create a rrm action frame
  * @mac_ctx: Global pointer to MAC context
@@ -1664,9 +1718,11 @@ rrm_process_beacon_report_xmit(struct mac_context *mac_ctx,
 	uint16_t offset = 0;
 	uint8_t frag_id = 0;
 	uint8_t num_frames, num_reports_in_frame, final_measurement_index;
-	uint32_t populated_beacon_report_size = 0, dot11_meas_rpt_size = 0;
 	uint32_t max_reports_in_frame = 0;
+#ifndef CONFIG_HL_SUPPORT
+	uint32_t populated_beacon_report_size = 0, dot11_meas_rpt_size = 0;
 	uint32_t radio_meas_rpt_size = 0;
+#endif
 	bool is_last_measurement_frame;
 
 
@@ -1848,6 +1904,14 @@ rrm_process_beacon_report_xmit(struct mac_context *mac_ctx,
 		pe_debug("TX: [802.11 BCN_RPT] Total reports filled %d, last bcn_rpt ind:%d",
 			 i , curr_req->request.Beacon.last_beacon_report_indication);
 
+#ifdef CONFIG_HL_SUPPORT
+		status = rrm_get_beacon_report_frame_count(mac_ctx, session_entry,
+							 beacon_xmit_ind->bssId, i,
+							 &max_reports_in_frame,
+							 &num_frames);
+		if (QDF_IS_STATUS_ERROR(status))
+			goto end;
+#else
 		/* Calculate size of populated beacon reports */
 		radio_meas_rpt_size =  sizeof(tSirMacRadioMeasureReport);
 		populated_beacon_report_size = (i * radio_meas_rpt_size);
@@ -1863,6 +1927,7 @@ rrm_process_beacon_report_xmit(struct mac_context *mac_ctx,
 			qdf_offsetof(tDot11fRadioMeasurementReport,
 				     MeasurementReport);
 		max_reports_in_frame = MAX_MGMT_MPDU_LEN / dot11_meas_rpt_size;
+#endif
 
 		for (j = 0; j < num_frames; j++) {
 			num_reports_in_frame = QDF_MIN(i - report_index,
