@@ -806,6 +806,8 @@ void htt_h2t_send_complete(void *context, HTC_PACKET *pkt);
 
 QDF_STATUS htt_h2t_ver_req_msg(struct htt_pdev_t *pdev);
 
+QDF_STATUS htt_h2t_dummy_credit_req_msg(struct htt_pdev_t *pdev);
+
 int htt_tx_padding_credit_update_handler(void *context, int pad_credit);
 
 #if defined(HELIUMPLUS)

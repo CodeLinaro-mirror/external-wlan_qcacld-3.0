@@ -332,6 +332,65 @@ QDF_STATUS htt_h2t_ver_req_msg(struct htt_pdev_t *pdev)
 	return QDF_STATUS_SUCCESS;
 }
 
+/**
+ * htt_h2t_dummy_credit_req_msg() - send a dummy H2T msg to force fw to
+ *				     report HTT tx credits back to host
+ * @pdev: htt pdev context
+ *
+ * This sends a minimal message on the HTT data endpoint with
+ * HTC_TX_PACKET_FLAG_FORCE_CREDIT_UPDATE set, so get_htc_send_packets_credit_based()
+ * marks HTC_FLAGS_NEED_CREDIT_UPDATE on the wire frame regardless of current
+ * credit level, prompting firmware to report its outstanding HTT tx credits
+ * instead of waiting for them to be piggybacked on other traffic.
+ *
+ * Return: QDF_STATUS_SUCCESS on success
+ */
+QDF_STATUS htt_h2t_dummy_credit_req_msg(struct htt_pdev_t *pdev)
+{
+	struct htt_htc_pkt *pkt;
+	qdf_nbuf_t msg;
+	uint32_t *msg_word;
+
+	pkt = htt_htc_pkt_alloc(pdev);
+	if (!pkt)
+		return QDF_STATUS_E_FAILURE;
+
+	pkt->msdu_id = HTT_TX_COMPL_INV_MSDU_ID;
+	pkt->pdev_ctxt = NULL;
+
+	msg = qdf_nbuf_alloc(pdev->osdev, HTT_MSG_BUF_SIZE(HTT_VER_REQ_BYTES),
+			     HTC_HEADER_LEN + HTC_HDR_ALIGNMENT_PADDING, 4,
+			     true);
+	if (!msg) {
+		htt_htc_pkt_free(pdev, pkt);
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	qdf_nbuf_put_tail(msg, HTT_VER_REQ_BYTES);
+
+	msg_word = (uint32_t *) qdf_nbuf_data(msg);
+
+	qdf_nbuf_push_head(msg, HTC_HDR_ALIGNMENT_PADDING);
+
+	*msg_word = 0;
+	HTT_H2T_MSG_TYPE_SET(*msg_word, HTT_H2T_MSG_TYPE_VERSION_REQ);
+
+	SET_HTC_PACKET_INFO_TX(&pkt->htc_pkt,
+			       htt_h2t_send_complete_free_netbuf,
+			       qdf_nbuf_data(msg), qdf_nbuf_len(msg),
+			       pdev->htc_tx_endpoint,
+			       HTC_TX_PACKET_TAG_RTPM_PUT_RC);
+
+	pkt->htc_pkt.PktInfo.AsTx.Flags |= HTC_TX_PACKET_FLAG_FORCE_CREDIT_UPDATE;
+
+	SET_HTC_PACKET_NET_BUF_CONTEXT(&pkt->htc_pkt, msg);
+	HTT_SEND_HTC_PKT(pdev, pkt);
+
+	ol_tx_deduct_one_credit(pdev->txrx_pdev);
+
+	return QDF_STATUS_SUCCESS;
+}
+
 #if defined(HELIUMPLUS)
 /**
  * htt_h2t_rx_ring_rfs_cfg_msg_ll() - Configure receive flow steering

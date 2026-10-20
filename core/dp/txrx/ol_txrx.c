@@ -4043,6 +4043,28 @@ static QDF_STATUS ol_txrx_bus_resume(struct cdp_soc_t *soc_hdl, uint8_t pdev_id)
 }
 
 /**
+ * ol_txrx_force_htt_credit_update() - force fw to report htt tx credits
+ * @soc_hdl: Datapath soc handle
+ * @pdev_id: id of data path pdev handle
+ *
+ * Prompt firmware to report its outstanding HTT tx credits back to host,
+ * instead of waiting for them to be piggybacked on other traffic.
+ *
+ * Return: None
+ */
+static void ol_txrx_force_htt_credit_update(struct cdp_soc_t *soc_hdl,
+					     uint8_t pdev_id)
+{
+	struct ol_txrx_soc_t *soc = cdp_soc_t_to_ol_txrx_soc_t(soc_hdl);
+	ol_txrx_pdev_handle pdev = ol_txrx_get_pdev_from_pdev_id(soc, pdev_id);
+
+	if (!pdev)
+		return;
+
+	htt_h2t_dummy_credit_req_msg(pdev->htt_pdev);
+}
+
+/**
  * ol_txrx_get_tx_pending - Get the number of pending transmit
  * frames that are awaiting completion.
  *
@@ -7199,7 +7221,8 @@ static struct cdp_rx_offld_ops ol_rx_offld_ops = {
 
 static struct cdp_bus_ops ol_ops_bus = {
 	.bus_suspend = ol_txrx_bus_suspend,
-	.bus_resume = ol_txrx_bus_resume
+	.bus_resume = ol_txrx_bus_resume,
+	.force_htt_credit_update = ol_txrx_force_htt_credit_update
 };
 
 #ifdef WLAN_FEATURE_DSRC

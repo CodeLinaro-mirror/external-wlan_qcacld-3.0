@@ -869,6 +869,34 @@ pmo_core_enable_wow_in_fw(struct wlan_objmgr_psoc *psoc,
 		pmo_debug("forced DTIM enabled");
 		param.flags |= WMI_WOW_FLAG_FORCED_DTIM_ON_SYS_SUSPEND;
 	}
+	{
+		int htt_credits = 0;
+		int waited_ms = 0;
+		void *htc_hdl = pmo_core_psoc_get_htc_handle(psoc);
+		void *dp_soc = pmo_core_psoc_get_dp_handle(psoc);
+
+		htc_get_htt_endpoint_tx_host_credits(htc_hdl, &htt_credits);
+		if (htt_credits < PMO_WOW_REQUIRED_HTT_CREDITS) {
+			pmo_debug("HTT credits short (%d/%d), sending dummy credit-update pkt",
+				  htt_credits, PMO_WOW_REQUIRED_HTT_CREDITS);
+			cdp_force_htt_credit_update(dp_soc, OL_TXRX_PDEV_ID);
+		}
+		while (htt_credits < PMO_WOW_REQUIRED_HTT_CREDITS &&
+		       waited_ms < PMO_WOW_HTT_CREDIT_WAIT_TIMEOUT_MS) {
+			msleep(PMO_WOW_HTT_CREDIT_POLL_INTERVAL_MS);
+			waited_ms += PMO_WOW_HTT_CREDIT_POLL_INTERVAL_MS;
+			htc_get_htt_endpoint_tx_host_credits(htc_hdl, &htt_credits);
+		}
+
+		if (htt_credits < PMO_WOW_REQUIRED_HTT_CREDITS) {
+			pmo_err("Timed out waiting for HTT credits to return: %d/%d after %dms",
+				htt_credits, PMO_WOW_REQUIRED_HTT_CREDITS,
+				waited_ms);
+			status = QDF_STATUS_E_TIMEOUT;
+			goto out;
+		}
+	}
+
 	status = pmo_tgt_psoc_send_wow_enable_req(psoc, &param);
 	if (status != QDF_STATUS_SUCCESS) {
 		pmo_err("Failed to enable wow in fw");
