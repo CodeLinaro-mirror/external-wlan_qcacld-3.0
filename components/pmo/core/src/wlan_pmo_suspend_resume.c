@@ -871,26 +871,28 @@ pmo_core_enable_wow_in_fw(struct wlan_objmgr_psoc *psoc,
 	}
 	{
 		int htt_credits = 0;
+		int max_htt_credits = 0;
 		int waited_ms = 0;
 		void *htc_hdl = pmo_core_psoc_get_htc_handle(psoc);
 		void *dp_soc = pmo_core_psoc_get_dp_handle(psoc);
 
+		htc_get_htt_endpoint_max_tx_credits(htc_hdl, &max_htt_credits);
 		htc_get_htt_endpoint_tx_host_credits(htc_hdl, &htt_credits);
-		if (htt_credits < PMO_WOW_REQUIRED_HTT_CREDITS) {
+		if (htt_credits < max_htt_credits) {
 			pmo_debug("HTT credits short (%d/%d), sending dummy credit-update pkt",
-				  htt_credits, PMO_WOW_REQUIRED_HTT_CREDITS);
+				  htt_credits, max_htt_credits);
 			cdp_force_htt_credit_update(dp_soc, OL_TXRX_PDEV_ID);
 		}
-		while (htt_credits < PMO_WOW_REQUIRED_HTT_CREDITS &&
+		while (htt_credits < max_htt_credits &&
 		       waited_ms < PMO_WOW_HTT_CREDIT_WAIT_TIMEOUT_MS) {
 			msleep(PMO_WOW_HTT_CREDIT_POLL_INTERVAL_MS);
 			waited_ms += PMO_WOW_HTT_CREDIT_POLL_INTERVAL_MS;
 			htc_get_htt_endpoint_tx_host_credits(htc_hdl, &htt_credits);
 		}
 
-		if (htt_credits < PMO_WOW_REQUIRED_HTT_CREDITS) {
+		if (htt_credits < max_htt_credits) {
 			pmo_err("Timed out waiting for HTT credits to return: %d/%d after %dms",
-				htt_credits, PMO_WOW_REQUIRED_HTT_CREDITS,
+				htt_credits, max_htt_credits,
 				waited_ms);
 			status = QDF_STATUS_E_TIMEOUT;
 			goto out;
