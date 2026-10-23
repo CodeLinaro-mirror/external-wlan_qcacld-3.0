@@ -379,7 +379,7 @@ QDF_STATUS htt_h2t_dummy_credit_req_msg(struct htt_pdev_t *pdev)
 			       htt_h2t_send_complete_free_netbuf,
 			       qdf_nbuf_data(msg), qdf_nbuf_len(msg),
 			       pdev->htc_tx_endpoint,
-			       HTC_TX_PACKET_TAG_RTPM_PUT_RC);
+			       1); /* tag - normal completion put */
 
 	pkt->htc_pkt.PktInfo.AsTx.Flags |= HTC_TX_PACKET_FLAG_FORCE_CREDIT_UPDATE;
 
